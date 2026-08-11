@@ -20,6 +20,7 @@ namespace Desktopirates
         private Text hud;
         private Text prompt;
         private Text toast;
+        private Text engineUpgradeText;
         private float toastUntil;
         private Font font;
         private Sprite panelSprite;
@@ -49,7 +50,7 @@ namespace Desktopirates
 
         private void Update()
         {
-            hud.text = $"HULL {state.Hull}/{state.MaxHull}   {state.Gold}G   SUP {state.Supplies}";
+            hud.text = $"HULL {state.Hull}/{state.MaxHull}  {state.Gold}G  SUP {state.Supplies}  SPD {boat.CruiseStep}/{boat.MaxCruiseStep}";
             prompt.text = pois.InteractionPrompt;
             prompt.transform.parent.gameObject.SetActive(!string.IsNullOrEmpty(prompt.text));
             toast.transform.parent.gameObject.SetActive(Time.unscaledTime < toastUntil);
@@ -83,7 +84,7 @@ namespace Desktopirates
 
         private void BuildHud()
         {
-            hud = CreatePillText(canvas, "Ship Status", new Vector2(0f, -315f), new Vector2(340f, 28f), 16);
+            hud = CreatePillText(canvas, "Ship Status", new Vector2(0f, -315f), new Vector2(390f, 28f), 15);
             hud.color = new Color(0.96f, 0.83f, 0.56f, 0.95f);
             prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -695f), new Vector2(360f, 30f), 17);
             prompt.color = Color.white;
@@ -104,7 +105,8 @@ namespace Desktopirates
             CreateText(portRoot.transform, "PORT", new Vector2(0f, 112f), new Vector2(220f, 30f), 22, TextAnchor.MiddleCenter).color = Brass;
             CreateWideButton(portRoot.transform, "REPAIR  8G / HULL", new Vector2(0f, 60f), Repair);
             CreateWideButton(portRoot.transform, "SUPPLIES +5  20G", new Vector2(0f, 15f), BuySupplies);
-            CreateWideButton(portRoot.transform, "ENGINE UPGRADE", new Vector2(0f, -30f), UpgradeEngine);
+            Button engineButton = CreateWideButton(portRoot.transform, "ENGINE +MAX SPEED", new Vector2(0f, -30f), UpgradeEngine);
+            engineUpgradeText = engineButton.GetComponentInChildren<Text>();
             CreateWideButton(portRoot.transform, "CANNON UPGRADE", new Vector2(0f, -75f), UpgradeCannon);
             CreateButton(portRoot.transform, "SAIL", new Vector2(0f, -126f), () => { portRoot.SetActive(false); saves.Save(state); });
             portRoot.SetActive(false);
@@ -113,6 +115,7 @@ namespace Desktopirates
         private void OpenPort()
         {
             CloseAll();
+            RefreshEngineUpgradeText();
             portRoot.SetActive(true);
             saves.Save(state);
         }
@@ -136,9 +139,22 @@ namespace Desktopirates
 
         private void UpgradeEngine()
         {
-            int cost = 90 + state.EngineLevel * 65;
+            if (state.EngineLevel >= CruiseModel.MaxEngineLevel) { ShowMessage("ENGINE AT MAX LEVEL"); return; }
+            int cost = CruiseModel.GetUpgradeCost(state.EngineLevel);
             if (state.Gold < cost) { ShowMessage($"ENGINE NEEDS {cost}G"); return; }
-            state.Gold -= cost; state.EngineLevel++; ShowMessage($"ENGINE LEVEL {state.EngineLevel + 1}"); saves.Save(state);
+            state.Gold -= cost;
+            state.EngineLevel++;
+            RefreshEngineUpgradeText();
+            ShowMessage($"MAX SPEED {CruiseModel.GetMaxSpeed(state.EngineLevel):0.00}  {CruiseModel.GetMaxStep(state.EngineLevel)} STEPS");
+            saves.Save(state);
+        }
+
+        private void RefreshEngineUpgradeText()
+        {
+            if (engineUpgradeText == null) return;
+            engineUpgradeText.text = state.EngineLevel >= CruiseModel.MaxEngineLevel
+                ? $"ENGINE MAX  SPD {CruiseModel.GetMaxSpeed(state.EngineLevel):0.00}"
+                : $"ENGINE +MAX SPD  {CruiseModel.GetUpgradeCost(state.EngineLevel)}G";
         }
 
         private void UpgradeCannon()

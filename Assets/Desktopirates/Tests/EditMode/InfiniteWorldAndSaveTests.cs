@@ -69,5 +69,54 @@ namespace Desktopirates.Tests
             Assert.That(Vector2.Distance(Vector2.zero, new Vector2(3f, 4f)), Is.LessThan(MenuCircleController.DragThreshold));
             Assert.That(Vector2.Distance(Vector2.zero, new Vector2(8f, 0f)), Is.GreaterThan(MenuCircleController.DragThreshold));
         }
+
+        [Test]
+        public void CruiseStepsAcceleratePersistentlyAndNeverReverse()
+        {
+            int step = 0;
+            step = CruiseModel.ChangeStep(step, 1, 0);
+            Assert.That(step, Is.EqualTo(1));
+            Assert.That(CruiseModel.GetTargetSpeed(step, 0), Is.EqualTo(CruiseModel.SpeedPerStep));
+
+            step = CruiseModel.ChangeStep(step, -1, 0);
+            step = CruiseModel.ChangeStep(step, -1, 0);
+            Assert.That(step, Is.EqualTo(0));
+            Assert.That(CruiseModel.GetTargetSpeed(step, 0), Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void EngineUpgradeUnlocksOneAdditionalCruiseStep()
+        {
+            Assert.That(CruiseModel.GetMaxStep(1), Is.EqualTo(CruiseModel.GetMaxStep(0) + 1));
+            Assert.That(CruiseModel.GetMaxSpeed(1), Is.GreaterThan(CruiseModel.GetMaxSpeed(0)));
+            Assert.That(CruiseModel.ChangeStep(99, 0, 0), Is.EqualTo(CruiseModel.BaseCruiseSteps));
+        }
+
+        [Test]
+        public void BoatKeepsMovingAfterTheAccelerationKeyIsReleased()
+        {
+            var controllerObject = new GameObject("Cruise Test Controller");
+            var visualObject = new GameObject("Cruise Test Visual");
+            try
+            {
+                BoatController controller = controllerObject.AddComponent<BoatController>();
+                controller.Initialize(visualObject.transform, new GameState());
+                controller.IncreaseCruiseStep();
+
+                controller.Advance(1f, 0f);
+                Vector2 afterFirstSecond = controller.LogicalPosition;
+                controller.Advance(1f, 0f);
+
+                Assert.That(afterFirstSecond.magnitude, Is.GreaterThan(0f));
+                Assert.That(controller.LogicalPosition.magnitude, Is.GreaterThan(afterFirstSecond.magnitude));
+                Assert.That(controller.CruiseStep, Is.EqualTo(1));
+                Assert.That(controller.Speed, Is.GreaterThan(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(controllerObject);
+                Object.DestroyImmediate(visualObject);
+            }
+        }
     }
 }
