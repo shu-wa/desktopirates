@@ -9,6 +9,7 @@ namespace Desktopirates
     {
         private const int WindowWidth = 720;
         private const int WindowHeight = 760;
+        public float WindowScale { get; private set; } = 1f;
 
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         private const int GwlStyle = -16;
@@ -31,6 +32,9 @@ namespace Desktopirates
         private static readonly IntPtr HwndTopmost = new IntPtr(-1);
 
         private IntPtr windowHandle;
+        private bool pointerDragging;
+        private Point dragStartCursor;
+        private Rect dragStartWindow;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Rect
@@ -40,6 +44,9 @@ namespace Desktopirates
             public int Right;
             public int Bottom;
         }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Point { public int X; public int Y; }
 
         [StructLayout(LayoutKind.Sequential)]
         private struct MonitorInfo
@@ -58,6 +65,7 @@ namespace Desktopirates
         [DllImport("user32.dll")] private static extern bool ReleaseCapture();
         [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
         [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
+        [DllImport("user32.dll")] private static extern bool GetCursorPos(out Point point);
         [DllImport("user32.dll")] private static extern bool SystemParametersInfo(uint action, uint param, out Rect value, uint update);
         [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
         [DllImport("user32.dll", CharSet = CharSet.Auto)] private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
@@ -66,17 +74,49 @@ namespace Desktopirates
         private void Awake()
         {
             Application.runInBackground = true;
-            Screen.SetResolution(WindowWidth, WindowHeight, FullScreenMode.Windowed);
+            WindowScale = PlayerPrefs.GetFloat("window_scale", 1f);
+            Screen.SetResolution(Mathf.RoundToInt(WindowWidth * WindowScale), Mathf.RoundToInt(WindowHeight * WindowScale), FullScreenMode.Windowed);
             StartCoroutine(ConfigureWindow());
         }
 
-        public void BeginWindowDrag()
+        public void BeginPointerDrag()
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (windowHandle == IntPtr.Zero) windowHandle = GetActiveWindow();
             if (windowHandle == IntPtr.Zero) return;
-            ReleaseCapture();
-            SendMessage(windowHandle, WmNcLButtonDown, new IntPtr(HtCaption), IntPtr.Zero);
+            pointerDragging = GetCursorPos(out dragStartCursor) && GetWindowRect(windowHandle, out dragStartWindow);
+#endif
+        }
+
+        public void UpdatePointerDrag()
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            if (!pointerDragging || !GetCursorPos(out Point cursor)) return;
+            int x = dragStartWindow.Left + cursor.X - dragStartCursor.X;
+            int y = dragStartWindow.Top + cursor.Y - dragStartCursor.Y;
+            SetWindowPos(windowHandle, HwndTopmost, x, y, 0, 0, SwpNoSize | SwpNoActivate);
+#endif
+        }
+
+        public void EndPointerDrag()
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            pointerDragging = false;
+#endif
+            SaveWindowPosition();
+        }
+
+        public void SetWindowScale(float scale)
+        {
+            WindowScale = Mathf.Clamp(scale, 0.72f, 1.28f);
+            PlayerPrefs.SetFloat("window_scale", WindowScale);
+            PlayerPrefs.Save();
+            int width = Mathf.RoundToInt(WindowWidth * WindowScale);
+            int height = Mathf.RoundToInt(WindowHeight * WindowScale);
+            Screen.SetResolution(width, height, FullScreenMode.Windowed);
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            if (windowHandle != IntPtr.Zero && GetWindowRect(windowHandle, out Rect rect))
+                SetWindowPos(windowHandle, HwndTopmost, rect.Left, rect.Top, width, height, SwpNoActivate);
 #endif
         }
 
@@ -104,6 +144,9 @@ namespace Desktopirates
                 workArea = monitorInfo.Work;
                 hasWorkArea = true;
             }
+            WindowScale = PlayerPrefs.GetFloat("window_scale", 1f);
+            int scaledWidth = Mathf.RoundToInt(WindowWidth * WindowScale);
+            int scaledHeight = Mathf.RoundToInt(WindowHeight * WindowScale);
             int x;
             int y;
             if (PlayerPrefs.HasKey("window_x") && PlayerPrefs.HasKey("window_y"))
@@ -113,22 +156,22 @@ namespace Desktopirates
             }
             else if (hasWorkArea)
             {
-                x = workArea.Right - WindowWidth - 18;
-                y = workArea.Bottom - WindowHeight - 12;
+                x = workArea.Right - scaledWidth - 18;
+                y = workArea.Bottom - scaledHeight - 12;
             }
             else
             {
-                x = Screen.currentResolution.width - WindowWidth - 18;
-                y = Screen.currentResolution.height - WindowHeight - 60;
+                x = Screen.currentResolution.width - scaledWidth - 18;
+                y = Screen.currentResolution.height - scaledHeight - 60;
             }
 
             if (hasWorkArea)
             {
-                x = Mathf.Clamp(x, workArea.Left, Mathf.Max(workArea.Left, workArea.Right - WindowWidth));
-                y = Mathf.Clamp(y, workArea.Top, Mathf.Max(workArea.Top, workArea.Bottom - WindowHeight));
+                x = Mathf.Clamp(x, workArea.Left, Mathf.Max(workArea.Left, workArea.Right - scaledWidth));
+                y = Mathf.Clamp(y, workArea.Top, Mathf.Max(workArea.Top, workArea.Bottom - scaledHeight));
             }
 
-            SetWindowPos(windowHandle, HwndTopmost, x, y, WindowWidth, WindowHeight, SwpNoActivate | SwpFrameChanged);
+            SetWindowPos(windowHandle, HwndTopmost, x, y, scaledWidth, scaledHeight, SwpNoActivate | SwpFrameChanged);
             Debug.Log($"desktopirates overlay positioned at ({x}, {y}) in work area ({workArea.Left}, {workArea.Top})-({workArea.Right}, {workArea.Bottom}).");
 #endif
         }

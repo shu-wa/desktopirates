@@ -28,6 +28,9 @@ namespace Desktopirates
             RenderSettings.skybox = null;
 
             WindowsOverlayController overlay = gameObject.AddComponent<WindowsOverlayController>();
+            gameObject.AddComponent<AmbientAudioController>();
+            var saves = new SaveSystem();
+            GameState state = saves.LoadOrNew();
             Camera camera = CreateCamera();
             Light sun = CreateSun();
 
@@ -41,7 +44,7 @@ namespace Desktopirates
 
             Transform boatVisual = ProceduralSceneFactory.CreatePlayerBoat(world);
             BoatController boat = gameObject.AddComponent<BoatController>();
-            boat.Initialize(boatVisual);
+            boat.Initialize(boatVisual, state);
 
             CameraRigController cameraRig = gameObject.AddComponent<CameraRigController>();
             cameraRig.Initialize(camera);
@@ -49,14 +52,16 @@ namespace Desktopirates
             var poiObject = new GameObject("Hidden Map POIs", typeof(PoiSystem));
             poiObject.transform.SetParent(world, false);
             PoiSystem poiSystem = poiObject.GetComponent<PoiSystem>();
-            poiSystem.Initialize(boat);
+            poiSystem.Initialize(boat, state);
 
             DayNightVisualController dayNight = gameObject.AddComponent<DayNightVisualController>();
             dayNight.Initialize(ocean, sun);
 
             RectTransform canvas = CreateCanvas();
             CreateCompassArc(canvas);
-            CreateTimeOrb(canvas, dayNight, overlay);
+            MenuController menu = gameObject.AddComponent<MenuController>();
+            menu.Initialize(canvas, overlay, state, saves, boat, poiSystem);
+            CreateMenuCircle(canvas, dayNight, overlay, menu);
 
             var tagObject = new GameObject("Perimeter Tags", typeof(TagRingController));
             tagObject.transform.SetParent(canvas, false);
@@ -109,9 +114,9 @@ namespace Desktopirates
             return canvasObject.GetComponent<RectTransform>();
         }
 
-        private static void CreateTimeOrb(RectTransform canvas, DayNightVisualController dayNight, WindowsOverlayController overlay)
+        private static void CreateMenuCircle(RectTransform canvas, DayNightVisualController dayNight, WindowsOverlayController overlay, MenuController menu)
         {
-            var connectorObject = new GameObject("Time Orb Connector", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            var connectorObject = new GameObject("Menu Circle Connector", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             connectorObject.transform.SetParent(canvas, false);
             Image connector = connectorObject.GetComponent<Image>();
             connector.color = new Color(0.78f, 0.54f, 0.20f, 0.95f);
@@ -122,7 +127,7 @@ namespace Desktopirates
             connector.rectTransform.anchoredPosition = new Vector2(0f, -109f);
             connector.rectTransform.sizeDelta = new Vector2(5f, 34f);
 
-            var orbObject = new GameObject("Current Time Drag Orb", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage), typeof(TimeOrbController));
+            var orbObject = new GameObject("Menu Circle", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage), typeof(MenuCircleController));
             orbObject.transform.SetParent(canvas, false);
             RawImage orb = orbObject.GetComponent<RawImage>();
             orb.rectTransform.anchorMin = new Vector2(0.5f, 1f);
@@ -130,7 +135,7 @@ namespace Desktopirates
             orb.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             orb.rectTransform.anchoredPosition = new Vector2(0f, -66f);
             orb.rectTransform.sizeDelta = new Vector2(88f, 88f);
-            orbObject.GetComponent<TimeOrbController>().Initialize(dayNight, overlay);
+            orbObject.GetComponent<MenuCircleController>().Initialize(dayNight, overlay, menu);
         }
 
         private static void CreateCompassArc(RectTransform canvas)

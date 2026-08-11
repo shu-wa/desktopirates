@@ -5,21 +5,26 @@ using UnityEngine.UI;
 namespace Desktopirates
 {
     [RequireComponent(typeof(RawImage))]
-    public sealed class TimeOrbController : MonoBehaviour, IPointerDownHandler, IPointerEnterHandler, IPointerExitHandler
+    public sealed class MenuCircleController : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
     {
+        public const float DragThreshold = 7f;
         private RawImage image;
         private DayNightVisualController dayNight;
         private WindowsOverlayController windowOverlay;
+        private MenuController menu;
         private Texture2D generatedTexture;
         private float shownHour = -100f;
         private Vector3 targetScale = Vector3.one;
+        private Vector2 pointerStart;
+        private bool dragged;
 
-        public void Initialize(DayNightVisualController visualController, WindowsOverlayController overlayController)
+        public void Initialize(DayNightVisualController visualController, WindowsOverlayController overlayController, MenuController menuController)
         {
             image = GetComponent<RawImage>();
             image.raycastTarget = true;
             dayNight = visualController;
             windowOverlay = overlayController;
+            menu = menuController;
             RefreshTexture(true);
         }
 
@@ -31,34 +36,37 @@ namespace Desktopirates
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            windowOverlay?.BeginWindowDrag();
+            pointerStart = eventData.position;
+            dragged = false;
+            windowOverlay?.BeginPointerDrag();
         }
 
-        public void OnPointerEnter(PointerEventData eventData)
+        public void OnDrag(PointerEventData eventData)
         {
-            targetScale = Vector3.one * 1.08f;
+            if (Vector2.Distance(pointerStart, eventData.position) >= DragThreshold) dragged = true;
+            if (dragged) windowOverlay?.UpdatePointerDrag();
         }
 
-        public void OnPointerExit(PointerEventData eventData)
+        public void OnPointerUp(PointerEventData eventData)
         {
-            targetScale = Vector3.one;
+            windowOverlay?.EndPointerDrag();
+            if (!dragged && Vector2.Distance(pointerStart, eventData.position) < DragThreshold) menu?.ToggleMenu();
         }
+
+        public void OnPointerEnter(PointerEventData eventData) => targetScale = Vector3.one * 1.08f;
+        public void OnPointerExit(PointerEventData eventData) => targetScale = Vector3.one;
 
         private void RefreshTexture(bool force)
         {
             if (dayNight == null || image == null) return;
             float hour = dayNight.CurrentHour;
             if (!force && Mathf.Abs(hour - shownHour) < 0.01f) return;
-
             shownHour = hour;
             if (generatedTexture != null) Destroy(generatedTexture);
             generatedTexture = PixelTextureFactory.CreateTimeOrb(hour, 96);
             image.texture = generatedTexture;
         }
 
-        private void OnDestroy()
-        {
-            if (generatedTexture != null) Destroy(generatedTexture);
-        }
+        private void OnDestroy() { if (generatedTexture != null) Destroy(generatedTexture); }
     }
 }

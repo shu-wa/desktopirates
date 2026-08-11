@@ -40,10 +40,19 @@ namespace Desktopirates
                 CreatePart(root, PrimitiveType.Cube, "Wreck A", new Vector3(-0.12f, 0.08f, 0f), new Vector3(0.18f, 0.12f, 1.15f), new Color(0.33f, 0.19f, 0.07f), Quaternion.Euler(0f, 38f, 12f));
                 CreatePart(root, PrimitiveType.Cube, "Wreck B", new Vector3(0.15f, 0.12f, 0.08f), new Vector3(0.16f, 0.10f, 0.95f), new Color(0.40f, 0.24f, 0.08f), Quaternion.Euler(0f, -42f, -9f));
             }
-            else
+            else if (kind == PoiKind.Treasure)
             {
                 CreatePart(root, PrimitiveType.Cube, "Chest", new Vector3(0f, 0.18f, 0f), new Vector3(0.65f, 0.36f, 0.46f), new Color(0.58f, 0.29f, 0.04f));
                 CreatePart(root, PrimitiveType.Cube, "Gold Band", new Vector3(0f, 0.20f, -0.24f), new Vector3(0.14f, 0.30f, 0.04f), new Color(1f, 0.68f, 0.08f));
+            }
+            else
+            {
+                CreatePart(root, PrimitiveType.Cube, "Stone Quay", new Vector3(0f, 0.08f, 0f), new Vector3(1.55f, 0.16f, 0.55f), new Color(0.30f, 0.34f, 0.32f));
+                CreatePart(root, PrimitiveType.Cube, "Timber Pier", new Vector3(0f, 0.13f, -0.72f), new Vector3(0.36f, 0.10f, 1.15f), new Color(0.43f, 0.25f, 0.09f));
+                CreatePart(root, PrimitiveType.Cube, "Warehouse", new Vector3(-0.38f, 0.40f, 0.08f), new Vector3(0.62f, 0.62f, 0.46f), new Color(0.40f, 0.20f, 0.07f));
+                CreatePart(root, PrimitiveType.Cylinder, "Lighthouse", new Vector3(0.48f, 0.55f, 0.06f), new Vector3(0.19f, 0.55f, 0.19f), new Color(0.75f, 0.69f, 0.52f));
+                Transform beacon = CreatePart(root, PrimitiveType.Sphere, "Harbor Beacon", new Vector3(0.48f, 1.12f, 0.06f), Vector3.one * 0.15f, new Color(1f, 0.58f, 0.12f));
+                AddLanternLight(beacon);
             }
 
             return root;

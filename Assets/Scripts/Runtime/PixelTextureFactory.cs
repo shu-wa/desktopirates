@@ -2,13 +2,6 @@ using UnityEngine;
 
 namespace Desktopirates
 {
-    public enum PoiKind
-    {
-        Enemy,
-        Wreck,
-        Treasure
-    }
-
     public static class PixelTextureFactory
     {
         public static Texture2D CreateTimeOrb(float hour, int size = 96)
@@ -93,7 +86,7 @@ namespace Desktopirates
                 ? new Color(1f, 0.34f, 0.16f)
                 : kind == PoiKind.Wreck
                     ? new Color(0.48f, 0.88f, 0.56f)
-                    : new Color(1f, 0.72f, 0.16f);
+                    : kind == PoiKind.Port ? new Color(0.28f, 0.86f, 0.94f) : new Color(1f, 0.72f, 0.16f);
 
             int c = size / 2;
             if (kind == PoiKind.Enemy)
@@ -109,11 +102,19 @@ namespace Desktopirates
                 DrawLine(pixels, size, 4, 5, size - 5, size - 5, color, 3);
                 DrawLine(pixels, size, size - 5, 5, 4, size - 5, color, 3);
             }
-            else
+            else if (kind == PoiKind.Treasure)
             {
                 FillRect(pixels, size, 4, 5, size - 8, size / 2, color);
                 FillRect(pixels, size, 6, c + 1, size - 12, size / 4, color * 0.78f);
                 FillRect(pixels, size, c - 1, 4, 3, size / 2, new Color(1f, 0.92f, 0.44f));
+            }
+            else
+            {
+                FillRect(pixels, size, 4, 5, size - 8, 3, color);
+                FillRect(pixels, size, 6, 8, 3, size - 11, color);
+                FillRect(pixels, size, size - 9, 8, 3, size - 11, color);
+                DrawLine(pixels, size, c, 6, c, size - 5, new Color(1f, 0.76f, 0.22f), 2);
+                DrawCircle(pixels, size, c, size - 6, 2, new Color(1f, 0.76f, 0.22f));
             }
 
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
