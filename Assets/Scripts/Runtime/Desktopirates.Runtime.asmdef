@@ -1,0 +1,6 @@
+{
+  "name": "Desktopirates.Runtime",
+  "rootNamespace": "Desktopirates",
+  "references": ["Unity.ugui"],
+  "autoReferenced": true
+}

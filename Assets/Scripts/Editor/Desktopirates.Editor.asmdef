@@ -1,0 +1,7 @@
+{
+  "name": "Desktopirates.Editor",
+  "rootNamespace": "Desktopirates.Editor",
+  "references": ["Desktopirates.Runtime"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}
