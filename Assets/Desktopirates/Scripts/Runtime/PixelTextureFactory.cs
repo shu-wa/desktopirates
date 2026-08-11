@@ -10,7 +10,7 @@ namespace Desktopirates
             DayCycleState state = DayCycle.Evaluate(hour);
             var pixels = new Color32[size * size];
             float center = (size - 1) * 0.5f;
-            float innerRadius = size * 0.39f;
+            float innerRadius = size * 0.43f;
             float outerRadius = size * 0.49f;
 
             for (int y = 0; y < size; y++)
@@ -80,65 +80,17 @@ namespace Desktopirates
 
         public static Texture2D CreatePoiIcon(PoiKind kind, int size = 24)
         {
-            size = Mathf.Max(16, size);
-            var pixels = new Color32[size * size];
-            Color color = kind == PoiKind.Enemy
-                ? new Color(1f, 0.34f, 0.16f)
-                : kind == PoiKind.Wreck
-                    ? new Color(0.48f, 0.88f, 0.56f)
-                    : kind == PoiKind.Port ? new Color(0.28f, 0.86f, 0.94f) : new Color(1f, 0.72f, 0.16f);
-
-            int c = size / 2;
-            if (kind == PoiKind.Enemy)
-            {
-                DrawCircle(pixels, size, c, c + 2, size / 4, color);
-                DrawCircle(pixels, size, c - size / 10, c + 3, 1, Color.black);
-                DrawCircle(pixels, size, c + size / 10, c + 3, 1, Color.black);
-                DrawLine(pixels, size, c - 5, c - 4, c + 5, c + 5, color, 2);
-                DrawLine(pixels, size, c + 5, c - 4, c - 5, c + 5, color, 2);
-            }
-            else if (kind == PoiKind.Wreck)
-            {
-                DrawLine(pixels, size, 4, 5, size - 5, size - 5, color, 3);
-                DrawLine(pixels, size, size - 5, 5, 4, size - 5, color, 3);
-            }
-            else if (kind == PoiKind.Treasure)
-            {
-                FillRect(pixels, size, 4, 5, size - 8, size / 2, color);
-                FillRect(pixels, size, 6, c + 1, size - 12, size / 4, color * 0.78f);
-                FillRect(pixels, size, c - 1, 4, 3, size / 2, new Color(1f, 0.92f, 0.44f));
-            }
-            else
-            {
-                FillRect(pixels, size, 4, 5, size - 8, 3, color);
-                FillRect(pixels, size, 6, 8, 3, size - 11, color);
-                FillRect(pixels, size, size - 9, 8, 3, size - 11, color);
-                DrawLine(pixels, size, c, 6, c, size - 5, new Color(1f, 0.76f, 0.22f), 2);
-                DrawCircle(pixels, size, c, size - 6, 2, new Color(1f, 0.76f, 0.22f));
-            }
-
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                name = $"{kind} Tag",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp,
-                hideFlags = HideFlags.DontSave
-            };
-            texture.SetPixels32(pixels);
-            texture.Apply(false, false);
-            return texture;
+            return UiTextureFactory.CreatePoiBadge(kind, Mathf.Max(24, size));
         }
 
         private static Color RimColor(float angle)
         {
-            Color dawn = new Color(1f, 0.52f, 0.31f);
-            Color day = new Color(0.28f, 0.85f, 0.91f);
-            Color evening = new Color(1f, 0.58f, 0.13f);
-            Color night = new Color(0.24f, 0.31f, 0.68f);
-            if (angle < 90f) return Color.Lerp(dawn, day, angle / 90f);
-            if (angle < 180f) return Color.Lerp(day, evening, (angle - 90f) / 90f);
-            if (angle < 270f) return Color.Lerp(evening, night, (angle - 180f) / 90f);
-            return Color.Lerp(night, dawn, (angle - 270f) / 90f);
+            Color brassDark = new Color(0.34f, 0.15f, 0.025f);
+            Color brass = new Color(0.96f, 0.59f, 0.11f);
+            if (angle >= 28f && angle <= 82f)
+                return Color.Lerp(new Color(0.18f, 0.68f, 0.66f), new Color(0.37f, 0.82f, 0.60f), (angle - 28f) / 54f);
+            float facets = Mathf.Floor(angle / 12f) % 2f;
+            return Color.Lerp(brassDark, brass, facets * 0.72f + 0.20f);
         }
 
         private static void DrawPixelStar(Color32[] pixels, int size, int x, int y)

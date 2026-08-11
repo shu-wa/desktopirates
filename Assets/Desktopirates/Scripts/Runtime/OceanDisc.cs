@@ -22,7 +22,7 @@ namespace Desktopirates
 
         public void Initialize()
         {
-            mesh = BuildMesh(10, 56);
+            mesh = BuildMesh(12, 64);
             mesh.name = "Procedural Ocean Disc";
             GetComponent<MeshFilter>().sharedMesh = mesh;
 
@@ -31,6 +31,15 @@ namespace Desktopirates
             material = template != null ? new Material(template) : new Material(shader);
             material.name = "Ocean Material";
             material.SetColor("_Tint", new Color(0.05f, 0.36f, 0.42f));
+            material.SetColor("_DeepColor", new Color(0.018f, 0.12f, 0.16f));
+            material.SetColor("_FoamColor", new Color(0.67f, 0.88f, 0.82f));
+            Texture2D surface = Resources.Load<Texture2D>("Textures/Environment/OceanSurface_Faceted_v01");
+            if (surface != null)
+            {
+                surface.filterMode = FilterMode.Point;
+                surface.wrapMode = TextureWrapMode.Repeat;
+                material.SetTexture("_MainTex", surface);
+            }
             GetComponent<MeshRenderer>().sharedMaterial = material;
         }
 
@@ -58,9 +67,11 @@ namespace Desktopirates
             var vertices = new List<Vector3>();
             var colors = new List<Color>();
             var triangles = new List<int>();
+            var uvs = new List<Vector2>();
 
             vertices.Add(Vector3.zero);
             colors.Add(new Color(0.95f, 1f, 1f));
+            uvs.Add(new Vector2(0.5f, 0.5f));
 
             for (int ring = 1; ring <= rings; ring++)
             {
@@ -71,6 +82,7 @@ namespace Desktopirates
                     vertices.Add(new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius));
                     float noise = Mathf.PerlinNoise(segment * 0.31f, ring * 0.47f);
                     colors.Add(Color.Lerp(new Color(0.62f, 0.78f, 0.82f), Color.white, noise * 0.55f));
+                    uvs.Add(new Vector2(0.5f + Mathf.Cos(angle) * radius / (Radius * 2f), 0.5f + Mathf.Sin(angle) * radius / (Radius * 2f)));
                 }
             }
 
@@ -106,6 +118,7 @@ namespace Desktopirates
                 Vector3 top = vertices[outerRingStart + segment];
                 vertices.Add(new Vector3(top.x, -0.24f, top.z));
                 colors.Add(new Color(0.34f, 0.50f, 0.53f));
+                uvs.Add(uvs[outerRingStart + segment]);
             }
 
             for (int segment = 0; segment < segments; segment++)
@@ -122,6 +135,7 @@ namespace Desktopirates
             var result = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             result.SetVertices(vertices);
             result.SetColors(colors);
+            result.SetUVs(0, uvs);
             result.SetTriangles(triangles, 0);
             result.RecalculateNormals();
             result.RecalculateBounds();

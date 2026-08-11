@@ -67,10 +67,13 @@ namespace Desktopirates
                 float xRadius = 267f;
                 float yRadius = 177f;
                 Vector2 discCenter = new Vector2(0f, -63f);
-                marker.rectTransform.anchoredPosition = discCenter + new Vector2(screenDirection.x * xRadius, screenDirection.y * yRadius);
+                Vector2 tagPosition = discCenter + new Vector2(screenDirection.x * xRadius, screenDirection.y * yRadius);
+                if (screenDirection.y > 0.72f && Mathf.Abs(screenDirection.x) < 0.38f)
+                    tagPosition.x += poi.Kind == PoiKind.Enemy || poi.Kind == PoiKind.Treasure ? -72f : 72f;
+                marker.rectTransform.anchoredPosition = tagPosition;
 
                 float scale = DistanceTagMath.ScaleForDistance(distance);
-                float pixels = 30f * scale;
+                float pixels = 34f * scale;
                 marker.rectTransform.sizeDelta = new Vector2(pixels, pixels);
                 marker.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0.72f, Mathf.InverseLerp(8f, 70f, distance)));
             }

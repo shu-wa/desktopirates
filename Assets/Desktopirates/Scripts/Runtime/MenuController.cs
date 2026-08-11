@@ -22,7 +22,9 @@ namespace Desktopirates
         private Text toast;
         private float toastUntil;
         private Font font;
-        private Sprite circleSprite;
+        private Sprite panelSprite;
+        private Sprite pillSprite;
+        private Sprite diamondSprite;
 
         public void Initialize(RectTransform canvasRoot, WindowsOverlayController windowOverlay, GameState gameState, SaveSystem saveSystem, BoatController player, PoiSystem poiSystem)
         {
@@ -33,7 +35,9 @@ namespace Desktopirates
             boat = player;
             pois = poiSystem;
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            circleSprite = CreateCircleSprite(96);
+            panelSprite = UiTextureFactory.CreatePanelSprite(128);
+            pillSprite = UiTextureFactory.CreatePillSprite();
+            diamondSprite = UiTextureFactory.CreateDiamondSprite();
             AudioListener.volume = PlayerPrefs.GetFloat("master_volume", 0.65f);
             BuildMenu();
             BuildHud();
@@ -67,7 +71,7 @@ namespace Desktopirates
             menuRoot = CreateUiObject("Menu Circle Radial Controls", canvas).gameObject;
             CreateButton(menuRoot.transform, "MAP", new Vector2(122f, -126f), () => { menuRoot.SetActive(false); OpenMap(); });
             CreateButton(menuRoot.transform, "SAVE", new Vector2(122f, -197f), () => { int bytes = saves.Save(state); ShowMessage($"VOYAGE SAVED  {bytes} bytes"); });
-            CreateButton(menuRoot.transform, "EXIT", new Vector2(0f, -238f), () => { saves.Save(state); Application.Quit(); });
+            CreateButton(menuRoot.transform, "EXIT", new Vector2(0f, -205f), () => { saves.Save(state); Application.Quit(); });
             CreateSlider(menuRoot.transform, "VOL", new Vector2(-132f, -126f), 0f, 1f, AudioListener.volume, value =>
             {
                 AudioListener.volume = value;
@@ -79,11 +83,11 @@ namespace Desktopirates
 
         private void BuildHud()
         {
-            hud = CreatePillText(canvas, "Ship Status", new Vector2(0f, -292f), new Vector2(340f, 28f), 16);
+            hud = CreatePillText(canvas, "Ship Status", new Vector2(0f, -315f), new Vector2(340f, 28f), 16);
             hud.color = new Color(0.96f, 0.83f, 0.56f, 0.95f);
             prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -695f), new Vector2(360f, 30f), 17);
             prompt.color = Color.white;
-            toast = CreatePillText(canvas, "Event Message", new Vector2(0f, -330f), new Vector2(380f, 32f), 16);
+            toast = CreatePillText(canvas, "Event Message", new Vector2(0f, -352f), new Vector2(380f, 32f), 16);
             toast.color = new Color(1f, 0.78f, 0.32f, 1f);
             toast.transform.parent.gameObject.SetActive(false);
         }
@@ -92,8 +96,8 @@ namespace Desktopirates
         {
             portRoot = CreateUiObject("Harbor Services", canvas).gameObject;
             Image back = portRoot.AddComponent<Image>();
-            back.sprite = circleSprite;
-            back.color = Navy;
+            back.sprite = panelSprite;
+            back.color = Color.white;
             RectTransform rect = (RectTransform)portRoot.transform;
             rect.anchoredPosition = new Vector2(0f, -390f);
             rect.sizeDelta = new Vector2(330f, 330f);
@@ -148,6 +152,10 @@ namespace Desktopirates
         {
             mapRoot = CreateUiObject("Exploration Chart", canvas).gameObject;
             var imageObject = CreateUiObject("Circular Map", mapRoot.transform);
+            var frameObject = CreateUiObject("Map Brass Bezel", mapRoot.transform);
+            Image frame = frameObject.gameObject.AddComponent<Image>(); frame.sprite = panelSprite; frame.color = Color.white; frame.raycastTarget = false;
+            frameObject.sizeDelta = new Vector2(340f, 340f); frameObject.anchoredPosition = new Vector2(0f, -405f);
+            frameObject.SetSiblingIndex(imageObject.GetSiblingIndex());
             var map = imageObject.gameObject.AddComponent<RawImage>();
             map.texture = CreateMapTexture(240);
             imageObject.sizeDelta = new Vector2(320f, 320f);
@@ -191,17 +199,17 @@ namespace Desktopirates
         private Button CreateButton(Transform parent, string label, Vector2 position, Action action)
         {
             RectTransform rect = CreateUiObject(label, parent);
-            rect.anchoredPosition = position; rect.sizeDelta = new Vector2(66f, 66f);
-            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = circleSprite; image.color = Navy;
+            rect.anchoredPosition = position; rect.sizeDelta = new Vector2(72f, 72f);
+            MenuGlyph glyph = label == "SAVE" ? MenuGlyph.Save : label == "EXIT" || label == "SAIL" ? MenuGlyph.Exit : MenuGlyph.Map;
+            RawImage image = rect.gameObject.AddComponent<RawImage>(); image.texture = UiTextureFactory.CreateMenuButton(glyph, 80); image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
-            Text text = CreateText(rect, label, Vector2.zero, rect.sizeDelta, 13, TextAnchor.MiddleCenter); text.color = Brass;
             return button;
         }
 
         private Button CreateWideButton(Transform parent, string label, Vector2 position, Action action)
         {
             RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(225f, 34f);
-            Image image = rect.gameObject.AddComponent<Image>(); image.color = new Color(0.10f, 0.18f, 0.22f, 0.98f);
+            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = pillSprite; image.type = Image.Type.Sliced; image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
             Text text = CreateText(rect, label, Vector2.zero, rect.sizeDelta, 13, TextAnchor.MiddleCenter); text.color = Color.white;
             return button;
@@ -210,15 +218,16 @@ namespace Desktopirates
         private void CreateSlider(Transform parent, string label, Vector2 position, float min, float max, float value, Action<float> changed)
         {
             RectTransform holder = CreateUiObject(label, parent); holder.anchoredPosition = position; holder.sizeDelta = new Vector2(152f, 48f);
-            Image holderBackground = holder.gameObject.AddComponent<Image>(); holderBackground.sprite = circleSprite; holderBackground.color = Navy;
-            Text text = CreateText(holder, label, new Vector2(-47f, 0f), new Vector2(58f, 26f), 16, TextAnchor.MiddleCenter); text.color = Brass;
-            RectTransform bar = CreateUiObject("Bar", holder); bar.anchoredPosition = new Vector2(16f, -5f); bar.sizeDelta = new Vector2(112f, 7f);
+            Image holderBackground = holder.gameObject.AddComponent<Image>(); holderBackground.sprite = pillSprite; holderBackground.type = Image.Type.Sliced; holderBackground.color = Color.white;
+            RectTransform glyphRect = CreateUiObject(label + " Icon", holder); glyphRect.anchoredPosition = new Vector2(-55f, 0f); glyphRect.sizeDelta = new Vector2(28f, 28f);
+            RawImage glyphImage = glyphRect.gameObject.AddComponent<RawImage>(); glyphImage.texture = UiTextureFactory.CreateGlyph(label == "VOL" ? MenuGlyph.Volume : MenuGlyph.Size, 32); glyphImage.raycastTarget = false;
+            RectTransform bar = CreateUiObject("Bar", holder); bar.anchoredPosition = new Vector2(27f, 0f); bar.sizeDelta = new Vector2(82f, 8f);
             Image background = bar.gameObject.AddComponent<Image>(); background.color = new Color(0.10f, 0.21f, 0.26f, 1f);
             Slider slider = bar.gameObject.AddComponent<Slider>(); slider.minValue = min; slider.maxValue = max; slider.value = value;
             RectTransform fill = CreateUiObject("Fill", bar); fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.offsetMin = Vector2.zero; fill.offsetMax = Vector2.zero;
             Image fillImage = fill.gameObject.AddComponent<Image>(); fillImage.color = Brass; slider.fillRect = fill;
             RectTransform handle = CreateUiObject("Handle", bar); handle.sizeDelta = new Vector2(16f, 16f);
-            Image handleImage = handle.gameObject.AddComponent<Image>(); handleImage.sprite = circleSprite; handleImage.color = new Color(1f, 0.78f, 0.25f); slider.handleRect = handle; slider.targetGraphic = handleImage;
+            Image handleImage = handle.gameObject.AddComponent<Image>(); handleImage.sprite = diamondSprite; handleImage.color = Color.white; slider.handleRect = handle; slider.targetGraphic = handleImage;
             slider.onValueChanged.AddListener(v => changed(v));
         }
 
@@ -232,7 +241,7 @@ namespace Desktopirates
         private Text CreatePillText(Transform parent, string name, Vector2 position, Vector2 size, int fontSize)
         {
             RectTransform pill = CreateUiObject(name + " Pill", parent); pill.anchoredPosition = position; pill.sizeDelta = size;
-            Image background = pill.gameObject.AddComponent<Image>(); background.sprite = circleSprite; background.color = Navy; background.raycastTarget = false;
+            Image background = pill.gameObject.AddComponent<Image>(); background.sprite = pillSprite; background.type = Image.Type.Sliced; background.color = Color.white; background.raycastTarget = false;
             Text text = CreateText(pill, name, Vector2.zero, size - new Vector2(12f, 0f), fontSize, TextAnchor.MiddleCenter);
             return text;
         }
@@ -248,13 +257,5 @@ namespace Desktopirates
             return rect;
         }
 
-        private static Sprite CreateCircleSprite(int size)
-        {
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point };
-            Color32[] pixels = new Color32[size * size]; float c = (size - 1) * 0.5f; float r = size * 0.49f;
-            for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) pixels[y * size + x] = (x - c) * (x - c) + (y - c) * (y - c) <= r * r ? Color.white : Color.clear;
-            texture.SetPixels32(pixels); texture.Apply();
-            return Sprite.Create(texture, new Rect(0, 0, size, size), Vector2.one * 0.5f, size);
-        }
     }
 }

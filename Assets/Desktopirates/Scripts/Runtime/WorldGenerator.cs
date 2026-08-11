@@ -39,7 +39,7 @@ namespace Desktopirates
 
             // The origin always offers a safe first harbor and an obvious recovery point.
             if (chunkX == 0 && chunkY == 0)
-                output.Add(new GeneratedEventData(Hash(seed, 0, 0, 99), PoiKind.Port, new Vector2(4.4f, 4.8f), 0));
+                output.Add(new GeneratedEventData(Hash(seed, 0, 0, 99), PoiKind.Port, new Vector2(3.0f, 3.5f), 0));
 
             int count = (root & 7UL) < 2UL ? 0 : ((root >> 3) & 7UL) == 0UL ? 2 : 1;
             for (int i = 0; i < count; i++)

@@ -18,7 +18,7 @@ namespace Desktopirates
 
     public sealed class PoiSystem : MonoBehaviour
     {
-        public const float VisibleRadius = 6.1f;
+        public const float VisibleRadius = 6.8f;
         public IReadOnlyList<PoiRecord> Items => items;
         public string InteractionPrompt { get; private set; }
         public event Action<string> Message;

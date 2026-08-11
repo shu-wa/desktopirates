@@ -6,7 +6,7 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Main.unity
+    path: Assets/Desktopirates/Scenes/Main.unity
     guid: 01469b47846e6d34b82c9856d66dd019
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
