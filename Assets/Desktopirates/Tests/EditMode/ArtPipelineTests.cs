@@ -34,5 +34,17 @@ namespace Desktopirates.Tests
             GeneratedEventData port = events.Find(item => item.Kind == PoiKind.Port);
             Assert.That(Vector2.Distance(Vector2.zero, port.Position), Is.LessThan(6.8f));
         }
+
+        [TestCase("Textures/Materials/WoodPlanks_SaltWorn_v01")]
+        [TestCase("Textures/Materials/SailCanvas_Aged_v01")]
+        [TestCase("Textures/Materials/HarborStone_Damp_v01")]
+        public void MaterialTextures_ArePixelFilteredAndMemoryBounded(string resourcePath)
+        {
+            Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+            Assert.That(texture, Is.Not.Null, resourcePath);
+            Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Repeat));
+            Assert.That(Mathf.Max(texture.width, texture.height), Is.LessThanOrEqualTo(512));
+        }
     }
 }

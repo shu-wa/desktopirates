@@ -8,14 +8,14 @@ namespace Desktopirates.Editor
         {
             if (!assetPath.StartsWith("Assets/Desktopirates/")) return;
             var importer = (TextureImporter)assetImporter;
-            if (assetPath.Contains("/Textures/Environment/"))
+            if (assetPath.Contains("/Textures/Environment/") || assetPath.Contains("/Textures/Materials/"))
             {
                 importer.textureType = TextureImporterType.Default;
                 importer.filterMode = UnityEngine.FilterMode.Point;
                 importer.wrapMode = UnityEngine.TextureWrapMode.Repeat;
                 importer.mipmapEnabled = false;
                 importer.textureCompression = TextureImporterCompression.Uncompressed;
-                importer.maxTextureSize = 2048;
+                importer.maxTextureSize = assetPath.Contains("/Textures/Materials/") ? 512 : 2048;
             }
             else if (assetPath.Contains("/Textures/UI/"))
             {
