@@ -48,6 +48,7 @@ namespace Desktopirates.Tests
             for (int y = -10; y <= 10; y++)
             for (int x = -22; x <= 22; x++) state.ExploredChunks.Add(GameState.PackChunk(x, y));
             for (ulong i = 0; i < 300; i++) state.ResolvedEvents.Add(1000000UL + i * 17UL);
+            for (int i = 0; i < SalvageInventory.PartKindCount; i++) state.SetPartCount((SalvagePartKind)i, i * 7 + 2);
 
             byte[] bytes = CompactSaveCodec.Serialize(state);
             GameState restored = CompactSaveCodec.Deserialize(bytes);
@@ -60,6 +61,8 @@ namespace Desktopirates.Tests
             Assert.That(restored.MaxHull, Is.EqualTo(state.MaxHull));
             Assert.That(restored.ExploredChunks.SetEquals(state.ExploredChunks), Is.True);
             Assert.That(restored.ResolvedEvents.SetEquals(state.ResolvedEvents), Is.True);
+            for (int i = 0; i < SalvageInventory.PartKindCount; i++)
+                Assert.That(restored.GetPartCount((SalvagePartKind)i), Is.EqualTo(state.GetPartCount((SalvagePartKind)i)));
             Assert.That(bytes.Length, Is.LessThan(1600), "Row spans and delta varints should keep a large voyage tiny.");
         }
 
@@ -117,6 +120,30 @@ namespace Desktopirates.Tests
                 Object.DestroyImmediate(controllerObject);
                 Object.DestroyImmediate(visualObject);
             }
+        }
+
+        [Test]
+        public void WreckSalvageIsDeterministicAndAlwaysIncludesTimber()
+        {
+            SalvageDrop[] first = SalvageInventory.RollWreck(0xABCDEFUL, 37);
+            SalvageDrop[] second = SalvageInventory.RollWreck(0xABCDEFUL, 37);
+            Assert.That(first.Length, Is.EqualTo(2));
+            Assert.That(first[0].Kind, Is.EqualTo(SalvagePartKind.Timber));
+            Assert.That(first[0].Amount, Is.GreaterThan(0));
+            Assert.That(second[0].Kind, Is.EqualTo(first[0].Kind));
+            Assert.That(second[0].Amount, Is.EqualTo(first[0].Amount));
+            Assert.That(second[1].Kind, Is.EqualTo(first[1].Kind));
+            Assert.That(second[1].Amount, Is.EqualTo(first[1].Amount));
+        }
+
+        [Test]
+        public void TelegraphLabelsExposeSpeedAtAGlance()
+        {
+            Assert.That(SpeedGaugeModel.GetLabel(0, 8), Is.EqualTo("STOP"));
+            Assert.That(SpeedGaugeModel.GetLabel(1, 8), Is.EqualTo("SLOW"));
+            Assert.That(SpeedGaugeModel.GetLabel(4, 8), Is.EqualTo("CRUISE"));
+            Assert.That(SpeedGaugeModel.GetLabel(6, 8), Is.EqualTo("HALF"));
+            Assert.That(SpeedGaugeModel.GetLabel(8, 8), Is.EqualTo("FULL"));
         }
     }
 }

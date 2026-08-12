@@ -149,10 +149,23 @@ namespace Desktopirates
             }
             int gold = item.Reward + (item.Kind == PoiKind.Treasure ? 18 : 0);
             state.Gold += gold;
-            if (item.Kind == PoiKind.Wreck) state.Supplies += 1 + item.Reward % 3;
-            if (item.Kind == PoiKind.Wreck) RevealLocalChart(item.LogicalPosition);
+            string cargo = string.Empty;
+            if (item.Kind == PoiKind.Wreck)
+            {
+                state.Supplies += 1 + item.Reward % 3;
+                RevealLocalChart(item.LogicalPosition);
+                SalvageDrop[] drops = SalvageInventory.RollWreck(item.Id, item.Reward);
+                foreach (SalvageDrop drop in drops) state.AddPart(drop.Kind, drop.Amount);
+                cargo = $"  {SalvageInventory.GetDisplayName(drops[0].Kind)} +{drops[0].Amount}  {SalvageInventory.GetDisplayName(drops[1].Kind)} +{drops[1].Amount}";
+            }
+            else if (item.Kind == PoiKind.Treasure)
+            {
+                SalvageDrop drop = SalvageInventory.RollTreasure(item.Id);
+                state.AddPart(drop.Kind, drop.Amount);
+                cargo = $"  {SalvageInventory.GetDisplayName(drop.Kind)} +{drop.Amount}";
+            }
             Resolve(item);
-            Message?.Invoke(item.Kind == PoiKind.Wreck ? $"残骸を回収：{gold}G と補給品" : $"宝を発見：{gold}G");
+            Message?.Invoke(item.Kind == PoiKind.Wreck ? $"WRECK SALVAGED  {gold}G{cargo}" : $"TREASURE FOUND  {gold}G{cargo}");
         }
 
         private bool PlayerInSafeHarbor()

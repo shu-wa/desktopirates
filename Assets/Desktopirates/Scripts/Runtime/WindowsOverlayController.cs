@@ -113,11 +113,7 @@ namespace Desktopirates
             PlayerPrefs.Save();
             int width = Mathf.RoundToInt(WindowWidth * WindowScale);
             int height = Mathf.RoundToInt(WindowHeight * WindowScale);
-            Screen.SetResolution(width, height, FullScreenMode.Windowed);
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            if (windowHandle != IntPtr.Zero && GetWindowRect(windowHandle, out Rect rect))
-                SetWindowPos(windowHandle, HwndTopmost, rect.Left, rect.Top, width, height, SwpNoActivate);
-#endif
+            StartCoroutine(ResizeWindowWhenReady(width, height));
         }
 
         private IEnumerator ConfigureWindow()
@@ -125,6 +121,13 @@ namespace Desktopirates
             yield return null;
             yield return new WaitForSecondsRealtime(1.0f);
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            WindowScale = PlayerPrefs.GetFloat("window_scale", 1f);
+            int scaledWidth = Mathf.RoundToInt(WindowWidth * WindowScale);
+            int scaledHeight = Mathf.RoundToInt(WindowHeight * WindowScale);
+            Screen.SetResolution(scaledWidth, scaledHeight, FullScreenMode.Windowed);
+            yield return null;
+            yield return new WaitForEndOfFrame();
+
             windowHandle = GetActiveWindow();
             if (windowHandle == IntPtr.Zero) yield break;
 
@@ -144,9 +147,6 @@ namespace Desktopirates
                 workArea = monitorInfo.Work;
                 hasWorkArea = true;
             }
-            WindowScale = PlayerPrefs.GetFloat("window_scale", 1f);
-            int scaledWidth = Mathf.RoundToInt(WindowWidth * WindowScale);
-            int scaledHeight = Mathf.RoundToInt(WindowHeight * WindowScale);
             int x;
             int y;
             if (PlayerPrefs.HasKey("window_x") && PlayerPrefs.HasKey("window_y"))
@@ -173,6 +173,18 @@ namespace Desktopirates
 
             SetWindowPos(windowHandle, HwndTopmost, x, y, scaledWidth, scaledHeight, SwpNoActivate | SwpFrameChanged);
             Debug.Log($"desktopirates overlay positioned at ({x}, {y}) in work area ({workArea.Left}, {workArea.Top})-({workArea.Right}, {workArea.Bottom}).");
+#endif
+        }
+
+        private IEnumerator ResizeWindowWhenReady(int width, int height)
+        {
+            Screen.SetResolution(width, height, FullScreenMode.Windowed);
+            yield return null;
+            yield return new WaitForEndOfFrame();
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            if (windowHandle == IntPtr.Zero) windowHandle = GetActiveWindow();
+            if (windowHandle != IntPtr.Zero && GetWindowRect(windowHandle, out Rect rect))
+                SetWindowPos(windowHandle, HwndTopmost, rect.Left, rect.Top, width, height, SwpNoActivate);
 #endif
         }
 

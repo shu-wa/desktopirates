@@ -6,6 +6,9 @@ Shader "Desktopirates/Ocean"
         _Tint ("Tint", Color) = (0.05, 0.34, 0.40, 1)
         _DeepColor ("Deep Color", Color) = (0.018, 0.12, 0.16, 1)
         _FoamColor ("Foam Color", Color) = (0.62, 0.86, 0.82, 1)
+        _VoyageOffset ("Voyage Offset", Vector) = (0, 0, 0, 0)
+        _VoyageDirection ("Voyage Direction", Vector) = (0, 1, 0, 0)
+        _VoyageSpeed ("Voyage Speed", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -20,6 +23,9 @@ Shader "Desktopirates/Ocean"
         fixed4 _Tint;
         fixed4 _DeepColor;
         fixed4 _FoamColor;
+        float4 _VoyageOffset;
+        float4 _VoyageDirection;
+        float _VoyageSpeed;
 
         struct Input
         {
@@ -36,7 +42,7 @@ Shader "Desktopirates/Ocean"
 
         void surf(Input IN, inout SurfaceOutput o)
         {
-            float2 uv = IN.uv_MainTex * 1.25;
+            float2 uv = IN.uv_MainTex * 1.25 + _VoyageOffset.xy;
             float2 snappedA = floor((uv + _Time.y * float2(0.012, 0.006)) * 128.0) / 128.0;
             float2 snappedB = floor((uv * 0.57 - _Time.y * float2(0.004, 0.009)) * 96.0) / 96.0;
             fixed3 a = tex2D(_MainTex, snappedA).rgb;
@@ -46,10 +52,20 @@ Shader "Desktopirates/Ocean"
             fixed3 water = lerp(_DeepColor.rgb * 1.15, _Tint.rgb * 1.48, saturate(0.12 + waveLight * 0.70 + secondary * 0.24));
             water *= lerp(0.72, 1.30, saturate(a.g * 2.25));
             float foam = smoothstep(0.44, 0.74, max(max(a.r, a.g), a.b));
+            float2 local = IN.uv_MainTex - 0.5;
+            float2 forward = normalize(_VoyageDirection.xy + float2(0.0001, 0.0001));
+            float2 right = float2(forward.y, -forward.x);
+            float behind = dot(local, -forward);
+            float sideways = abs(dot(local, right));
+            float wakeTracks = 1.0 - smoothstep(0.010, 0.024, abs(sideways - 0.038));
+            float wakeLength = smoothstep(0.015, 0.055, behind) * (1.0 - smoothstep(0.08, 0.46, behind));
+            float wakeBreak = step(0.34, frac(behind * 31.0 - _Time.y * (1.1 + _VoyageSpeed * 4.2) + a.g * 3.0));
+            float sternWake = wakeTracks * wakeLength * lerp(0.42, 1.0, wakeBreak) * _VoyageSpeed;
+            float bow = (1.0 - smoothstep(0.025, 0.060, length(local - forward * 0.045))) * _VoyageSpeed;
             float2 pixel = floor((IN.screenPos.xy / IN.screenPos.w) * _ScreenParams.xy);
             float dither = fmod(pixel.x + pixel.y * 2.0, 4.0) < 1.0 ? 0.022 : -0.006;
             o.Albedo = saturate((water + dither) * IN.color.rgb);
-            o.Emission = water * 0.30 + _FoamColor.rgb * foam * 0.52;
+            o.Emission = water * 0.30 + _FoamColor.rgb * (foam * 0.52 + sternWake * 1.25 + bow * 0.58);
             o.Specular = 0.18;
             o.Gloss = 0.22;
             o.Alpha = 1;

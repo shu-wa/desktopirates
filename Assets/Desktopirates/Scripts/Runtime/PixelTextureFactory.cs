@@ -80,7 +80,7 @@ namespace Desktopirates
 
         public static Texture2D CreatePoiIcon(PoiKind kind, int size = 24)
         {
-            return UiTextureFactory.CreatePoiBadge(kind, Mathf.Max(24, size));
+            return UiTextureFactory.LoadPoiBadge(kind, Mathf.Max(24, size));
         }
 
         private static Color RimColor(float angle)

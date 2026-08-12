@@ -12,7 +12,12 @@ namespace Desktopirates
         private Vector3[] baseVertices;
         private Vector3[] animatedVertices;
         private Material material;
+        private MeshRenderer meshRenderer;
+        private MaterialPropertyBlock propertyBlock;
+        private BoatController boat;
         private int topVertexCount;
+
+        public Vector2 VoyageTextureOffset { get; private set; }
 
         public Color Tint
         {
@@ -40,8 +45,12 @@ namespace Desktopirates
                 surface.wrapMode = TextureWrapMode.Repeat;
                 material.SetTexture("_MainTex", surface);
             }
-            GetComponent<MeshRenderer>().sharedMaterial = material;
+            meshRenderer = GetComponent<MeshRenderer>();
+            meshRenderer.sharedMaterial = material;
+            propertyBlock = new MaterialPropertyBlock();
         }
+
+        public void Bind(BoatController player) => boat = player;
 
         private void Update()
         {
@@ -60,6 +69,22 @@ namespace Desktopirates
 
             mesh.vertices = animatedVertices;
             if (Time.frameCount % 4 == 0) mesh.RecalculateNormals();
+
+            if (boat != null && meshRenderer != null)
+            {
+                Vector2 position = boat.LogicalPosition;
+                VoyageTextureOffset = new Vector2(
+                    Mathf.Repeat(-position.x * 0.075f, 256f),
+                    Mathf.Repeat(-position.y * 0.075f, 256f));
+                float radians = boat.HeadingDegrees * Mathf.Deg2Rad;
+                Vector2 direction = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
+                float maxSpeed = CruiseModel.GetMaxSpeed(boat.State != null ? boat.State.EngineLevel : 0);
+                float speed01 = Mathf.Clamp01(boat.Speed / Mathf.Max(0.01f, maxSpeed));
+                propertyBlock.SetVector("_VoyageOffset", new Vector4(VoyageTextureOffset.x, VoyageTextureOffset.y, 0f, 0f));
+                propertyBlock.SetVector("_VoyageDirection", new Vector4(direction.x, direction.y, 0f, 0f));
+                propertyBlock.SetFloat("_VoyageSpeed", speed01);
+                meshRenderer.SetPropertyBlock(propertyBlock);
+            }
         }
 
         private Mesh BuildMesh(int rings, int segments)

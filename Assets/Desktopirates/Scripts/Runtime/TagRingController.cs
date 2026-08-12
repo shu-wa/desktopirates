@@ -12,13 +12,15 @@ namespace Desktopirates
         private BoatController player;
         private CameraRigController cameraRig;
         private PoiSystem poiSystem;
+        private InventoryController inventory;
 
-        public void Initialize(RectTransform canvas, BoatController boat, CameraRigController rig, PoiSystem pois)
+        public void Initialize(RectTransform canvas, BoatController boat, CameraRigController rig, PoiSystem pois, InventoryController cargoInventory)
         {
             this.canvas = canvas;
             player = boat;
             cameraRig = rig;
             poiSystem = pois;
+            inventory = cargoInventory;
 
             RebuildMarkers();
         }
@@ -27,7 +29,6 @@ namespace Desktopirates
         {
             foreach (RawImage old in markers)
             {
-                if (old != null && old.texture != null) Destroy(old.texture);
                 if (old != null) Destroy(old.gameObject);
             }
             markers.Clear();
@@ -52,6 +53,11 @@ namespace Desktopirates
         {
             if (player == null || cameraRig == null || poiSystem == null) return;
             if (MarkersAreStale()) RebuildMarkers();
+            if (inventory != null && inventory.IsOpen)
+            {
+                foreach (RawImage marker in markers) if (marker != null) marker.gameObject.SetActive(false);
+                return;
+            }
             for (int i = 0; i < poiSystem.Items.Count; i++)
             {
                 PoiRecord poi = poiSystem.Items[i];
@@ -97,10 +103,6 @@ namespace Desktopirates
             return true;
         }
 
-        private void OnDestroy()
-        {
-            foreach (RawImage marker in markers)
-                if (marker != null && marker.texture != null) Destroy(marker.texture);
-        }
+        // Textures are shared Resources assets. Destroy only marker objects, never their shared texture.
     }
 }

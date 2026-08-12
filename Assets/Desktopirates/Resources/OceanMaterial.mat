@@ -28,10 +28,13 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
-    m_Floats: []
+    m_Floats:
+    - _VoyageSpeed: 0
     m_Colors:
     - _DeepColor: {r: 0.008, g: 0.07499998, b: 0.10999996, a: 1}
     - _FoamColor: {r: 0.62, g: 0.86, b: 0.82, a: 1}
     - _Tint: {r: 0.049999982, g: 0.33999997, b: 0.39999998, a: 1}
+    - _VoyageDirection: {r: 0, g: 1, b: 0, a: 0}
+    - _VoyageOffset: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

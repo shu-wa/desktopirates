@@ -14,6 +14,7 @@ namespace Desktopirates
         private SaveSystem saves;
         private BoatController boat;
         private PoiSystem pois;
+        private InventoryController inventory;
         private GameObject menuRoot;
         private GameObject mapRoot;
         private GameObject portRoot;
@@ -27,7 +28,7 @@ namespace Desktopirates
         private Sprite pillSprite;
         private Sprite diamondSprite;
 
-        public void Initialize(RectTransform canvasRoot, WindowsOverlayController windowOverlay, GameState gameState, SaveSystem saveSystem, BoatController player, PoiSystem poiSystem)
+        public void Initialize(RectTransform canvasRoot, WindowsOverlayController windowOverlay, GameState gameState, SaveSystem saveSystem, BoatController player, PoiSystem poiSystem, InventoryController cargoInventory)
         {
             canvas = canvasRoot;
             overlay = windowOverlay;
@@ -35,10 +36,11 @@ namespace Desktopirates
             saves = saveSystem;
             boat = player;
             pois = poiSystem;
+            inventory = cargoInventory;
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            panelSprite = UiTextureFactory.CreatePanelSprite(128);
-            pillSprite = UiTextureFactory.CreatePillSprite();
-            diamondSprite = UiTextureFactory.CreateDiamondSprite();
+            panelSprite = UiTextureFactory.LoadPanelSprite(128);
+            pillSprite = UiTextureFactory.LoadPillSprite();
+            diamondSprite = UiTextureFactory.LoadDiamondSprite();
             AudioListener.volume = PlayerPrefs.GetFloat("master_volume", 0.65f);
             BuildMenu();
             BuildHud();
@@ -50,10 +52,11 @@ namespace Desktopirates
 
         private void Update()
         {
-            hud.text = $"HULL {state.Hull}/{state.MaxHull}  {state.Gold}G  SUP {state.Supplies}  SPD {boat.CruiseStep}/{boat.MaxCruiseStep}";
+            hud.text = $"HULL {state.Hull}/{state.MaxHull}  {state.Gold}G  SUP {state.Supplies}  CARGO {state.TotalSalvageCount}";
+            hud.transform.parent.gameObject.SetActive(inventory == null || !inventory.IsOpen);
             prompt.text = pois.InteractionPrompt;
-            prompt.transform.parent.gameObject.SetActive(!string.IsNullOrEmpty(prompt.text));
-            toast.transform.parent.gameObject.SetActive(Time.unscaledTime < toastUntil);
+            prompt.transform.parent.gameObject.SetActive((inventory == null || !inventory.IsOpen) && !string.IsNullOrEmpty(prompt.text));
+            toast.transform.parent.gameObject.SetActive((inventory == null || !inventory.IsOpen) && Time.unscaledTime < toastUntil);
             if (Input.GetKeyDown(KeyCode.Escape)) CloseAll();
         }
 
@@ -71,6 +74,7 @@ namespace Desktopirates
         {
             menuRoot = CreateUiObject("Menu Circle Radial Controls", canvas).gameObject;
             CreateButton(menuRoot.transform, "MAP", new Vector2(122f, -126f), () => { menuRoot.SetActive(false); OpenMap(); });
+            CreateButton(menuRoot.transform, "BAG", new Vector2(196f, -160f), () => { menuRoot.SetActive(false); inventory.Toggle(); });
             CreateButton(menuRoot.transform, "SAVE", new Vector2(122f, -197f), () => { int bytes = saves.Save(state); ShowMessage($"VOYAGE SAVED  {bytes} bytes"); });
             CreateButton(menuRoot.transform, "EXIT", new Vector2(0f, -205f), () => { saves.Save(state); Application.Quit(); });
             CreateSlider(menuRoot.transform, "VOL", new Vector2(-132f, -126f), 0f, 1f, AudioListener.volume, value =>
@@ -206,6 +210,7 @@ namespace Desktopirates
         {
             menuRoot.SetActive(false);
             portRoot.SetActive(false);
+            inventory?.Close();
             if (mapRoot != null) { Destroy(mapRoot); mapRoot = null; }
         }
 
@@ -216,8 +221,12 @@ namespace Desktopirates
         {
             RectTransform rect = CreateUiObject(label, parent);
             rect.anchoredPosition = position; rect.sizeDelta = new Vector2(72f, 72f);
-            MenuGlyph glyph = label == "SAVE" ? MenuGlyph.Save : label == "EXIT" || label == "SAIL" ? MenuGlyph.Exit : MenuGlyph.Map;
-            RawImage image = rect.gameObject.AddComponent<RawImage>(); image.texture = UiTextureFactory.CreateMenuButton(glyph, 80); image.color = Color.white;
+            MenuGlyph glyph = label == "SAVE" ? MenuGlyph.Save
+                : label == "BAG" ? MenuGlyph.Inventory
+                : label == "BACK" ? MenuGlyph.Back
+                : label == "EXIT" || label == "SAIL" ? MenuGlyph.Exit
+                : MenuGlyph.Map;
+            RawImage image = rect.gameObject.AddComponent<RawImage>(); image.texture = UiTextureFactory.LoadMenuButton(glyph, 80); image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
             return button;
         }
@@ -236,7 +245,7 @@ namespace Desktopirates
             RectTransform holder = CreateUiObject(label, parent); holder.anchoredPosition = position; holder.sizeDelta = new Vector2(152f, 48f);
             Image holderBackground = holder.gameObject.AddComponent<Image>(); holderBackground.sprite = pillSprite; holderBackground.type = Image.Type.Sliced; holderBackground.color = Color.white;
             RectTransform glyphRect = CreateUiObject(label + " Icon", holder); glyphRect.anchoredPosition = new Vector2(-55f, 0f); glyphRect.sizeDelta = new Vector2(28f, 28f);
-            RawImage glyphImage = glyphRect.gameObject.AddComponent<RawImage>(); glyphImage.texture = UiTextureFactory.CreateGlyph(label == "VOL" ? MenuGlyph.Volume : MenuGlyph.Size, 32); glyphImage.raycastTarget = false;
+            RawImage glyphImage = glyphRect.gameObject.AddComponent<RawImage>(); glyphImage.texture = UiTextureFactory.LoadGlyph(label == "VOL" ? MenuGlyph.Volume : MenuGlyph.Size, 32); glyphImage.raycastTarget = false;
             RectTransform bar = CreateUiObject("Bar", holder); bar.anchoredPosition = new Vector2(27f, 0f); bar.sizeDelta = new Vector2(82f, 8f);
             Image background = bar.gameObject.AddComponent<Image>(); background.color = new Color(0.10f, 0.21f, 0.26f, 1f);
             Slider slider = bar.gameObject.AddComponent<Slider>(); slider.minValue = min; slider.maxValue = max; slider.value = value;

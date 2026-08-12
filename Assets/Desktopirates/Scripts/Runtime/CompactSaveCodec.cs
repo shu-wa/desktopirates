@@ -10,7 +10,7 @@ namespace Desktopirates
 {
     public static class CompactSaveCodec
     {
-        private const byte Version = 1;
+        private const byte Version = 2;
         private const float PositionScale = 16f;
 
         public static byte[] Serialize(GameState state)
@@ -30,6 +30,8 @@ namespace Desktopirates
                 WriteUnsigned(writer, (ulong)Mathf.Max(0, state.Supplies));
                 writer.Write((byte)Mathf.Clamp(state.EngineLevel, 0, 255));
                 writer.Write((byte)Mathf.Clamp(state.CannonLevel, 0, 255));
+                for (int i = 0; i < SalvageInventory.PartKindCount; i++)
+                    WriteUnsigned(writer, (ulong)state.GetPartCount((SalvagePartKind)i));
                 WriteExploration(writer, state.ExploredChunks);
                 WriteResolved(writer, state.ResolvedEvents);
             }
@@ -47,7 +49,8 @@ namespace Desktopirates
             using var reader = new BinaryReader(deflate, Encoding.UTF8);
             if (reader.ReadByte() != 'D' || reader.ReadByte() != 'P' || reader.ReadByte() != 'R' || reader.ReadByte() != 'S')
                 throw new InvalidDataException("Not a desktopirates save.");
-            if (reader.ReadByte() != Version) throw new InvalidDataException("Unsupported desktopirates save version.");
+            byte version = reader.ReadByte();
+            if (version < 1 || version > Version) throw new InvalidDataException("Unsupported desktopirates save version.");
 
             var state = new GameState
             {
@@ -61,6 +64,11 @@ namespace Desktopirates
                 EngineLevel = reader.ReadByte(),
                 CannonLevel = reader.ReadByte()
             };
+            if (version >= 2)
+            {
+                for (int i = 0; i < SalvageInventory.PartKindCount; i++)
+                    state.SetPartCount((SalvagePartKind)i, checked((int)ReadUnsigned(reader)));
+            }
             ReadExploration(reader, state.ExploredChunks);
             ReadResolved(reader, state.ResolvedEvents);
             return state;

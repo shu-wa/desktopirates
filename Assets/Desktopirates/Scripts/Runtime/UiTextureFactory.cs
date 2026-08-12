@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Desktopirates
 {
-    public enum MenuGlyph { Volume, Size, Map, Save, Exit }
+    public enum MenuGlyph { Volume, Size, Map, Inventory, Save, Back, Exit }
 
     public static class UiTextureFactory
     {
@@ -12,6 +12,66 @@ namespace Desktopirates
         private static readonly Color32 BrassDark = new Color32(104, 55, 10, 255);
         private static readonly Color32 Brass = new Color32(218, 139, 32, 255);
         private static readonly Color32 Gold = new Color32(255, 190, 61, 255);
+
+        public static Texture2D LoadMenuButton(MenuGlyph glyph, int size = 80)
+        {
+            return Resources.Load<Texture2D>($"Textures/UI/Menu/menu_{glyph.ToString().ToLowerInvariant()}")
+                ?? CreateMenuButton(glyph, size);
+        }
+
+        public static Texture2D LoadGlyph(MenuGlyph glyph, int size = 32)
+        {
+            return Resources.Load<Texture2D>($"Textures/UI/Glyphs/glyph_{glyph.ToString().ToLowerInvariant()}")
+                ?? CreateGlyph(glyph, size);
+        }
+
+        public static Texture2D LoadPoiBadge(PoiKind kind, int size = 64)
+        {
+            return Resources.Load<Texture2D>($"Textures/UI/Markers/marker_{kind.ToString().ToLowerInvariant()}")
+                ?? CreatePoiBadge(kind, size);
+        }
+
+        public static Texture2D LoadInventoryIcon(SalvagePartKind kind, int size = 64)
+        {
+            return Resources.Load<Texture2D>($"Textures/UI/Inventory/item_{kind.ToString().ToLowerInvariant()}")
+                ?? CreateInventoryIcon(kind, size);
+        }
+
+        public static Texture2D LoadSpeedSegment(bool active)
+        {
+            return Resources.Load<Texture2D>($"Textures/UI/Navigation/speed_segment_{(active ? "active" : "inactive")}")
+                ?? CreateSpeedSegment(active);
+        }
+
+        public static Texture2D LoadSpeedNeedle()
+        {
+            return Resources.Load<Texture2D>("Textures/UI/Navigation/speed_needle") ?? CreateSpeedNeedle();
+        }
+
+        public static Texture2D LoadCompassArrow()
+        {
+            return Resources.Load<Texture2D>("Textures/UI/Navigation/compass_arrow") ?? CreateCompassArrow();
+        }
+
+        public static Sprite LoadPanelSprite(int size = 128)
+        {
+            Texture2D texture = Resources.Load<Texture2D>("Textures/UI/Chrome/panel_circle");
+            return texture != null ? Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.one * 0.5f, texture.width) : CreatePanelSprite(size);
+        }
+
+        public static Sprite LoadPillSprite()
+        {
+            Texture2D texture = Resources.Load<Texture2D>("Textures/UI/Chrome/pill_9slice");
+            return texture != null
+                ? Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.one * 0.5f, 32f, 0, SpriteMeshType.FullRect, new Vector4(15, 15, 15, 15))
+                : CreatePillSprite();
+        }
+
+        public static Sprite LoadDiamondSprite(int size = 24)
+        {
+            Texture2D texture = Resources.Load<Texture2D>("Textures/UI/Chrome/slider_diamond");
+            return texture != null ? Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.one * 0.5f, texture.width) : CreateDiamondSprite(size);
+        }
 
         public static Texture2D CreateMenuButton(MenuGlyph glyph, int size = 80)
         {
@@ -118,31 +178,137 @@ namespace Desktopirates
                 pixels[y * size + x] = r > inner ? accent : Navy;
             }
             int center = size / 2;
+            int u = Mathf.Max(1, size / 32);
             if (kind == PoiKind.Enemy)
             {
-                FillRect(pixels, size, center - 6, center - 5, 12, 9, accent);
-                DrawLine(pixels, size, center - 8, center + 8, center + 8, center - 8, accent, 2);
-                DrawLine(pixels, size, center + 8, center + 8, center - 8, center - 8, accent, 2);
+                DrawLine(pixels, size, center - 9 * u, center - 5 * u, center + 9 * u, center - 5 * u, accent, 2 * u);
+                DrawLine(pixels, size, center - 9 * u, center - 5 * u, center - 5 * u, center - 10 * u, accent, 2 * u);
+                DrawLine(pixels, size, center + 9 * u, center - 5 * u, center + 5 * u, center - 10 * u, accent, 2 * u);
+                DrawLine(pixels, size, center, center - 4 * u, center, center + 10 * u, Gold, u);
+                FillTriangle(pixels, size, new Vector2Int(center, center + 9 * u), new Vector2Int(center, center + 3 * u), new Vector2Int(center + 7 * u, center + 6 * u), accent);
             }
             else if (kind == PoiKind.Wreck)
             {
-                DrawLine(pixels, size, center - 8, center - 8, center + 8, center + 8, accent, 3);
-                DrawLine(pixels, size, center + 8, center - 8, center - 8, center + 8, accent, 3);
+                DrawLine(pixels, size, center - 10 * u, center - 7 * u, center - 2 * u, center - 10 * u, accent, 2 * u);
+                DrawLine(pixels, size, center + 1 * u, center - 9 * u, center + 9 * u, center - 5 * u, accent, 2 * u);
+                DrawLine(pixels, size, center - 2 * u, center - 8 * u, center + 4 * u, center + 10 * u, accent, u);
+                DrawLine(pixels, size, center + 3 * u, center + 3 * u, center + 9 * u, center + 6 * u, accent, u);
+                FillRect(pixels, size, center - 11 * u, center - 13 * u, 3 * u, 2 * u, Gold);
+                FillRect(pixels, size, center + 8 * u, center - 11 * u, 2 * u, 2 * u, Gold);
             }
             else if (kind == PoiKind.Port)
             {
-                FillRect(pixels, size, center - 9, center - 8, 18, 4, accent);
-                FillRect(pixels, size, center - 7, center - 4, 4, 12, accent);
-                FillRect(pixels, size, center + 3, center - 4, 4, 12, accent);
-                DrawLine(pixels, size, center, center - 7, center, center + 9, Gold, 2);
+                FillRect(pixels, size, center - 7 * u, center - 10 * u, 14 * u, 3 * u, accent);
+                FillRect(pixels, size, center - 5 * u, center - 7 * u, 10 * u, 14 * u, accent);
+                FillTriangle(pixels, size, new Vector2Int(center, center + 12 * u), new Vector2Int(center - 8 * u, center + 7 * u), new Vector2Int(center + 8 * u, center + 7 * u), Gold);
+                FillRect(pixels, size, center - 2 * u, center + 2 * u, 4 * u, 4 * u, Navy);
+                DrawLine(pixels, size, center - 10 * u, center - 12 * u, center + 10 * u, center - 12 * u, Gold, u);
             }
             else
             {
-                FillRect(pixels, size, center - 9, center - 6, 18, 13, accent);
-                FillRect(pixels, size, center - 2, center - 8, 4, 16, new Color32(255, 225, 103, 255));
-                DrawLine(pixels, size, center - 9, center + 1, center + 9, center + 1, BrassDark, 2);
+                FillRect(pixels, size, center - 10 * u, center - 8 * u, 20 * u, 15 * u, accent);
+                DrawArc(pixels, size, center, center + 4 * u, 8 * u, 20, 160, Gold, 2 * u);
+                FillRect(pixels, size, center - 2 * u, center - 9 * u, 4 * u, 17 * u, new Color32(255, 225, 103, 255));
+                DrawLine(pixels, size, center - 10 * u, center, center + 10 * u, center, BrassDark, 2 * u);
             }
             return MakeTexture(pixels, size, size, $"{kind} Rim Badge");
+        }
+
+        public static Texture2D CreateInventoryIcon(SalvagePartKind kind, int size = 64)
+        {
+            size = Mathf.Max(32, size);
+            var pixels = NewPixels(size, size);
+            int c = size / 2;
+            int u = Mathf.Max(1, size / 32);
+            Color32 steel = new Color32(168, 185, 177, 255);
+            Color32 canvas = new Color32(218, 202, 154, 255);
+            Color32 wood = new Color32(153, 82, 27, 255);
+            Color32 teal = new Color32(48, 187, 181, 255);
+
+            if (kind == SalvagePartKind.Timber)
+            {
+                for (int i = -1; i <= 1; i++)
+                {
+                    FillRect(pixels, size, c - 10 * u + i * 3 * u, c - 6 * u + i * 4 * u, 18 * u, 5 * u, wood);
+                    DrawLine(pixels, size, c - 8 * u + i * 3 * u, c - 4 * u + i * 4 * u, c + 6 * u + i * 3 * u, c - 4 * u + i * 4 * u, Gold, u);
+                }
+            }
+            else if (kind == SalvagePartKind.Canvas)
+            {
+                FillRect(pixels, size, c - 9 * u, c - 8 * u, 18 * u, 16 * u, canvas);
+                DrawLine(pixels, size, c - 7 * u, c - 5 * u, c + 7 * u, c + 5 * u, BrassDark, u);
+                DrawLine(pixels, size, c - 7 * u, c + 3 * u, c + 4 * u, c - 6 * u, Brass, u);
+            }
+            else if (kind == SalvagePartKind.Iron)
+            {
+                DrawArc(pixels, size, c - 4 * u, c + 2 * u, 6 * u, 35, 315, steel, 3 * u);
+                DrawArc(pixels, size, c + 5 * u, c - 3 * u, 6 * u, -145, 135, steel, 3 * u);
+                DrawLine(pixels, size, c - 1 * u, c - 2 * u, c + 2 * u, c + 1 * u, Gold, 2 * u);
+            }
+            else if (kind == SalvagePartKind.Gear)
+            {
+                DrawArc(pixels, size, c, c, 8 * u, 0, 360, Brass, 3 * u);
+                DrawArc(pixels, size, c, c, 3 * u, 0, 360, BrassDark, 2 * u);
+                for (int i = 0; i < 8; i++)
+                {
+                    float a = i * Mathf.PI * 0.25f;
+                    int x = c + Mathf.RoundToInt(Mathf.Cos(a) * 10 * u);
+                    int y = c + Mathf.RoundToInt(Mathf.Sin(a) * 10 * u);
+                    FillRect(pixels, size, x - 2 * u, y - 2 * u, 4 * u, 4 * u, Gold);
+                }
+            }
+            else if (kind == SalvagePartKind.Chart)
+            {
+                FillRect(pixels, size, c - 9 * u, c - 8 * u, 18 * u, 16 * u, canvas);
+                DrawLine(pixels, size, c - 7 * u, c - 5 * u, c - 2 * u, c + 5 * u, teal, u);
+                DrawLine(pixels, size, c - 2 * u, c + 5 * u, c + 6 * u, c - 3 * u, teal, u);
+                FillRect(pixels, size, c + 3 * u, c + 2 * u, 3 * u, 3 * u, Gold);
+            }
+            else
+            {
+                DrawArc(pixels, size, c, c, 9 * u, 0, 360, Brass, 2 * u);
+                DrawArc(pixels, size, c, c, 5 * u, 0, 360, teal, 3 * u);
+                DrawLine(pixels, size, c, c + 9 * u, c + 5 * u, c + 13 * u, Gold, u);
+            }
+            return MakeTexture(pixels, size, size, $"Inventory {kind}");
+        }
+
+        public static Texture2D CreateSpeedSegment(bool active, int width = 20, int height = 42)
+        {
+            var pixels = NewPixels(width, height);
+            Color32 fill = active ? new Color32(52, 217, 207, 255) : new Color32(18, 50, 61, 255);
+            for (int y = 2; y < height - 2; y++)
+            for (int x = 2; x < width - 2; x++)
+            {
+                float taper = Mathf.InverseLerp(0f, height, y) * 3f;
+                if (x < 2 + taper || x >= width - 2 - taper) continue;
+                bool rim = x <= 3 + taper || x >= width - 4 - taper || y <= 3 || y >= height - 4;
+                pixels[y * width + x] = rim ? BrassDark : fill;
+            }
+            return MakeTexture(pixels, width, height, active ? "Active Speed Segment" : "Inactive Speed Segment");
+        }
+
+        public static Texture2D CreateSpeedNeedle(int width = 16, int height = 62)
+        {
+            var pixels = NewPixels(width, height);
+            int c = width / 2;
+            for (int y = 4; y < height - 12; y++)
+                for (int x = c - 1; x <= c + 1; x++) pixels[y * width + x] = Gold;
+            for (int y = height - 14; y < height - 2; y++)
+            {
+                int half = Mathf.Max(1, (height - 2 - y) / 2);
+                for (int x = c - half; x <= c + half; x++) pixels[y * width + x] = Gold;
+            }
+            return MakeTexture(pixels, width, height, "Brass Speed Needle");
+        }
+
+        public static Texture2D CreateCompassArrow(int size = 32)
+        {
+            var pixels = NewPixels(size, size);
+            int c = size / 2;
+            FillTriangle(pixels, size, new Vector2Int(c, size - 3), new Vector2Int(4, 6), new Vector2Int(size - 5, 6), Gold);
+            FillTriangle(pixels, size, new Vector2Int(c, size - 8), new Vector2Int(9, 8), new Vector2Int(size - 10, 8), Navy);
+            return MakeTexture(pixels, size, size, "Compass Arrowhead");
         }
 
         private static void DrawGlyph(Color32[] pixels, int size, MenuGlyph glyph, Color32 color)
@@ -181,12 +347,26 @@ namespace Desktopirates
                 DrawLine(pixels, size, c + 3 * unit, c - 7 * unit, c + 3 * unit, c + 7 * unit, color, unit);
                 DrawLine(pixels, size, c + 8 * unit, c - 4 * unit, c + 8 * unit, c + 4 * unit, color, unit);
             }
+            else if (glyph == MenuGlyph.Inventory)
+            {
+                FillRect(pixels, size, c - 8 * unit, c - 4 * unit, 16 * unit, 12 * unit, color);
+                DrawArc(pixels, size, c, c + 5 * unit, 6 * unit, 35, 145, color, unit + 1);
+                FillRect(pixels, size, c - 6 * unit, c + 1 * unit, 12 * unit, 3 * unit, Navy);
+                FillRect(pixels, size, c - 5 * unit, c - 1 * unit, 3 * unit, 3 * unit, BrassDark);
+                FillRect(pixels, size, c + 2 * unit, c - 1 * unit, 3 * unit, 3 * unit, BrassDark);
+            }
             else if (glyph == MenuGlyph.Save)
             {
                 FillRect(pixels, size, c - 8 * unit, c - 8 * unit, 16 * unit, 16 * unit, color);
                 FillRect(pixels, size, c - 4 * unit, c + 1 * unit, 8 * unit, 6 * unit, Navy);
                 FillRect(pixels, size, c - 5 * unit, c - 6 * unit, 10 * unit, 5 * unit, Navy);
                 FillRect(pixels, size, c + 3 * unit, c + 2 * unit, 2 * unit, 4 * unit, BrassDark);
+            }
+            else if (glyph == MenuGlyph.Back)
+            {
+                DrawLine(pixels, size, c - 9 * unit, c, c + 8 * unit, c, color, unit + 1);
+                DrawLine(pixels, size, c - 9 * unit, c, c - 2 * unit, c + 7 * unit, color, unit + 1);
+                DrawLine(pixels, size, c - 9 * unit, c, c - 2 * unit, c - 7 * unit, color, unit + 1);
             }
             else
             {

@@ -18,6 +18,30 @@ namespace Desktopirates
         public int CannonLevel;
         public readonly HashSet<long> ExploredChunks = new HashSet<long>();
         public readonly HashSet<ulong> ResolvedEvents = new HashSet<ulong>();
+        private readonly int[] salvageParts = new int[SalvageInventory.PartKindCount];
+
+        public int TotalSalvageCount
+        {
+            get
+            {
+                int total = 0;
+                for (int i = 0; i < salvageParts.Length; i++) total += salvageParts[i];
+                return total;
+            }
+        }
+
+        public int GetPartCount(SalvagePartKind kind) => salvageParts[(int)kind];
+
+        public void SetPartCount(SalvagePartKind kind, int amount)
+        {
+            salvageParts[(int)kind] = Mathf.Max(0, amount);
+        }
+
+        public void AddPart(SalvagePartKind kind, int amount)
+        {
+            if (amount <= 0) return;
+            salvageParts[(int)kind] = Mathf.Max(0, salvageParts[(int)kind] + amount);
+        }
 
         public static long PackChunk(int x, int y) => ((long)x << 32) | (uint)y;
 

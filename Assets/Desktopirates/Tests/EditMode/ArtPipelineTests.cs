@@ -46,5 +46,19 @@ namespace Desktopirates.Tests
             Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Repeat));
             Assert.That(Mathf.Max(texture.width, texture.height), Is.LessThanOrEqualTo(512));
         }
+
+        [TestCase("Textures/UI/Menu/menu_inventory")]
+        [TestCase("Textures/UI/Markers/marker_wreck")]
+        [TestCase("Textures/UI/Inventory/item_timber")]
+        [TestCase("Textures/UI/Navigation/speed_segment_active")]
+        [TestCase("Textures/UI/Navigation/compass_arrow")]
+        public void BakedUiTextures_AreReadablePixelAssets(string resourcePath)
+        {
+            Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+            Assert.That(texture, Is.Not.Null, resourcePath);
+            Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));
+            Assert.That(Mathf.Max(texture.width, texture.height), Is.LessThanOrEqualTo(256));
+        }
     }
 }
