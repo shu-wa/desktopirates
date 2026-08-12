@@ -145,5 +145,48 @@ namespace Desktopirates.Tests
             Assert.That(SpeedGaugeModel.GetLabel(6, 8), Is.EqualTo("HALF"));
             Assert.That(SpeedGaugeModel.GetLabel(8, 8), Is.EqualTo("FULL"));
         }
+
+        [Test]
+        public void WindowResizeKeepsTheMenuCircleUnderTheSameDesktopPoint()
+        {
+            Vector2Int position = WindowScaleMath.KeepMenuCircleFixed(1200, 220, 720, 760, 900, 950);
+            int oldAnchorX = 1200 + 720 / 2;
+            int oldAnchorY = 220 + Mathf.RoundToInt(760 * WindowScaleMath.MenuCircleTopRatio);
+            int newAnchorX = position.x + 900 / 2;
+            int newAnchorY = position.y + Mathf.RoundToInt(950 * WindowScaleMath.MenuCircleTopRatio);
+            Assert.That(newAnchorX, Is.EqualTo(oldAnchorX));
+            Assert.That(newAnchorY, Is.EqualTo(oldAnchorY));
+        }
+
+        [Test]
+        public void DeferredSizeSliderCommitsOnlyAfterPointerRelease()
+        {
+            var sliderObject = new GameObject("Deferred Slider Test", typeof(UnityEngine.UI.Slider));
+            try
+            {
+                UnityEngine.UI.Slider slider = sliderObject.GetComponent<UnityEngine.UI.Slider>();
+                slider.minValue = 0.72f;
+                slider.maxValue = 1.28f;
+                slider.value = 1f;
+                int previews = 0;
+                int commits = 0;
+                float committed = 0f;
+                DeferredSliderCommit deferred = sliderObject.AddComponent<DeferredSliderCommit>();
+                deferred.Initialize(slider, _ => previews++, value => { commits++; committed = value; });
+
+                deferred.OnPointerDown(null);
+                slider.value = 1.24f;
+                Assert.That(previews, Is.GreaterThan(1));
+                Assert.That(commits, Is.Zero);
+
+                deferred.OnPointerUp(null);
+                Assert.That(commits, Is.EqualTo(1));
+                Assert.That(committed, Is.EqualTo(1.24f).Within(0.001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(sliderObject);
+            }
+        }
     }
 }

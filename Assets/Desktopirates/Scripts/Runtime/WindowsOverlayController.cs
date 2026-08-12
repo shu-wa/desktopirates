@@ -178,13 +178,58 @@ namespace Desktopirates
 
         private IEnumerator ResizeWindowWhenReady(int width, int height)
         {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            if (windowHandle == IntPtr.Zero) windowHandle = GetActiveWindow();
+            Rect originalRect = default;
+            bool hasOriginalRect = windowHandle != IntPtr.Zero && GetWindowRect(windowHandle, out originalRect);
+            int oldWidth = hasOriginalRect ? originalRect.Right - originalRect.Left : width;
+            int oldHeight = hasOriginalRect ? originalRect.Bottom - originalRect.Top : height;
+            int anchorX = hasOriginalRect ? originalRect.Left + Mathf.RoundToInt(oldWidth * 0.5f) : 0;
+            int anchorY = hasOriginalRect ? originalRect.Top + Mathf.RoundToInt(oldHeight * WindowScaleMath.MenuCircleTopRatio) : 0;
+#endif
             Screen.SetResolution(width, height, FullScreenMode.Windowed);
             yield return null;
             yield return new WaitForEndOfFrame();
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            if (windowHandle == IntPtr.Zero) windowHandle = GetActiveWindow();
-            if (windowHandle != IntPtr.Zero && GetWindowRect(windowHandle, out Rect rect))
-                SetWindowPos(windowHandle, HwndTopmost, rect.Left, rect.Top, width, height, SwpNoActivate);
+            if (hasOriginalRect)
+            {
+                Vector2Int position = WindowScaleMath.KeepMenuCircleFixed(
+                    anchorX - Mathf.RoundToInt(oldWidth * 0.5f),
+                    anchorY - Mathf.RoundToInt(oldHeight * WindowScaleMath.MenuCircleTopRatio),
+                    oldWidth,
+                    oldHeight,
+                    width,
+                    height);
+
+                IntPtr monitor = MonitorFromWindow(windowHandle, MonitorDefaultToNearest);
+                var monitorInfo = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+                if (monitor != IntPtr.Zero && GetMonitorInfo(monitor, ref monitorInfo))
+                {
+                    position.x = Mathf.Clamp(position.x, monitorInfo.Work.Left, Mathf.Max(monitorInfo.Work.Left, monitorInfo.Work.Right - width));
+                    position.y = Mathf.Clamp(position.y, monitorInfo.Work.Top, Mathf.Max(monitorInfo.Work.Top, monitorInfo.Work.Bottom - height));
+                }
+
+                SetWindowPos(windowHandle, HwndTopmost, position.x, position.y, width, height, SwpNoActivate);
+                // Unity/Windows can append an invisible border after SetResolution. Read the
+                // actual outer size and correct once so the visible menu circle stays exact.
+                yield return null;
+                if (GetWindowRect(windowHandle, out Rect actualRect))
+                {
+                    int actualWidth = actualRect.Right - actualRect.Left;
+                    int actualHeight = actualRect.Bottom - actualRect.Top;
+                    position.x = anchorX - Mathf.RoundToInt(actualWidth * 0.5f);
+                    position.y = anchorY - Mathf.RoundToInt(actualHeight * WindowScaleMath.MenuCircleTopRatio);
+                    if (monitor != IntPtr.Zero && GetMonitorInfo(monitor, ref monitorInfo))
+                    {
+                        position.x = Mathf.Clamp(position.x, monitorInfo.Work.Left, Mathf.Max(monitorInfo.Work.Left, monitorInfo.Work.Right - actualWidth));
+                        position.y = Mathf.Clamp(position.y, monitorInfo.Work.Top, Mathf.Max(monitorInfo.Work.Top, monitorInfo.Work.Bottom - actualHeight));
+                    }
+                    SetWindowPos(windowHandle, HwndTopmost, position.x, position.y, 0, 0, SwpNoSize | SwpNoActivate);
+                }
+                PlayerPrefs.SetInt("window_x", position.x);
+                PlayerPrefs.SetInt("window_y", position.y);
+                PlayerPrefs.Save();
+            }
 #endif
         }
 

@@ -82,7 +82,15 @@ namespace Desktopirates
                 AudioListener.volume = value;
                 PlayerPrefs.SetFloat("master_volume", value);
             });
-            CreateSlider(menuRoot.transform, "SIZE", new Vector2(-132f, -197f), 0.72f, 1.28f, PlayerPrefs.GetFloat("window_scale", 1f), value => overlay.SetWindowScale(value));
+            CreateSlider(
+                menuRoot.transform,
+                "SIZE",
+                new Vector2(-132f, -197f),
+                0.72f,
+                1.28f,
+                overlay.WindowScale,
+                value => overlay.SetWindowScale(value),
+                true);
             menuRoot.SetActive(false);
         }
 
@@ -240,20 +248,30 @@ namespace Desktopirates
             return button;
         }
 
-        private void CreateSlider(Transform parent, string label, Vector2 position, float min, float max, float value, Action<float> changed)
+        private void CreateSlider(Transform parent, string label, Vector2 position, float min, float max, float value, Action<float> changed, bool commitOnRelease = false)
         {
             RectTransform holder = CreateUiObject(label, parent); holder.anchoredPosition = position; holder.sizeDelta = new Vector2(152f, 48f);
             Image holderBackground = holder.gameObject.AddComponent<Image>(); holderBackground.sprite = pillSprite; holderBackground.type = Image.Type.Sliced; holderBackground.color = Color.white;
             RectTransform glyphRect = CreateUiObject(label + " Icon", holder); glyphRect.anchoredPosition = new Vector2(-55f, 0f); glyphRect.sizeDelta = new Vector2(28f, 28f);
             RawImage glyphImage = glyphRect.gameObject.AddComponent<RawImage>(); glyphImage.texture = UiTextureFactory.LoadGlyph(label == "VOL" ? MenuGlyph.Volume : MenuGlyph.Size, 32); glyphImage.raycastTarget = false;
-            RectTransform bar = CreateUiObject("Bar", holder); bar.anchoredPosition = new Vector2(27f, 0f); bar.sizeDelta = new Vector2(82f, 8f);
+            RectTransform bar = CreateUiObject("Bar", holder); bar.anchoredPosition = new Vector2(27f, commitOnRelease ? 6f : 0f); bar.sizeDelta = new Vector2(82f, 8f);
             Image background = bar.gameObject.AddComponent<Image>(); background.color = new Color(0.10f, 0.21f, 0.26f, 1f);
             Slider slider = bar.gameObject.AddComponent<Slider>(); slider.minValue = min; slider.maxValue = max; slider.value = value;
             RectTransform fill = CreateUiObject("Fill", bar); fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.offsetMin = Vector2.zero; fill.offsetMax = Vector2.zero;
             Image fillImage = fill.gameObject.AddComponent<Image>(); fillImage.color = Brass; slider.fillRect = fill;
             RectTransform handle = CreateUiObject("Handle", bar); handle.sizeDelta = new Vector2(16f, 16f);
             Image handleImage = handle.gameObject.AddComponent<Image>(); handleImage.sprite = diamondSprite; handleImage.color = Color.white; slider.handleRect = handle; slider.targetGraphic = handleImage;
-            slider.onValueChanged.AddListener(v => changed(v));
+            if (commitOnRelease)
+            {
+                Text preview = CreateText(holder, "Size Preview", new Vector2(27f, -13f), new Vector2(82f, 14f), 10, TextAnchor.MiddleCenter);
+                preview.color = new Color(0.96f, 0.77f, 0.34f, 0.95f);
+                DeferredSliderCommit deferred = bar.gameObject.AddComponent<DeferredSliderCommit>();
+                deferred.Initialize(slider, v => preview.text = $"{Mathf.RoundToInt(v * 100f)}%  RELEASE", changed);
+            }
+            else
+            {
+                slider.onValueChanged.AddListener(v => changed(v));
+            }
         }
 
         private Text CreateText(Transform parent, string name, Vector2 position, Vector2 size, int fontSize, TextAnchor anchor)
