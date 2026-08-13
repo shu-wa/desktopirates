@@ -27,6 +27,56 @@ namespace Desktopirates
             return root;
         }
 
+        public static void ApplyPlayerCustomization(Transform root, GameState state)
+        {
+            if (root == null || state == null) return;
+            Transform mounts = root.Find("Custom Cannon Mounts");
+            if (mounts != null) DestroyRuntimeObject(mounts.gameObject);
+            mounts = new GameObject("Custom Cannon Mounts").transform;
+            mounts.SetParent(root, false);
+
+            for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++)
+            {
+                CannonSlot slot = (CannonSlot)i;
+                if (!ShipCustomizationModel.HasCannon(state, slot)) continue;
+                CreateMountedCannon(mounts, slot);
+            }
+
+            Transform armor = root.Find("Armor Belt");
+            if (armor != null) DestroyRuntimeObject(armor.gameObject);
+            if (state.ArmorLevel <= 0) return;
+            armor = new GameObject("Armor Belt").transform;
+            armor.SetParent(root, false);
+            float thickness = 0.025f + state.ArmorLevel * 0.008f;
+            Color iron = Color.Lerp(new Color(0.16f, 0.18f, 0.18f), Brass, state.ArmorLevel * 0.035f);
+            CreatePart(armor, PrimitiveType.Cube, "Port Armor", new Vector3(-0.435f, 0.29f, -0.08f), new Vector3(thickness, 0.13f, 1.25f), iron);
+            CreatePart(armor, PrimitiveType.Cube, "Starboard Armor", new Vector3(0.435f, 0.29f, -0.08f), new Vector3(thickness, 0.13f, 1.25f), iron);
+        }
+
+        private static void CreateMountedCannon(Transform parent, CannonSlot slot)
+        {
+            Vector3 position;
+            float yaw;
+            switch (slot)
+            {
+                case CannonSlot.Bow: position = new Vector3(0f, 0.54f, 0.72f); yaw = 0f; break;
+                case CannonSlot.PortFore: position = new Vector3(-0.43f, 0.49f, 0.32f); yaw = -90f; break;
+                case CannonSlot.PortAft: position = new Vector3(-0.43f, 0.49f, -0.38f); yaw = -90f; break;
+                case CannonSlot.StarboardFore: position = new Vector3(0.43f, 0.49f, 0.32f); yaw = 90f; break;
+                case CannonSlot.StarboardAft: position = new Vector3(0.43f, 0.49f, -0.38f); yaw = 90f; break;
+                default: position = new Vector3(0f, 0.56f, -0.69f); yaw = 180f; break;
+            }
+            Transform carriage = CreatePart(parent, PrimitiveType.Cube, $"{slot} Carriage", position, new Vector3(0.14f, 0.06f, 0.20f), new Color(0.37f, 0.16f, 0.055f), Quaternion.Euler(0f, yaw, 0f));
+            CreatePart(carriage, PrimitiveType.Cylinder, $"{slot} Cannon", new Vector3(0f, 0.08f, 0.13f), new Vector3(0.055f, 0.24f, 0.055f), new Color(0.07f, 0.075f, 0.07f), Quaternion.Euler(90f, 0f, 0f));
+        }
+
+        private static void DestroyRuntimeObject(Object value)
+        {
+            if (value == null) return;
+            if (Application.isPlaying) Object.Destroy(value);
+            else Object.DestroyImmediate(value);
+        }
+
         public static Transform CreatePoiVisual(PoiKind kind, Transform parent)
         {
             if (kind == PoiKind.Enemy)
@@ -129,7 +179,7 @@ namespace Desktopirates
 
             for (int side = -1; side <= 1; side += 2)
             {
-                CreatePart(root, PrimitiveType.Cylinder, side < 0 ? "Port Cannon" : "Starboard Cannon", new Vector3(side * 0.43f, 0.48f, -0.05f), new Vector3(0.065f, 0.18f, 0.065f), new Color(0.08f, 0.075f, 0.065f), Quaternion.Euler(0f, 0f, 90f));
+                if (enemy) CreatePart(root, PrimitiveType.Cylinder, side < 0 ? "Port Cannon" : "Starboard Cannon", new Vector3(side * 0.43f, 0.48f, -0.05f), new Vector3(0.065f, 0.18f, 0.065f), new Color(0.08f, 0.075f, 0.065f), Quaternion.Euler(0f, 0f, 90f));
                 Transform lantern = CreatePart(root, PrimitiveType.Sphere, side < 0 ? "Port Lantern" : "Starboard Lantern", new Vector3(side * 0.34f, 0.72f, -0.70f), Vector3.one * 0.085f, enemy ? new Color(1f, 0.12f, 0.03f) : new Color(1f, 0.50f, 0.06f), null, true);
                 AddLanternLight(lantern, enemy ? new Color(1f, 0.08f, 0.02f) : new Color(1f, 0.42f, 0.06f));
             }
@@ -301,7 +351,7 @@ namespace Desktopirates
             GameObject part = GameObject.CreatePrimitive(primitive); part.name = name; part.transform.SetParent(parent, false);
             part.transform.localPosition = position; part.transform.localRotation = rotation ?? Quaternion.identity; part.transform.localScale = scale;
             part.GetComponent<Renderer>().sharedMaterial = CreateMaterial(color, emissive);
-            Collider collider = part.GetComponent<Collider>(); if (collider != null) Object.Destroy(collider);
+            Collider collider = part.GetComponent<Collider>(); if (collider != null) DestroyRuntimeObject(collider);
             return part.transform;
         }
 

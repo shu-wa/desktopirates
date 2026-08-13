@@ -96,7 +96,7 @@ namespace Desktopirates
                         LogicalPosition = data.Position,
                         SpawnPosition = data.Position,
                         Reward = data.Reward,
-                        Health = data.Kind == PoiKind.Enemy ? 2 + state.CannonLevel / 2 : 1,
+                        Health = data.Kind == PoiKind.Enemy ? 3 + data.Reward % 3 : 1,
                         Visual = visual
                     });
                 }
@@ -132,7 +132,15 @@ namespace Desktopirates
         private string BuildPrompt(PoiRecord item, float distance)
         {
             if (item == null) return string.Empty;
-            if (item.Kind == PoiKind.Enemy && distance <= 4.2f) return cannonCooldown <= 0f ? "SPACE 砲撃" : "大砲を装填中…";
+            if (item.Kind == PoiKind.Enemy && distance <= 4.2f)
+            {
+                float bearing = ShipCustomizationModel.GetRelativeBearing(player.HeadingDegrees, player.LogicalPosition, item.LogicalPosition);
+                SalvoSolution salvo = ShipCustomizationModel.GetSalvo(state, bearing);
+                if (cannonCooldown > 0f) return "大砲を装填中…";
+                if (salvo.CannonsInArc <= 0) return $"{salvo.ArcName} 射界なし — 船を旋回";
+                if (salvo.CannonsFiring <= 0) return $"{salvo.ArcName} 砲員が必要";
+                return $"SPACE {salvo.ArcName}斉射  {salvo.CannonsFiring}/{salvo.CannonsInArc}門";
+            }
             if (distance > 1.35f) return string.Empty;
             if (Mathf.Abs(player.Speed) > 1.15f) return "速度を落として接近";
             return item.Kind == PoiKind.Port ? "F 港に入る" : item.Kind == PoiKind.Wreck ? "F 残骸を回収" : "F 宝を引き上げる";
@@ -186,24 +194,35 @@ namespace Desktopirates
         private void FireCannon()
         {
             if (cannonCooldown > 0f) return;
-            PoiRecord target = null;
-            float best = 4.25f;
-            foreach (PoiRecord item in items)
-            {
-                if (item.Resolved || item.Kind != PoiKind.Enemy) continue;
-                float distance = Vector2.Distance(item.LogicalPosition, player.LogicalPosition);
-                if (distance < best) { best = distance; target = item; }
-            }
+            PoiRecord target = FindCombatTarget(out float best);
             if (target == null) { Message?.Invoke("射程内に敵はいません"); return; }
+            float bearing = ShipCustomizationModel.GetRelativeBearing(player.HeadingDegrees, player.LogicalPosition, target.LogicalPosition);
+            SalvoSolution salvo = ShipCustomizationModel.GetSalvo(state, bearing);
+            if (salvo.CannonsInArc <= 0) { Message?.Invoke($"{salvo.ArcName}側に砲台がありません — 船を旋回してください"); return; }
+            if (salvo.CannonsFiring <= 0) { Message?.Invoke("砲台を操作する船員がいません"); return; }
             cannonCooldown = Mathf.Max(0.65f, 1.25f - state.CannonLevel * 0.08f);
-            target.Health--;
+            int damage = ShipCustomizationModel.GetSalvoDamage(state, salvo);
+            target.Health -= damage;
             if (target.Health <= 0)
             {
                 state.Gold += target.Reward;
                 Resolve(target);
-                Message?.Invoke($"敵船を撃破：{target.Reward}G");
+                Message?.Invoke($"{salvo.ArcName}斉射 {salvo.CannonsFiring}門 — 敵船撃破：{target.Reward}G");
             }
-            else Message?.Invoke("命中！");
+            else Message?.Invoke($"{salvo.ArcName}斉射 {salvo.CannonsFiring}門 — {damage} DAMAGE");
+        }
+
+        private PoiRecord FindCombatTarget(out float bestDistance)
+        {
+            PoiRecord target = null;
+            bestDistance = 4.25f;
+            foreach (PoiRecord item in items)
+            {
+                if (item.Resolved || item.Kind != PoiKind.Enemy) continue;
+                float distance = Vector2.Distance(item.LogicalPosition, player.LogicalPosition);
+                if (distance < bestDistance) { bestDistance = distance; target = item; }
+            }
+            return target;
         }
 
         private void Resolve(PoiRecord item)

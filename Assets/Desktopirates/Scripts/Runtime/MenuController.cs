@@ -15,20 +15,31 @@ namespace Desktopirates
         private BoatController boat;
         private PoiSystem pois;
         private InventoryController inventory;
+        private GameObject compassRoot;
         private GameObject menuRoot;
         private GameObject mapRoot;
         private GameObject portRoot;
+        private GameObject shipyardRoot;
         private Text hud;
         private Text prompt;
         private Text toast;
         private Text engineUpgradeText;
+        private Text shipyardSummary;
+        private readonly Text[] cannonSlotTexts = new Text[ShipCustomizationModel.CannonSlotCount];
+        private Text capacityUpgradeText;
+        private Text propulsionUpgradeText;
+        private Text armorUpgradeText;
+        private Text turningUpgradeText;
+        private Text gunUpgradeText;
+        private Text crewHireText;
         private float toastUntil;
         private Font font;
         private Sprite panelSprite;
         private Sprite pillSprite;
         private Sprite diamondSprite;
+        public bool IsModalOpen => (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf) || mapRoot != null;
 
-        public void Initialize(RectTransform canvasRoot, WindowsOverlayController windowOverlay, GameState gameState, SaveSystem saveSystem, BoatController player, PoiSystem poiSystem, InventoryController cargoInventory)
+        public void Initialize(RectTransform canvasRoot, WindowsOverlayController windowOverlay, GameState gameState, SaveSystem saveSystem, BoatController player, PoiSystem poiSystem, InventoryController cargoInventory, GameObject compassDisplay)
         {
             canvas = canvasRoot;
             overlay = windowOverlay;
@@ -37,6 +48,7 @@ namespace Desktopirates
             boat = player;
             pois = poiSystem;
             inventory = cargoInventory;
+            compassRoot = compassDisplay;
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             panelSprite = UiTextureFactory.LoadPanelSprite(128);
             pillSprite = UiTextureFactory.LoadPillSprite();
@@ -45,17 +57,25 @@ namespace Desktopirates
             BuildMenu();
             BuildHud();
             BuildPortPanel();
+            BuildShipyardPanel();
             pois.Message += ShowMessage;
             pois.PortRequested += OpenPort;
             pois.StateChanged += Autosave;
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--shipyard-preview"))
+            {
+                OpenPort();
+                OpenShipyard();
+            }
         }
 
         private void Update()
         {
-            hud.text = $"HULL {state.Hull}/{state.MaxHull}  {state.Gold}G  SUP {state.Supplies}  CARGO {state.TotalSalvageCount}";
-            hud.transform.parent.gameObject.SetActive(inventory == null || !inventory.IsOpen);
+            hud.text = $"HULL {state.Hull}/{state.MaxHull}  {state.Gold}G  CREW {state.Crew}  CARGO {state.TotalSalvageCount}";
+            bool normalHud = (inventory == null || !inventory.IsOpen) && !IsModalOpen;
+            hud.transform.parent.gameObject.SetActive(normalHud);
+            if (compassRoot != null) compassRoot.SetActive(normalHud);
             prompt.text = pois.InteractionPrompt;
-            prompt.transform.parent.gameObject.SetActive((inventory == null || !inventory.IsOpen) && !string.IsNullOrEmpty(prompt.text));
+            prompt.transform.parent.gameObject.SetActive(normalHud && !string.IsNullOrEmpty(prompt.text));
             toast.transform.parent.gameObject.SetActive((inventory == null || !inventory.IsOpen) && Time.unscaledTime < toastUntil);
             if (Input.GetKeyDown(KeyCode.Escape)) CloseAll();
         }
@@ -119,10 +139,49 @@ namespace Desktopirates
             CreateWideButton(portRoot.transform, "SUPPLIES +5  20G", new Vector2(0f, 15f), BuySupplies);
             Button engineButton = CreateWideButton(portRoot.transform, "ENGINE +MAX SPEED", new Vector2(0f, -30f), UpgradeEngine);
             engineUpgradeText = engineButton.GetComponentInChildren<Text>();
-            CreateWideButton(portRoot.transform, "CANNON UPGRADE", new Vector2(0f, -75f), UpgradeCannon);
+            CreateWideButton(portRoot.transform, "SHIPYARD / CREW", new Vector2(0f, -75f), OpenShipyard);
             CreateButton(portRoot.transform, "SAIL", new Vector2(0f, -126f), () => { portRoot.SetActive(false); saves.Save(state); });
             portRoot.SetActive(false);
         }
+
+        private void BuildShipyardPanel()
+        {
+            shipyardRoot = CreateUiObject("Shipyard Customization", canvas).gameObject;
+            Image back = shipyardRoot.AddComponent<Image>(); back.sprite = panelSprite; back.color = Color.white;
+            RectTransform rect = (RectTransform)shipyardRoot.transform;
+            rect.anchoredPosition = new Vector2(0f, -390f);
+            rect.sizeDelta = new Vector2(520f, 500f);
+            CreateText(shipyardRoot.transform, "SHIPYARD", new Vector2(0f, 214f), new Vector2(260f, 30f), 22, TextAnchor.MiddleCenter).color = Brass;
+            shipyardSummary = CreateText(shipyardRoot.transform, "Shipyard Summary", new Vector2(0f, 178f), new Vector2(470f, 36f), 12, TextAnchor.MiddleCenter);
+            shipyardSummary.color = new Color(0.78f, 0.91f, 0.90f, 1f);
+
+            CreateText(shipyardRoot.transform, "GUN DECK — CLICK TO INSTALL / STORE", new Vector2(0f, 142f), new Vector2(420f, 22f), 13, TextAnchor.MiddleCenter).color = Brass;
+            CreateCannonSlotButton(CannonSlot.Bow, new Vector2(0f, 108f));
+            CreateCannonSlotButton(CannonSlot.PortFore, new Vector2(-130f, 70f));
+            CreateCannonSlotButton(CannonSlot.StarboardFore, new Vector2(130f, 70f));
+            CreateCannonSlotButton(CannonSlot.PortAft, new Vector2(-130f, 32f));
+            CreateCannonSlotButton(CannonSlot.StarboardAft, new Vector2(130f, 32f));
+            CreateCannonSlotButton(CannonSlot.Stern, new Vector2(0f, -6f));
+
+            capacityUpgradeText = CreateCompactButton("CAPACITY", new Vector2(-132f, -55f), UpgradeCapacity);
+            propulsionUpgradeText = CreateCompactButton("PROPULSION", new Vector2(132f, -55f), UpgradeEngine);
+            armorUpgradeText = CreateCompactButton("ARMOR", new Vector2(-132f, -94f), UpgradeArmor);
+            turningUpgradeText = CreateCompactButton("TURNING", new Vector2(132f, -94f), UpgradeTurning);
+            gunUpgradeText = CreateCompactButton("GUNS", new Vector2(-132f, -133f), UpgradeCannon);
+            crewHireText = CreateCompactButton("HIRE CREW", new Vector2(132f, -133f), HireCrew);
+            CreateCompactButton("BACK TO PORT", new Vector2(-132f, -188f), () => { shipyardRoot.SetActive(false); portRoot.SetActive(true); });
+            CreateCompactButton("SAIL", new Vector2(132f, -188f), () => { shipyardRoot.SetActive(false); saves.Save(state); });
+            shipyardRoot.SetActive(false);
+        }
+
+        private void CreateCannonSlotButton(CannonSlot slot, Vector2 position)
+        {
+            Button button = CreateSizedButton(shipyardRoot.transform, ShipCustomizationModel.GetDefinition(slot).ShortName, position, new Vector2(150f, 30f), () => ToggleCannon(slot));
+            cannonSlotTexts[(int)slot] = button.GetComponentInChildren<Text>();
+        }
+
+        private Text CreateCompactButton(string label, Vector2 position, Action action)
+            => CreateSizedButton(shipyardRoot.transform, label, position, new Vector2(220f, 32f), action).GetComponentInChildren<Text>();
 
         private void OpenPort()
         {
@@ -131,6 +190,102 @@ namespace Desktopirates
             portRoot.SetActive(true);
             saves.Save(state);
         }
+
+        private void OpenShipyard()
+        {
+            portRoot.SetActive(false);
+            RefreshShipyard();
+            shipyardRoot.SetActive(true);
+        }
+
+        private void ToggleCannon(CannonSlot slot)
+        {
+            int bit = 1 << (int)slot;
+            if (ShipCustomizationModel.HasCannon(state, slot))
+            {
+                state.CannonMountMask &= ~bit;
+                state.SpareCannons++;
+                ShowMessage($"{ShipCustomizationModel.GetDefinition(slot).ShortName} CANNON STORED");
+            }
+            else
+            {
+                if (!ShipCustomizationModel.CanAddMass(state, ShipCustomizationModel.CannonMass)) { ShowMessage("CAPACITY EXCEEDED — UPGRADE THE HULL"); return; }
+                if (state.SpareCannons > 0) state.SpareCannons--;
+                else
+                {
+                    if (state.Gold < ShipCustomizationModel.CannonPrice) { ShowMessage($"CANNON NEEDS {ShipCustomizationModel.CannonPrice}G"); return; }
+                    state.Gold -= ShipCustomizationModel.CannonPrice;
+                }
+                state.CannonMountMask |= bit;
+                ShowMessage($"CANNON MOUNTED — {ShipCustomizationModel.GetDefinition(slot).ArcName} ARC");
+            }
+            boat.RefreshCustomizationVisual();
+            RefreshShipyard();
+            saves.Save(state);
+        }
+
+        private void UpgradeCapacity()
+        {
+            int cost = ShipCustomizationModel.GetCapacityUpgradeCost(state.CapacityLevel);
+            if (!CanBuyUpgrade(state.CapacityLevel, cost, "CAPACITY")) return;
+            state.Gold -= cost; state.CapacityLevel++; RefreshShipyard(); saves.Save(state);
+            ShowMessage($"LOAD LIMIT {ShipCustomizationModel.GetCapacity(state):0.0}");
+        }
+
+        private void UpgradeArmor()
+        {
+            int cost = ShipCustomizationModel.GetArmorUpgradeCost(state.ArmorLevel);
+            if (!CanBuyUpgrade(state.ArmorLevel, cost, "ARMOR")) return;
+            if (!ShipCustomizationModel.CanAddMass(state, 3.4f)) { ShowMessage("CAPACITY EXCEEDED — UPGRADE THE HULL"); return; }
+            state.Gold -= cost; state.ArmorLevel++; state.MaxHull += 3; state.Hull += 3;
+            boat.RefreshCustomizationVisual(); RefreshShipyard(); saves.Save(state); ShowMessage($"ARMOR {state.ArmorLevel}  HULL +3");
+        }
+
+        private void UpgradeTurning()
+        {
+            int cost = ShipCustomizationModel.GetTurningUpgradeCost(state.TurningLevel);
+            if (!CanBuyUpgrade(state.TurningLevel, cost, "TURNING")) return;
+            if (!ShipCustomizationModel.CanAddMass(state, 0.75f)) { ShowMessage("CAPACITY EXCEEDED — UPGRADE THE HULL"); return; }
+            state.Gold -= cost; state.TurningLevel++; RefreshShipyard(); saves.Save(state); ShowMessage("RUDDER RESPONSE IMPROVED");
+        }
+
+        private void HireCrew()
+        {
+            int cost = ShipCustomizationModel.GetCrewHireCost(state);
+            if (!ShipCustomizationModel.CanAddMass(state, ShipCustomizationModel.CrewMass)) { ShowMessage("NO BERTH CAPACITY"); return; }
+            if (state.Gold < cost) { ShowMessage($"CREW NEEDS {cost}G"); return; }
+            state.Gold -= cost; state.Crew++; RefreshShipyard(); saves.Save(state); ShowMessage($"CREW ABOARD  {state.Crew}");
+        }
+
+        private bool CanBuyUpgrade(int level, int cost, string name)
+        {
+            if (level >= ShipCustomizationModel.MaxUpgradeLevel) { ShowMessage($"{name} AT MAX LEVEL"); return false; }
+            if (state.Gold < cost) { ShowMessage($"{name} NEEDS {cost}G"); return false; }
+            return true;
+        }
+
+        private void RefreshShipyard()
+        {
+            float mass = ShipCustomizationModel.GetMass(state);
+            float capacity = ShipCustomizationModel.GetCapacity(state);
+            shipyardSummary.text = $"MASS {mass:0.0}/{capacity:0.0}   SPEED {ShipCustomizationModel.GetSpeedMultiplier(state) * 100f:0}%   TURN {ShipCustomizationModel.GetTurningMultiplier(state) * 100f:0}%\nCREW {state.Crew}   GUNS {ShipCustomizationModel.GetInstalledCannonCount(state)}   DOCK STORAGE {state.SpareCannons}";
+            for (int i = 0; i < cannonSlotTexts.Length; i++)
+            {
+                CannonSlot slot = (CannonSlot)i;
+                CannonSlotDefinition definition = ShipCustomizationModel.GetDefinition(slot);
+                cannonSlotTexts[i].text = $"{definition.ShortName}  {(ShipCustomizationModel.HasCannon(state, slot) ? "● ARMED" : "+ EMPTY")}";
+                cannonSlotTexts[i].color = ShipCustomizationModel.HasCannon(state, slot) ? new Color(1f, 0.76f, 0.28f) : new Color(0.62f, 0.76f, 0.76f);
+            }
+            capacityUpgradeText.text = UpgradeLabel("CAPACITY", state.CapacityLevel, ShipCustomizationModel.GetCapacityUpgradeCost(state.CapacityLevel));
+            propulsionUpgradeText.text = UpgradeLabel("PROPULSION", state.EngineLevel, CruiseModel.GetUpgradeCost(state.EngineLevel));
+            armorUpgradeText.text = UpgradeLabel("ARMOR", state.ArmorLevel, ShipCustomizationModel.GetArmorUpgradeCost(state.ArmorLevel));
+            turningUpgradeText.text = UpgradeLabel("TURNING", state.TurningLevel, ShipCustomizationModel.GetTurningUpgradeCost(state.TurningLevel));
+            gunUpgradeText.text = UpgradeLabel("GUN DAMAGE", state.CannonLevel, ShipCustomizationModel.GetGunUpgradeCost(state.CannonLevel));
+            crewHireText.text = $"HIRE CREW  {ShipCustomizationModel.GetCrewHireCost(state)}G";
+        }
+
+        private static string UpgradeLabel(string name, int level, int cost)
+            => level >= ShipCustomizationModel.MaxUpgradeLevel ? $"{name}  MAX" : $"{name}  L{level}→{level + 1}  {cost}G";
 
         private void Repair()
         {
@@ -154,9 +309,11 @@ namespace Desktopirates
             if (state.EngineLevel >= CruiseModel.MaxEngineLevel) { ShowMessage("ENGINE AT MAX LEVEL"); return; }
             int cost = CruiseModel.GetUpgradeCost(state.EngineLevel);
             if (state.Gold < cost) { ShowMessage($"ENGINE NEEDS {cost}G"); return; }
+            if (!ShipCustomizationModel.CanAddMass(state, 1.25f)) { ShowMessage("CAPACITY EXCEEDED — UPGRADE THE HULL"); return; }
             state.Gold -= cost;
             state.EngineLevel++;
             RefreshEngineUpgradeText();
+            if (shipyardRoot != null) RefreshShipyard();
             ShowMessage($"MAX SPEED {CruiseModel.GetMaxSpeed(state.EngineLevel):0.00}  {CruiseModel.GetMaxStep(state.EngineLevel)} STEPS");
             saves.Save(state);
         }
@@ -171,9 +328,9 @@ namespace Desktopirates
 
         private void UpgradeCannon()
         {
-            int cost = 100 + state.CannonLevel * 70;
-            if (state.Gold < cost) { ShowMessage($"CANNON NEEDS {cost}G"); return; }
-            state.Gold -= cost; state.CannonLevel++; state.MaxHull++; state.Hull++; ShowMessage($"CANNON LEVEL {state.CannonLevel + 1}"); saves.Save(state);
+            int cost = ShipCustomizationModel.GetGunUpgradeCost(state.CannonLevel);
+            if (!CanBuyUpgrade(state.CannonLevel, cost, "GUN DAMAGE")) return;
+            state.Gold -= cost; state.CannonLevel++; RefreshShipyard(); ShowMessage($"GUN DAMAGE {state.CannonLevel + 1} PER CANNON"); saves.Save(state);
         }
 
         private void OpenMap()
@@ -218,6 +375,7 @@ namespace Desktopirates
         {
             menuRoot.SetActive(false);
             portRoot.SetActive(false);
+            shipyardRoot.SetActive(false);
             inventory?.Close();
             if (mapRoot != null) { Destroy(mapRoot); mapRoot = null; }
         }
@@ -245,6 +403,15 @@ namespace Desktopirates
             Image image = rect.gameObject.AddComponent<Image>(); image.sprite = pillSprite; image.type = Image.Type.Sliced; image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
             Text text = CreateText(rect, label, Vector2.zero, rect.sizeDelta, 13, TextAnchor.MiddleCenter); text.color = Color.white;
+            return button;
+        }
+
+        private Button CreateSizedButton(Transform parent, string label, Vector2 position, Vector2 size, Action action)
+        {
+            RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = size;
+            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = pillSprite; image.type = Image.Type.Sliced; image.color = Color.white;
+            Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
+            Text text = CreateText(rect, label, Vector2.zero, size - new Vector2(8f, 0f), 12, TextAnchor.MiddleCenter); text.color = Color.white;
             return button;
         }
 

@@ -10,7 +10,7 @@ namespace Desktopirates
 {
     public static class CompactSaveCodec
     {
-        private const byte Version = 2;
+        private const byte Version = 3;
         private const float PositionScale = 16f;
 
         public static byte[] Serialize(GameState state)
@@ -32,6 +32,12 @@ namespace Desktopirates
                 writer.Write((byte)Mathf.Clamp(state.CannonLevel, 0, 255));
                 for (int i = 0; i < SalvageInventory.PartKindCount; i++)
                     WriteUnsigned(writer, (ulong)state.GetPartCount((SalvagePartKind)i));
+                WriteUnsigned(writer, (ulong)Mathf.Max(0, state.Crew));
+                writer.Write((byte)Mathf.Clamp(state.CapacityLevel, 0, 255));
+                writer.Write((byte)Mathf.Clamp(state.ArmorLevel, 0, 255));
+                writer.Write((byte)Mathf.Clamp(state.TurningLevel, 0, 255));
+                WriteUnsigned(writer, (ulong)(state.CannonMountMask & ((1 << ShipCustomizationModel.CannonSlotCount) - 1)));
+                WriteUnsigned(writer, (ulong)Mathf.Max(0, state.SpareCannons));
                 WriteExploration(writer, state.ExploredChunks);
                 WriteResolved(writer, state.ResolvedEvents);
             }
@@ -68,6 +74,15 @@ namespace Desktopirates
             {
                 for (int i = 0; i < SalvageInventory.PartKindCount; i++)
                     state.SetPartCount((SalvagePartKind)i, checked((int)ReadUnsigned(reader)));
+            }
+            if (version >= 3)
+            {
+                state.Crew = checked((int)ReadUnsigned(reader));
+                state.CapacityLevel = reader.ReadByte();
+                state.ArmorLevel = reader.ReadByte();
+                state.TurningLevel = reader.ReadByte();
+                state.CannonMountMask = checked((int)ReadUnsigned(reader));
+                state.SpareCannons = checked((int)ReadUnsigned(reader));
             }
             ReadExploration(reader, state.ExploredChunks);
             ReadResolved(reader, state.ResolvedEvents);

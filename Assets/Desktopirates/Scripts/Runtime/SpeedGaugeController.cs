@@ -10,6 +10,7 @@ namespace Desktopirates
         private static readonly Color Active = Color.white;
         private BoatController boat;
         private InventoryController inventory;
+        private MenuController menu;
         private GameObject gaugeRoot;
         private readonly RawImage[] segments = new RawImage[SpeedGaugeModel.SegmentCount];
         private RectTransform needle;
@@ -20,10 +21,11 @@ namespace Desktopirates
         private int lastStep = -1;
         private int lastMax = -1;
 
-        public void Initialize(RectTransform canvas, BoatController player, InventoryController cargoInventory)
+        public void Initialize(RectTransform canvas, BoatController player, InventoryController cargoInventory, MenuController menuController = null)
         {
             boat = player;
             inventory = cargoInventory;
+            menu = menuController;
             activeTexture = UiTextureFactory.LoadSpeedSegment(true);
             inactiveTexture = UiTextureFactory.LoadSpeedSegment(false);
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -68,7 +70,7 @@ namespace Desktopirates
 
         private void Update()
         {
-            if (gaugeRoot != null) gaugeRoot.SetActive(inventory == null || !inventory.IsOpen);
+            if (gaugeRoot != null) gaugeRoot.SetActive((inventory == null || !inventory.IsOpen) && (menu == null || !menu.IsModalOpen));
             Refresh(false);
         }
 

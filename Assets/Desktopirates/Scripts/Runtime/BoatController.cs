@@ -9,8 +9,8 @@ namespace Desktopirates
         public float Speed { get; private set; }
         public int CruiseStep { get; private set; }
         public int MaxCruiseStep => CruiseModel.GetMaxStep(State != null ? State.EngineLevel : 0);
-        public float TargetSpeed => CruiseModel.GetTargetSpeed(CruiseStep, State != null ? State.EngineLevel : 0);
-        public float MaxSpeed => CruiseModel.GetMaxSpeed(State != null ? State.EngineLevel : 0);
+        public float TargetSpeed => CruiseModel.GetTargetSpeed(CruiseStep, State != null ? State.EngineLevel : 0) * (State != null ? ShipCustomizationModel.GetSpeedMultiplier(State) : 1f);
+        public float MaxSpeed => CruiseModel.GetMaxSpeed(State != null ? State.EngineLevel : 0) * (State != null ? ShipCustomizationModel.GetSpeedMultiplier(State) : 1f);
         public bool IsCoasting => CruiseModel.IsCoasting(Speed, TargetSpeed);
         public GameState State { get; private set; }
 
@@ -25,6 +25,7 @@ namespace Desktopirates
             LogicalPosition = state.PlayerPosition;
             CruiseStep = 0;
             Speed = 0f;
+            RefreshCustomizationVisual();
         }
 
         private void Update()
@@ -45,7 +46,7 @@ namespace Desktopirates
             // A rudder needs water flowing over it; a stopped ship cannot spin in place.
             float steerStrength = Speed <= CruiseModel.StopSnapSpeed
                 ? 0f
-                : Mathf.Lerp(18f, 62f, Mathf.Clamp01(Speed / Mathf.Max(0.01f, MaxSpeed)));
+                : Mathf.Lerp(18f, 62f, Mathf.Clamp01(Speed / Mathf.Max(0.01f, MaxSpeed))) * ShipCustomizationModel.GetTurningMultiplier(State);
             HeadingDegrees = Mathf.Repeat(HeadingDegrees + steering * steerStrength * deltaTime, 360f);
             float radians = HeadingDegrees * Mathf.Deg2Rad;
             Vector2 forward = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
@@ -61,6 +62,11 @@ namespace Desktopirates
         public void IncreaseCruiseStep() => CruiseStep = CruiseModel.ChangeStep(CruiseStep, 1, State != null ? State.EngineLevel : 0);
 
         public void DecreaseCruiseStep() => CruiseStep = CruiseModel.ChangeStep(CruiseStep, -1, State != null ? State.EngineLevel : 0);
+
+        public void RefreshCustomizationVisual()
+        {
+            if (boatVisual != null && State != null) ProceduralSceneFactory.ApplyPlayerCustomization(boatVisual, State);
+        }
 
         public void TowTo(Vector2 position)
         {

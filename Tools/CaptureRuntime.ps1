@@ -4,7 +4,9 @@ param(
     [string]$DayOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Day.png'),
     [string]$SailingOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Sailing.png'),
     [string]$CoastingOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Coasting.png'),
-    [string]$InventoryOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Inventory.png')
+    [string]$InventoryOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Inventory.png'),
+    [string]$ShipyardOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Shipyard.png'),
+    [switch]$ShipyardOnly
 )
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -76,7 +78,9 @@ $backdrop.Show()
 
 $game = $null
 try {
-    $game = Start-Process ([IO.Path]::GetFullPath($Executable)) -PassThru
+    $launch = @{ FilePath = [IO.Path]::GetFullPath($Executable); PassThru = $true }
+    if ($ShipyardOnly) { $launch.ArgumentList = '--shipyard-preview' }
+    $game = Start-Process @launch
     for ($i = 0; $i -lt 60 -and $game.MainWindowHandle -eq 0; $i++) {
         Start-Sleep -Milliseconds 200
         $game.Refresh()
@@ -88,6 +92,11 @@ try {
     [DesktopiratesCaptureNative]::SetWindowPos($game.MainWindowHandle, $topMost, 40, 40, 0, 0, 0x0041) | Out-Null
     [DesktopiratesCaptureNative]::SetForegroundWindow($game.MainWindowHandle) | Out-Null
     Start-Sleep -Seconds 5
+
+    if ($ShipyardOnly) {
+        Save-WindowCapture $game.MainWindowHandle $ShipyardOutput
+        return
+    }
 
     # Click the Menu Circle at the top-center of the 720 x 760 overlay.
     $rect = New-Object DesktopiratesCaptureNative+RECT

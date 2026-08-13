@@ -43,7 +43,13 @@ namespace Desktopirates.Tests
                 MaxHull = 17,
                 Supplies = 28,
                 EngineLevel = 4,
-                CannonLevel = 3
+                CannonLevel = 3,
+                Crew = 7,
+                CapacityLevel = 2,
+                ArmorLevel = 3,
+                TurningLevel = 1,
+                CannonMountMask = 0b101101,
+                SpareCannons = 2
             };
             for (int y = -10; y <= 10; y++)
             for (int x = -22; x <= 22; x++) state.ExploredChunks.Add(GameState.PackChunk(x, y));
@@ -59,6 +65,12 @@ namespace Desktopirates.Tests
             Assert.That(restored.HeadingDegrees, Is.EqualTo(state.HeadingDegrees).Within(0.02f));
             Assert.That(restored.Gold, Is.EqualTo(state.Gold));
             Assert.That(restored.MaxHull, Is.EqualTo(state.MaxHull));
+            Assert.That(restored.Crew, Is.EqualTo(state.Crew));
+            Assert.That(restored.CapacityLevel, Is.EqualTo(state.CapacityLevel));
+            Assert.That(restored.ArmorLevel, Is.EqualTo(state.ArmorLevel));
+            Assert.That(restored.TurningLevel, Is.EqualTo(state.TurningLevel));
+            Assert.That(restored.CannonMountMask, Is.EqualTo(state.CannonMountMask));
+            Assert.That(restored.SpareCannons, Is.EqualTo(state.SpareCannons));
             Assert.That(restored.ExploredChunks.SetEquals(state.ExploredChunks), Is.True);
             Assert.That(restored.ResolvedEvents.SetEquals(state.ResolvedEvents), Is.True);
             for (int i = 0; i < SalvageInventory.PartKindCount; i++)
@@ -71,6 +83,83 @@ namespace Desktopirates.Tests
         {
             Assert.That(Vector2.Distance(Vector2.zero, new Vector2(3f, 4f)), Is.LessThan(MenuCircleController.DragThreshold));
             Assert.That(Vector2.Distance(Vector2.zero, new Vector2(8f, 0f)), Is.GreaterThan(MenuCircleController.DragThreshold));
+        }
+
+        [Test]
+        public void CannonsOnlyJoinASalvoInsideTheirInstalledArc()
+        {
+            var state = new GameState
+            {
+                Crew = 6,
+                CannonMountMask = (1 << (int)CannonSlot.Bow) | (1 << (int)CannonSlot.PortFore) | (1 << (int)CannonSlot.PortAft)
+            };
+
+            SalvoSolution bow = ShipCustomizationModel.GetSalvo(state, 4f);
+            SalvoSolution port = ShipCustomizationModel.GetSalvo(state, -88f);
+            SalvoSolution starboard = ShipCustomizationModel.GetSalvo(state, 90f);
+
+            Assert.That(bow.CannonsFiring, Is.EqualTo(1));
+            Assert.That(bow.ArcName, Is.EqualTo("BOW"));
+            Assert.That(port.CannonsFiring, Is.EqualTo(2));
+            Assert.That(port.ArcName, Is.EqualTo("PORT"));
+            Assert.That(starboard.CannonsFiring, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void OneCrewMemberIsRequiredForEveryFiringCannon()
+        {
+            var state = new GameState
+            {
+                Crew = 1,
+                CannonMountMask = (1 << (int)CannonSlot.StarboardFore) | (1 << (int)CannonSlot.StarboardAft)
+            };
+
+            SalvoSolution salvo = ShipCustomizationModel.GetSalvo(state, 90f);
+            Assert.That(salvo.CannonsInArc, Is.EqualTo(2));
+            Assert.That(salvo.CannonsFiring, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void InstalledMassReducesSpeedAndTurning()
+        {
+            var light = new GameState { Crew = 2, Supplies = 0, CannonMountMask = 0 };
+            var heavy = new GameState
+            {
+                Crew = 6,
+                Supplies = 20,
+                ArmorLevel = 2,
+                CannonMountMask = (1 << ShipCustomizationModel.CannonSlotCount) - 1
+            };
+
+            Assert.That(ShipCustomizationModel.GetMass(heavy), Is.GreaterThan(ShipCustomizationModel.GetMass(light)));
+            Assert.That(ShipCustomizationModel.GetSpeedMultiplier(heavy), Is.LessThan(ShipCustomizationModel.GetSpeedMultiplier(light)));
+            Assert.That(ShipCustomizationModel.GetTurningMultiplier(heavy), Is.LessThan(ShipCustomizationModel.GetTurningMultiplier(light)));
+        }
+
+        [Test]
+        public void CapacityUpgradeCreatesRoomForHeavierLayouts()
+        {
+            var state = new GameState
+            {
+                Crew = 3,
+                Supplies = 4,
+                CannonMountMask = 0b000111
+            };
+            bool before = ShipCustomizationModel.CanAddMass(state, ShipCustomizationModel.CannonMass);
+            state.CapacityLevel++;
+            bool after = ShipCustomizationModel.CanAddMass(state, ShipCustomizationModel.CannonMass);
+
+            Assert.That(before, Is.False);
+            Assert.That(after, Is.True);
+        }
+
+        [Test]
+        public void RelativeBearingTracksShipHeading()
+        {
+            float ahead = ShipCustomizationModel.GetRelativeBearing(90f, Vector2.zero, Vector2.right * 4f);
+            float port = ShipCustomizationModel.GetRelativeBearing(90f, Vector2.zero, Vector2.up * 4f);
+            Assert.That(ahead, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(port, Is.EqualTo(-90f).Within(0.001f));
         }
 
         [Test]

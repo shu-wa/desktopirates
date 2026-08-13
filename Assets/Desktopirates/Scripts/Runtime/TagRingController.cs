@@ -13,14 +13,16 @@ namespace Desktopirates
         private CameraRigController cameraRig;
         private PoiSystem poiSystem;
         private InventoryController inventory;
+        private MenuController menu;
 
-        public void Initialize(RectTransform canvas, BoatController boat, CameraRigController rig, PoiSystem pois, InventoryController cargoInventory)
+        public void Initialize(RectTransform canvas, BoatController boat, CameraRigController rig, PoiSystem pois, InventoryController cargoInventory, MenuController menuController = null)
         {
             this.canvas = canvas;
             player = boat;
             cameraRig = rig;
             poiSystem = pois;
             inventory = cargoInventory;
+            menu = menuController;
 
             RebuildMarkers();
         }
@@ -53,7 +55,7 @@ namespace Desktopirates
         {
             if (player == null || cameraRig == null || poiSystem == null) return;
             if (MarkersAreStale()) RebuildMarkers();
-            if (inventory != null && inventory.IsOpen)
+            if ((inventory != null && inventory.IsOpen) || (menu != null && menu.IsModalOpen))
             {
                 foreach (RawImage marker in markers) if (marker != null) marker.gameObject.SetActive(false);
                 return;

@@ -16,6 +16,12 @@ namespace Desktopirates
         public int Supplies = 8;
         public int EngineLevel;
         public int CannonLevel;
+        public int Crew = 3;
+        public int CapacityLevel;
+        public int ArmorLevel;
+        public int TurningLevel;
+        public int CannonMountMask = (1 << (int)CannonSlot.PortFore) | (1 << (int)CannonSlot.StarboardFore);
+        public int SpareCannons;
         public readonly HashSet<long> ExploredChunks = new HashSet<long>();
         public readonly HashSet<ulong> ResolvedEvents = new HashSet<ulong>();
         private readonly int[] salvageParts = new int[SalvageInventory.PartKindCount];

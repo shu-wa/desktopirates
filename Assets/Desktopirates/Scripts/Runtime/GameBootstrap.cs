@@ -62,18 +62,18 @@ namespace Desktopirates
             dayNight.Initialize(ocean, sun);
 
             RectTransform canvas = CreateCanvas();
-            CreateCompassArc(canvas);
+            GameObject compass = CreateCompassArc(canvas);
             InventoryController inventory = gameObject.AddComponent<InventoryController>();
             inventory.Initialize(canvas, state);
-            SpeedGaugeController speedGauge = gameObject.AddComponent<SpeedGaugeController>();
-            speedGauge.Initialize(canvas, boat, inventory);
             MenuController menu = gameObject.AddComponent<MenuController>();
-            menu.Initialize(canvas, overlay, state, saves, boat, poiSystem, inventory);
+            menu.Initialize(canvas, overlay, state, saves, boat, poiSystem, inventory, compass);
+            SpeedGaugeController speedGauge = gameObject.AddComponent<SpeedGaugeController>();
+            speedGauge.Initialize(canvas, boat, inventory, menu);
             CreateMenuCircle(canvas, dayNight, overlay, menu);
 
             var tagObject = new GameObject("Perimeter Tags", typeof(TagRingController));
             tagObject.transform.SetParent(canvas, false);
-            tagObject.GetComponent<TagRingController>().Initialize(canvas, boat, cameraRig, poiSystem, inventory);
+            tagObject.GetComponent<TagRingController>().Initialize(canvas, boat, cameraRig, poiSystem, inventory, menu);
         }
 
         private static Camera CreateCamera()
@@ -169,14 +169,16 @@ namespace Desktopirates
             orbObject.GetComponent<MenuCircleController>().Initialize(dayNight, overlay, menu);
         }
 
-        private static void CreateCompassArc(RectTransform canvas)
+        private static GameObject CreateCompassArc(RectTransform canvas)
         {
+            var root = new GameObject("Compass Arc", typeof(RectTransform));
+            root.transform.SetParent(canvas, false);
             for (int i = 0; i < 9; i++)
             {
                 float degrees = Mathf.Lerp(205f, 335f, i / 8f);
                 float radians = degrees * Mathf.Deg2Rad;
                 var tickObject = new GameObject($"Compass Tick {i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
-                tickObject.transform.SetParent(canvas, false);
+                tickObject.transform.SetParent(root.transform, false);
                 RawImage tick = tickObject.GetComponent<RawImage>();
                 tick.texture = UiTextureFactory.LoadCompassArrow();
                 tick.color = i == 4 ? new Color(1f, 0.42f, 0.08f, 1f) : new Color(0.86f, 0.62f, 0.25f, 0.92f);
@@ -189,6 +191,7 @@ namespace Desktopirates
                 rect.sizeDelta = i == 4 ? new Vector2(18f, 25f) : new Vector2(13f, 19f);
                 rect.localRotation = Quaternion.Euler(0f, 0f, degrees - 90f);
             }
+            return root;
         }
     }
 }
