@@ -21,7 +21,7 @@ namespace Desktopirates.Editor
             {
                 importer.textureType = TextureImporterType.Sprite;
                 importer.filterMode = UnityEngine.FilterMode.Point;
-                importer.wrapMode = UnityEngine.TextureWrapMode.Clamp;
+                importer.wrapMode = assetPath.Contains("/Textures/UI/Surfaces/") ? UnityEngine.TextureWrapMode.Repeat : UnityEngine.TextureWrapMode.Clamp;
                 importer.mipmapEnabled = false;
                 importer.alphaIsTransparency = true;
                 importer.textureCompression = TextureImporterCompression.Uncompressed;

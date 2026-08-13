@@ -62,9 +62,11 @@ namespace Desktopirates
             needleImage.raycastTarget = false;
 
             stateLabel = CreateText("Speed State", root, font, 17, new Vector2(0f, -33f), new Vector2(128f, 24f));
-            stateLabel.color = new Color(1f, 0.76f, 0.27f, 1f);
-            stepLabel = CreateText("Speed Step Hint", root, font, 11, new Vector2(0f, -51f), new Vector2(150f, 18f));
-            stepLabel.color = new Color(0.69f, 0.83f, 0.81f, 0.95f);
+            stateLabel.color = UiTheme.Brass;
+            UiTheme.StyleText(stateLabel, 18);
+            stepLabel = CreateText("Speed Step Hint", root, font, 15, new Vector2(0f, -53f), new Vector2(190f, 22f));
+            stepLabel.color = UiTheme.SecondaryText;
+            UiTheme.StyleText(stepLabel, 15);
             Refresh(true);
         }
 

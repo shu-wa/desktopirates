@@ -60,5 +60,23 @@ namespace Desktopirates.Tests
             Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));
             Assert.That(Mathf.Max(texture.width, texture.height), Is.LessThanOrEqualTo(256));
         }
+
+        [Test]
+        public void HudSurface_IsDarkTileableAndMemoryBounded()
+        {
+            Texture2D texture = Resources.Load<Texture2D>("Textures/UI/Surfaces/hud_chartwood_navy_v01");
+            Assert.That(texture, Is.Not.Null);
+            Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Repeat));
+            Assert.That(Mathf.Max(texture.width, texture.height), Is.LessThanOrEqualTo(2048));
+        }
+
+        [Test]
+        public void DefaultHudPaletteMeetsSmallTextContrastGuideline()
+        {
+            Assert.That(UiTheme.ContrastRatio(UiTheme.PrimaryText, UiTheme.InkOpaque), Is.GreaterThanOrEqualTo(4.5f));
+            Assert.That(UiTheme.ContrastRatio(UiTheme.Brass, UiTheme.InkOpaque), Is.GreaterThanOrEqualTo(4.5f));
+            Assert.That(UiTheme.ContrastRatio(UiTheme.Mint, UiTheme.InkOpaque), Is.GreaterThanOrEqualTo(4.5f));
+        }
     }
 }

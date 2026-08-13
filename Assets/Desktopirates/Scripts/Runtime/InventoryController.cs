@@ -86,6 +86,7 @@ namespace Desktopirates
             Image background = root.AddComponent<Image>();
             background.sprite = UiTextureFactory.LoadPanelSprite(128);
             background.color = new Color(1f, 1f, 1f, 0.985f);
+            UiTheme.AddChartWoodSurface(panel, new Vector2(350f, 350f), 0.52f, UiTextureFactory.LoadPanelSprite(128));
 
             totalText = CreateText("Cargo Title", panel, "CARGO", 20, new Vector2(0f, 176f), new Vector2(190f, 28f));
             totalText.color = Brass;
@@ -104,9 +105,9 @@ namespace Desktopirates
             emblem.texture = UiTextureFactory.LoadMenuButton(MenuGlyph.Inventory, 80);
             emblem.raycastTarget = false;
 
-            detailName = CreateText("Selected Cargo Name", panel, "TIMBER", 16, new Vector2(0f, -146f), new Vector2(210f, 22f));
+            detailName = CreateText("Selected Cargo Name", panel, "TIMBER", 17, new Vector2(0f, -142f), new Vector2(230f, 24f));
             detailName.color = Mint;
-            detailText = CreateText("Selected Cargo Detail", panel, string.Empty, 11, new Vector2(0f, -166f), new Vector2(290f, 32f));
+            detailText = CreateText("Selected Cargo Detail", panel, string.Empty, 15, new Vector2(0f, -166f), new Vector2(310f, 38f));
             detailText.color = new Color(0.82f, 0.87f, 0.82f, 1f);
 
             RectTransform backRect = CreateRect("Close Cargo", panel, new Vector2(-166f, -158f), new Vector2(54f, 54f));
@@ -135,9 +136,9 @@ namespace Desktopirates
             icon.texture = UiTextureFactory.LoadInventoryIcon(kind);
             icon.raycastTarget = false;
 
-            Text name = CreateText($"{kind} Name", slot, SalvageInventory.GetDisplayName(kind), 9, new Vector2(0f, -24f), new Vector2(68f, 14f));
+            Text name = CreateText($"{kind} Name", slot, SalvageInventory.GetDisplayName(kind), 13, new Vector2(0f, -24f), new Vector2(72f, 17f));
             name.color = new Color(1f, 0.78f, 0.34f, 1f);
-            counts[index] = CreateText($"{kind} Count", slot, "0", 12, new Vector2(23f, 22f), new Vector2(26f, 16f));
+            counts[index] = CreateText($"{kind} Count", slot, "0", 15, new Vector2(23f, 22f), new Vector2(30f, 18f));
             counts[index].color = Color.white;
         }
 
@@ -160,6 +161,7 @@ namespace Desktopirates
             text.alignment = TextAnchor.MiddleCenter;
             text.text = value;
             text.raycastTarget = false;
+            if (size >= 13) UiTheme.StyleText(text, size);
             return text;
         }
 

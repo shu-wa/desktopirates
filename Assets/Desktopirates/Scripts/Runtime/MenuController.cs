@@ -20,7 +20,15 @@ namespace Desktopirates
         private GameObject mapRoot;
         private GameObject portRoot;
         private GameObject shipyardRoot;
-        private Text hud;
+        private GameObject shipyardGunsPage;
+        private GameObject shipyardSystemsPage;
+        private GameObject hudRoot;
+        private Text hullValue;
+        private Text goldValue;
+        private Text crewValue;
+        private Text loadValue;
+        private Image hullBar;
+        private Image loadBar;
         private Text prompt;
         private Text toast;
         private Text engineUpgradeText;
@@ -70,9 +78,17 @@ namespace Desktopirates
 
         private void Update()
         {
-            hud.text = $"HULL {state.Hull}/{state.MaxHull}  {state.Gold}G  CREW {state.Crew}  CARGO {state.TotalSalvageCount}";
+            hullValue.text = $"{state.Hull}/{state.MaxHull}";
+            goldValue.text = $"{state.Gold} G";
+            crewValue.text = state.Crew.ToString();
+            float loadRatio = ShipCustomizationModel.GetLoadRatio(state);
+            loadValue.text = $"{loadRatio * 100f:0}%";
+            hullBar.fillAmount = state.Hull / (float)Mathf.Max(1, state.MaxHull);
+            loadBar.fillAmount = Mathf.Clamp01(loadRatio);
+            hullBar.color = state.Hull <= state.MaxHull * 0.3f ? UiTheme.Danger : UiTheme.Mint;
+            loadBar.color = loadRatio >= 0.92f ? UiTheme.Danger : loadRatio >= 0.78f ? UiTheme.Warning : UiTheme.Brass;
             bool normalHud = (inventory == null || !inventory.IsOpen) && !IsModalOpen;
-            hud.transform.parent.gameObject.SetActive(normalHud);
+            hudRoot.SetActive(normalHud);
             if (compassRoot != null) compassRoot.SetActive(normalHud);
             prompt.text = pois.InteractionPrompt;
             prompt.transform.parent.gameObject.SetActive(normalHud && !string.IsNullOrEmpty(prompt.text));
@@ -116,13 +132,38 @@ namespace Desktopirates
 
         private void BuildHud()
         {
-            hud = CreatePillText(canvas, "Ship Status", new Vector2(0f, -315f), new Vector2(390f, 28f), 15);
-            hud.color = new Color(0.96f, 0.83f, 0.56f, 0.95f);
-            prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -695f), new Vector2(360f, 30f), 17);
-            prompt.color = Color.white;
-            toast = CreatePillText(canvas, "Event Message", new Vector2(0f, -352f), new Vector2(380f, 32f), 16);
-            toast.color = new Color(1f, 0.78f, 0.32f, 1f);
+            RectTransform dashboard = CreateUiObject("Ship Dashboard", canvas);
+            dashboard.anchoredPosition = new Vector2(0f, -316f);
+            dashboard.sizeDelta = new Vector2(476f, 68f);
+            hudRoot = dashboard.gameObject;
+            Image dashboardBack = dashboard.gameObject.AddComponent<Image>(); dashboardBack.sprite = pillSprite; dashboardBack.type = Image.Type.Sliced; dashboardBack.color = Color.white; dashboardBack.raycastTarget = false;
+            UiTheme.AddChartWoodSurface(dashboard, new Vector2(446f, 50f), 0.34f);
+            hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-174f, 0f), UiTheme.Mint, out hullBar);
+            goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-58f, 0f), UiTheme.Brass, out _);
+            crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(58f, 0f), UiTheme.SecondaryText, out _);
+            loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(174f, 0f), UiTheme.Brass, out loadBar);
+
+            prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -690f), new Vector2(410f, 38f), 18);
+            prompt.color = UiTheme.PrimaryText;
+            UiTheme.StyleText(prompt, 18);
+            toast = CreatePillText(canvas, "Event Message", new Vector2(0f, -365f), new Vector2(430f, 40f), 18);
+            toast.color = UiTheme.Brass;
+            UiTheme.StyleText(toast, 18);
             toast.transform.parent.gameObject.SetActive(false);
+        }
+
+        private Text CreateStatusCard(Transform parent, string label, Vector2 position, Color accent, out Image meter)
+        {
+            RectTransform card = CreateUiObject(label + " Status Card", parent); card.anchoredPosition = position; card.sizeDelta = new Vector2(108f, 50f);
+            Image background = card.gameObject.AddComponent<Image>(); background.sprite = pillSprite; background.type = Image.Type.Sliced; background.color = new Color(0.72f, 0.82f, 0.80f, 0.96f); background.raycastTarget = false;
+            Text caption = CreateText(card, label, new Vector2(0f, 12f), new Vector2(96f, 18f), 15, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 15);
+            Text value = CreateText(card, label + " Value", new Vector2(0f, -8f), new Vector2(96f, 24f), 18, TextAnchor.MiddleCenter); value.color = UiTheme.PrimaryText; UiTheme.StyleText(value, 18);
+            RectTransform bar = CreateUiObject(label + " Meter", card); bar.anchoredPosition = new Vector2(0f, -20f); bar.sizeDelta = new Vector2(82f, 4f);
+            Image track = bar.gameObject.AddComponent<Image>(); track.color = new Color(0.04f, 0.12f, 0.15f, 1f); track.raycastTarget = false;
+            RectTransform fill = CreateUiObject(label + " Meter Fill", bar); fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.offsetMin = fill.offsetMax = Vector2.zero;
+            meter = fill.gameObject.AddComponent<Image>(); meter.type = Image.Type.Filled; meter.fillMethod = Image.FillMethod.Horizontal; meter.color = accent; meter.raycastTarget = false;
+            if (label != "HULL" && label != "LOAD") bar.gameObject.SetActive(false);
+            return value;
         }
 
         private void BuildPortPanel()
@@ -134,6 +175,7 @@ namespace Desktopirates
             RectTransform rect = (RectTransform)portRoot.transform;
             rect.anchoredPosition = new Vector2(0f, -390f);
             rect.sizeDelta = new Vector2(330f, 330f);
+            UiTheme.AddChartWoodSurface(portRoot.transform, new Vector2(282f, 282f), 0.55f, panelSprite);
             CreateText(portRoot.transform, "PORT", new Vector2(0f, 112f), new Vector2(220f, 30f), 22, TextAnchor.MiddleCenter).color = Brass;
             CreateWideButton(portRoot.transform, "REPAIR  8G / HULL", new Vector2(0f, 60f), Repair);
             CreateWideButton(portRoot.transform, "SUPPLIES +5  20G", new Vector2(0f, 15f), BuySupplies);
@@ -151,37 +193,50 @@ namespace Desktopirates
             RectTransform rect = (RectTransform)shipyardRoot.transform;
             rect.anchoredPosition = new Vector2(0f, -390f);
             rect.sizeDelta = new Vector2(520f, 500f);
+            UiTheme.AddChartWoodSurface(shipyardRoot.transform, new Vector2(460f, 438f), 0.58f, panelSprite);
             CreateText(shipyardRoot.transform, "SHIPYARD", new Vector2(0f, 214f), new Vector2(260f, 30f), 22, TextAnchor.MiddleCenter).color = Brass;
             shipyardSummary = CreateText(shipyardRoot.transform, "Shipyard Summary", new Vector2(0f, 178f), new Vector2(470f, 36f), 12, TextAnchor.MiddleCenter);
             shipyardSummary.color = new Color(0.78f, 0.91f, 0.90f, 1f);
 
-            CreateText(shipyardRoot.transform, "GUN DECK — CLICK TO INSTALL / STORE", new Vector2(0f, 142f), new Vector2(420f, 22f), 13, TextAnchor.MiddleCenter).color = Brass;
-            CreateCannonSlotButton(CannonSlot.Bow, new Vector2(0f, 108f));
-            CreateCannonSlotButton(CannonSlot.PortFore, new Vector2(-130f, 70f));
-            CreateCannonSlotButton(CannonSlot.StarboardFore, new Vector2(130f, 70f));
-            CreateCannonSlotButton(CannonSlot.PortAft, new Vector2(-130f, 32f));
-            CreateCannonSlotButton(CannonSlot.StarboardAft, new Vector2(130f, 32f));
-            CreateCannonSlotButton(CannonSlot.Stern, new Vector2(0f, -6f));
+            CreateSizedButton(shipyardRoot.transform, "GUN DECK", new Vector2(-112f, 132f), new Vector2(210f, 38f), () => ShowShipyardPage(true));
+            CreateSizedButton(shipyardRoot.transform, "SHIP SYSTEMS", new Vector2(112f, 132f), new Vector2(210f, 38f), () => ShowShipyardPage(false));
 
-            capacityUpgradeText = CreateCompactButton("CAPACITY", new Vector2(-132f, -55f), UpgradeCapacity);
-            propulsionUpgradeText = CreateCompactButton("PROPULSION", new Vector2(132f, -55f), UpgradeEngine);
-            armorUpgradeText = CreateCompactButton("ARMOR", new Vector2(-132f, -94f), UpgradeArmor);
-            turningUpgradeText = CreateCompactButton("TURNING", new Vector2(132f, -94f), UpgradeTurning);
-            gunUpgradeText = CreateCompactButton("GUNS", new Vector2(-132f, -133f), UpgradeCannon);
-            crewHireText = CreateCompactButton("HIRE CREW", new Vector2(132f, -133f), HireCrew);
-            CreateCompactButton("BACK TO PORT", new Vector2(-132f, -188f), () => { shipyardRoot.SetActive(false); portRoot.SetActive(true); });
-            CreateCompactButton("SAIL", new Vector2(132f, -188f), () => { shipyardRoot.SetActive(false); saves.Save(state); });
+            shipyardGunsPage = CreateUiObject("Gun Deck Page", shipyardRoot.transform).gameObject;
+            CreateText(shipyardGunsPage.transform, "CLICK A HARDPOINT TO INSTALL OR STORE", new Vector2(0f, 92f), new Vector2(430f, 24f), 15, TextAnchor.MiddleCenter).color = UiTheme.SecondaryText;
+            CreateCannonSlotButton(CannonSlot.Bow, new Vector2(0f, 58f));
+            CreateCannonSlotButton(CannonSlot.PortFore, new Vector2(-125f, 18f));
+            CreateCannonSlotButton(CannonSlot.StarboardFore, new Vector2(125f, 18f));
+            CreateCannonSlotButton(CannonSlot.PortAft, new Vector2(-125f, -24f));
+            CreateCannonSlotButton(CannonSlot.StarboardAft, new Vector2(125f, -24f));
+            CreateCannonSlotButton(CannonSlot.Stern, new Vector2(0f, -66f));
+
+            shipyardSystemsPage = CreateUiObject("Ship Systems Page", shipyardRoot.transform).gameObject;
+            capacityUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "CAPACITY", new Vector2(-120f, 72f), UpgradeCapacity);
+            propulsionUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "PROPULSION", new Vector2(120f, 72f), UpgradeEngine);
+            armorUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "ARMOR", new Vector2(-120f, 20f), UpgradeArmor);
+            turningUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "TURNING", new Vector2(120f, 20f), UpgradeTurning);
+            gunUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "GUNS", new Vector2(-120f, -32f), UpgradeCannon);
+            crewHireText = CreateCompactButton(shipyardSystemsPage.transform, "HIRE CREW", new Vector2(120f, -32f), HireCrew);
+            CreateCompactButton(shipyardRoot.transform, "BACK TO PORT", new Vector2(-120f, -188f), () => { shipyardRoot.SetActive(false); portRoot.SetActive(true); });
+            CreateCompactButton(shipyardRoot.transform, "SAIL", new Vector2(120f, -188f), () => { shipyardRoot.SetActive(false); saves.Save(state); });
             shipyardRoot.SetActive(false);
+            ShowShipyardPage(true);
         }
 
         private void CreateCannonSlotButton(CannonSlot slot, Vector2 position)
         {
-            Button button = CreateSizedButton(shipyardRoot.transform, ShipCustomizationModel.GetDefinition(slot).ShortName, position, new Vector2(150f, 30f), () => ToggleCannon(slot));
+            Button button = CreateSizedButton(shipyardGunsPage.transform, ShipCustomizationModel.GetDefinition(slot).ShortName, position, new Vector2(210f, 38f), () => ToggleCannon(slot));
             cannonSlotTexts[(int)slot] = button.GetComponentInChildren<Text>();
         }
 
-        private Text CreateCompactButton(string label, Vector2 position, Action action)
-            => CreateSizedButton(shipyardRoot.transform, label, position, new Vector2(220f, 32f), action).GetComponentInChildren<Text>();
+        private Text CreateCompactButton(Transform parent, string label, Vector2 position, Action action)
+            => CreateSizedButton(parent, label, position, new Vector2(226f, 42f), action).GetComponentInChildren<Text>();
+
+        private void ShowShipyardPage(bool guns)
+        {
+            if (shipyardGunsPage != null) shipyardGunsPage.SetActive(guns);
+            if (shipyardSystemsPage != null) shipyardSystemsPage.SetActive(!guns);
+        }
 
         private void OpenPort()
         {
@@ -268,7 +323,7 @@ namespace Desktopirates
         {
             float mass = ShipCustomizationModel.GetMass(state);
             float capacity = ShipCustomizationModel.GetCapacity(state);
-            shipyardSummary.text = $"MASS {mass:0.0}/{capacity:0.0}   SPEED {ShipCustomizationModel.GetSpeedMultiplier(state) * 100f:0}%   TURN {ShipCustomizationModel.GetTurningMultiplier(state) * 100f:0}%\nCREW {state.Crew}   GUNS {ShipCustomizationModel.GetInstalledCannonCount(state)}   DOCK STORAGE {state.SpareCannons}";
+            shipyardSummary.text = $"MASS {mass:0.0}/{capacity:0.0}   SPEED {ShipCustomizationModel.GetSpeedMultiplier(state) * 100f:0}%   TURN {ShipCustomizationModel.GetTurningMultiplier(state) * 100f:0}%\nCREW {state.Crew}   GUNS {ShipCustomizationModel.GetInstalledCannonCount(state)}   STORAGE {state.SpareCannons}";
             for (int i = 0; i < cannonSlotTexts.Length; i++)
             {
                 CannonSlot slot = (CannonSlot)i;
@@ -402,7 +457,7 @@ namespace Desktopirates
             RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(225f, 34f);
             Image image = rect.gameObject.AddComponent<Image>(); image.sprite = pillSprite; image.type = Image.Type.Sliced; image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
-            Text text = CreateText(rect, label, Vector2.zero, rect.sizeDelta, 13, TextAnchor.MiddleCenter); text.color = Color.white;
+            Text text = CreateText(rect, label, Vector2.zero, rect.sizeDelta, 15, TextAnchor.MiddleCenter); text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 15);
             return button;
         }
 
@@ -411,7 +466,7 @@ namespace Desktopirates
             RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = size;
             Image image = rect.gameObject.AddComponent<Image>(); image.sprite = pillSprite; image.type = Image.Type.Sliced; image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
-            Text text = CreateText(rect, label, Vector2.zero, size - new Vector2(8f, 0f), 12, TextAnchor.MiddleCenter); text.color = Color.white;
+            Text text = CreateText(rect, label, Vector2.zero, size - new Vector2(8f, 0f), 15, TextAnchor.MiddleCenter); text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 15);
             return button;
         }
 
