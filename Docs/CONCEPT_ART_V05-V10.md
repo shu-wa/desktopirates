@@ -1,4 +1,4 @@
-# desktopirates concept art v05-v10
+# desktopirates concept art v05-v11
 
 Generated with the built-in ImageGen workflow on 2026-08-13. The original reference supplied by the user was used as the visual anchor. These images are design targets, not textures copied directly into the runtime.
 
@@ -49,6 +49,14 @@ Generated with the built-in ImageGen workflow on 2026-08-13. The original refere
 `Assets/Desktopirates/Art/Concept/desktopirates-concept-v10-night-encounter.png`
 
 > Create a moonlit encounter on the circular sea: the cutter passes a partly submerged wreck while an enemy raider approaches the rim. Use a large coral enemy tag, mint wreck tag and amber treasure tag. Show a restrained cannon flash, one projectile, moonlit wakes and moving water. The telegraph reads “HALF” with five lit segments, and hull damage is visible as one red pip rather than a long number.
+
+### v11 — spacious live voyage and chart
+
+`Assets/Desktopirates/Art/Concept/desktopirates-concept-v11-live-voyage-map.png`
+
+> Create a premium desktop-overlay concept with no rectangular window. Make a broad circular faceted ocean the dominant form, with a continuously sailing customizable pirate cutter, strong wake trails, distant harbor, enemy, wreck and treasure. Keep the compact status strip and thin engine telegraph outside the water. Add a separate circular live-chart inset with north-up grid, explored teal regions, fogged unknown regions, event icons and an off-center moving player arrow. Above the sea, retain the draggable day-to-night menu circle. Use deep navy, petrol teal, aged brass and warm sunset highlights.
+
+This is the current composition target after the sailing-visibility and live-chart pass: gameplay information belongs around the sea, while the ocean and ship remain visually unobstructed.
 
 ## Runtime translation
 
