@@ -96,6 +96,39 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void StopOrderLeavesAVisibleWaterborneCoast()
+        {
+            float fullSpeed = CruiseModel.GetMaxSpeed(0);
+            float afterOneSecond = CruiseModel.IntegrateForwardSpeed(fullSpeed, 0f, 1f);
+
+            Assert.That(afterOneSecond, Is.GreaterThan(fullSpeed * 0.5f));
+            Assert.That(CruiseModel.IsCoasting(afterOneSecond, 0f), Is.True);
+        }
+
+        [Test]
+        public void WaterDragEventuallyBringsTheBoatToRest()
+        {
+            float speed = CruiseModel.GetMaxSpeed(0);
+            float elapsed = 0f;
+            while (speed > 0f && elapsed < 30f)
+            {
+                speed = CruiseModel.IntegrateForwardSpeed(speed, 0f, 0.02f);
+                elapsed += 0.02f;
+            }
+
+            Assert.That(speed, Is.EqualTo(0f));
+            Assert.That(elapsed, Is.GreaterThan(8f).And.LessThan(25f));
+        }
+
+        [Test]
+        public void CoastGaugeShowsActualMotionAfterStopIsOrdered()
+        {
+            Assert.That(SpeedGaugeModel.GetMotionLabel(0, 3, 1.2f, 0f), Is.EqualTo("COAST"));
+            Assert.That(SpeedGaugeModel.GetActualNeedle01(1.725f, 3.45f), Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(SpeedGaugeModel.GetMotionLabel(0, 3, 0f, 0f), Is.EqualTo("STOP"));
+        }
+
+        [Test]
         public void BoatKeepsMovingAfterTheAccelerationKeyIsReleased()
         {
             var controllerObject = new GameObject("Cruise Test Controller");

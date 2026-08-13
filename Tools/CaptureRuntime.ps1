@@ -3,6 +3,7 @@ param(
     [string]$NightOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Night.png'),
     [string]$DayOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Day.png'),
     [string]$SailingOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Sailing.png'),
+    [string]$CoastingOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Coasting.png'),
     [string]$InventoryOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Inventory.png')
 )
 
@@ -110,6 +111,13 @@ try {
     }
     Start-Sleep -Seconds 3
     Save-WindowCapture $game.MainWindowHandle $SailingOutput
+
+    # All-stop lowers the telegraph immediately, while the needle and wake retain actual momentum.
+    1..3 | ForEach-Object {
+        Send-TestKey 0x53
+    }
+    Start-Sleep -Seconds 1
+    Save-WindowCapture $game.MainWindowHandle $CoastingOutput
 
     # TAB toggles the circular cargo hold without stopping the persistent voyage.
     Send-TestKey 0x09

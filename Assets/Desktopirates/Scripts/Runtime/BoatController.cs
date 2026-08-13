@@ -10,6 +10,8 @@ namespace Desktopirates
         public int CruiseStep { get; private set; }
         public int MaxCruiseStep => CruiseModel.GetMaxStep(State != null ? State.EngineLevel : 0);
         public float TargetSpeed => CruiseModel.GetTargetSpeed(CruiseStep, State != null ? State.EngineLevel : 0);
+        public float MaxSpeed => CruiseModel.GetMaxSpeed(State != null ? State.EngineLevel : 0);
+        public bool IsCoasting => CruiseModel.IsCoasting(Speed, TargetSpeed);
         public GameState State { get; private set; }
 
         private Transform boatVisual;
@@ -38,10 +40,12 @@ namespace Desktopirates
         {
             if (boatVisual == null || State == null) return;
             CruiseStep = Mathf.Clamp(CruiseStep, 0, MaxCruiseStep);
-            float acceleration = TargetSpeed > Speed ? 1.55f : 2.65f;
-            Speed = Mathf.MoveTowards(Speed, TargetSpeed, deltaTime * acceleration);
+            Speed = CruiseModel.IntegrateForwardSpeed(Speed, TargetSpeed, deltaTime);
 
-            float steerStrength = 34f + Speed * 13f;
+            // A rudder needs water flowing over it; a stopped ship cannot spin in place.
+            float steerStrength = Speed <= CruiseModel.StopSnapSpeed
+                ? 0f
+                : Mathf.Lerp(18f, 62f, Mathf.Clamp01(Speed / Mathf.Max(0.01f, MaxSpeed)));
             HeadingDegrees = Mathf.Repeat(HeadingDegrees + steering * steerStrength * deltaTime, 360f);
             float radians = HeadingDegrees * Mathf.Deg2Rad;
             Vector2 forward = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));

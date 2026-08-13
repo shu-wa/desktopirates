@@ -20,5 +20,15 @@ namespace Desktopirates
         {
             return Mathf.Clamp01(step / (float)Mathf.Max(1, maxStep));
         }
+
+        public static float GetActualNeedle01(float speed, float maxSpeed)
+        {
+            return Mathf.Clamp01(speed / Mathf.Max(0.01f, maxSpeed));
+        }
+
+        public static string GetMotionLabel(int step, int maxStep, float speed, float targetSpeed)
+        {
+            return CruiseModel.IsCoasting(speed, targetSpeed) ? "COAST" : GetLabel(step, maxStep);
+        }
     }
 }

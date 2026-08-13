@@ -77,22 +77,31 @@ namespace Desktopirates
             if (boat == null) return;
             int step = boat.CruiseStep;
             int max = boat.MaxCruiseStep;
-            if (!force && step == lastStep && max == lastMax) return;
-            lastStep = step;
-            lastMax = max;
-
-            for (int i = 0; i < segments.Length; i++)
+            if (force || step != lastStep || max != lastMax)
             {
-                bool unlocked = i < max;
-                bool lit = i < step;
-                segments[i].texture = lit ? activeTexture : inactiveTexture;
-                segments[i].color = !unlocked ? Locked : lit ? Active : Available;
+                lastStep = step;
+                lastMax = max;
+                for (int i = 0; i < segments.Length; i++)
+                {
+                    bool unlocked = i < max;
+                    bool lit = i < step;
+                    segments[i].texture = lit ? activeTexture : inactiveTexture;
+                    segments[i].color = !unlocked ? Locked : lit ? Active : Available;
+                }
             }
 
-            float normalized = SpeedGaugeModel.GetNeedle01(step, max);
+            // Lamps show the engine order; the needle follows actual speed and visibly lags while coasting.
+            float normalized = SpeedGaugeModel.GetActualNeedle01(boat.Speed, boat.MaxSpeed);
             needle.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(62f, -62f, normalized));
-            stateLabel.text = SpeedGaugeModel.GetLabel(step, max);
-            stepLabel.text = step == 0 ? "W  AHEAD" : $"W +   {step}/{max}   S -";
+            stateLabel.text = SpeedGaugeModel.GetMotionLabel(step, max, boat.Speed, boat.TargetSpeed);
+            if (boat.IsCoasting)
+            {
+                stepLabel.text = step == 0 ? $"DRIFT  {boat.Speed:0.0}" : $"SLOWING  {step}/{max}";
+            }
+            else
+            {
+                stepLabel.text = step == 0 ? "W  AHEAD" : $"W +   {step}/{max}   S -";
+            }
         }
 
         private static Text CreateText(string name, Transform parent, Font font, int size, Vector2 position, Vector2 dimensions)
