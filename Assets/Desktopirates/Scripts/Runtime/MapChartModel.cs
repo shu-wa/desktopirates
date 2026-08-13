@@ -23,6 +23,9 @@ namespace Desktopirates
         public static bool IsInside(Vector2 mapPosition)
             => mapPosition.sqrMagnitude <= UiRadius * UiRadius;
 
+        public static bool ShouldRecenter(Vector2 worldPosition, Vector2 center, MapZoom zoom, float threshold = 0.72f)
+            => WorldToMap(worldPosition, center, zoom).magnitude >= UiRadius * Mathf.Clamp01(threshold);
+
         public static Texture2D CreateTexture(GameState state, Vector2 center, MapZoom zoom, int size = TextureSize)
         {
             int textureSize = Mathf.Max(64, size);

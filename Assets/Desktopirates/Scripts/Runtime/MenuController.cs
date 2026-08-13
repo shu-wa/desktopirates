@@ -25,6 +25,11 @@ namespace Desktopirates
         private Text wideZoomText;
         private Texture2D mapTexture;
         private MapZoom mapZoom = MapZoom.Local;
+        private Vector2 mapChartCenter;
+        private float nextMapLiveUpdate;
+        private int mappedExploredChunkCount = -1;
+        private RectTransform mapPlayerMarker;
+        private RectTransform mapHeading;
         private GameObject portRoot;
         private GameObject shipyardRoot;
         private GameObject shipyardGunsPage;
@@ -102,6 +107,7 @@ namespace Desktopirates
             prompt.text = pois.InteractionPrompt;
             prompt.transform.parent.gameObject.SetActive(normalHud && !string.IsNullOrEmpty(prompt.text));
             toast.transform.parent.gameObject.SetActive((inventory == null || !inventory.IsOpen) && Time.unscaledTime < toastUntil);
+            if (mapRoot != null && Time.unscaledTime >= nextMapLiveUpdate) UpdateLiveMap();
             if (Input.GetKeyDown(KeyCode.M))
             {
                 if (mapRoot != null) CloseMap();
@@ -147,17 +153,16 @@ namespace Desktopirates
         private void BuildHud()
         {
             RectTransform dashboard = CreateUiObject("Ship Dashboard", canvas);
-            dashboard.anchoredPosition = new Vector2(0f, -316f);
-            dashboard.sizeDelta = new Vector2(476f, 68f);
+            dashboard.anchoredPosition = new Vector2(0f, -194f);
+            dashboard.sizeDelta = new Vector2(408f, 48f);
             hudRoot = dashboard.gameObject;
             Image dashboardBack = dashboard.gameObject.AddComponent<Image>(); dashboardBack.sprite = pillSprite; dashboardBack.type = Image.Type.Sliced; dashboardBack.color = Color.white; dashboardBack.raycastTarget = false;
-            UiTheme.AddChartWoodSurface(dashboard, new Vector2(446f, 50f), 0.34f);
-            hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-174f, 0f), UiTheme.Mint, out hullBar);
-            goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-58f, 0f), UiTheme.Brass, out _);
-            crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(58f, 0f), UiTheme.SecondaryText, out _);
-            loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(174f, 0f), UiTheme.Brass, out loadBar);
+            hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-150f, 0f), UiTheme.Mint, out hullBar);
+            goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-50f, 0f), UiTheme.Brass, out _);
+            crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(50f, 0f), UiTheme.SecondaryText, out _);
+            loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(150f, 0f), UiTheme.Brass, out loadBar);
 
-            prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -690f), new Vector2(410f, 38f), 18);
+            prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -646f), new Vector2(390f, 34f), 17);
             prompt.color = UiTheme.PrimaryText;
             UiTheme.StyleText(prompt, 18);
             toast = CreatePillText(canvas, "Event Message", new Vector2(0f, -365f), new Vector2(430f, 40f), 18);
@@ -168,11 +173,11 @@ namespace Desktopirates
 
         private Text CreateStatusCard(Transform parent, string label, Vector2 position, Color accent, out Image meter)
         {
-            RectTransform card = CreateUiObject(label + " Status Card", parent); card.anchoredPosition = position; card.sizeDelta = new Vector2(108f, 50f);
+            RectTransform card = CreateUiObject(label + " Status Card", parent); card.anchoredPosition = position; card.sizeDelta = new Vector2(94f, 40f);
             Image background = card.gameObject.AddComponent<Image>(); background.sprite = pillSprite; background.type = Image.Type.Sliced; background.color = new Color(0.72f, 0.82f, 0.80f, 0.96f); background.raycastTarget = false;
-            Text caption = CreateText(card, label, new Vector2(0f, 12f), new Vector2(96f, 18f), 15, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 15);
-            Text value = CreateText(card, label + " Value", new Vector2(0f, -8f), new Vector2(96f, 24f), 18, TextAnchor.MiddleCenter); value.color = UiTheme.PrimaryText; UiTheme.StyleText(value, 18);
-            RectTransform bar = CreateUiObject(label + " Meter", card); bar.anchoredPosition = new Vector2(0f, -20f); bar.sizeDelta = new Vector2(82f, 4f);
+            Text caption = CreateText(card, label, new Vector2(0f, 9f), new Vector2(84f, 15f), 13, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 13);
+            Text value = CreateText(card, label + " Value", new Vector2(0f, -7f), new Vector2(84f, 20f), 16, TextAnchor.MiddleCenter); value.color = UiTheme.PrimaryText; UiTheme.StyleText(value, 16);
+            RectTransform bar = CreateUiObject(label + " Meter", card); bar.anchoredPosition = new Vector2(0f, -17f); bar.sizeDelta = new Vector2(68f, 3f);
             Image track = bar.gameObject.AddComponent<Image>(); track.color = new Color(0.04f, 0.12f, 0.15f, 1f); track.raycastTarget = false;
             RectTransform fill = CreateUiObject(label + " Meter Fill", bar); fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.offsetMin = fill.offsetMax = Vector2.zero;
             meter = fill.gameObject.AddComponent<Image>(); meter.type = Image.Type.Filled; meter.fillMethod = Image.FillMethod.Horizontal; meter.color = accent; meter.raycastTarget = false;
@@ -405,6 +410,7 @@ namespace Desktopirates
         private void OpenMap()
         {
             if (mapRoot != null) return;
+            mapChartCenter = boat.LogicalPosition;
             RectTransform panel = CreateUiObject("Exploration Chart", canvas);
             mapRoot = panel.gameObject;
             panel.anchoredPosition = new Vector2(0f, -405f);
@@ -444,15 +450,45 @@ namespace Desktopirates
         {
             mapZoom = zoom;
             if (mapImage == null) return;
-            if (mapTexture != null) Destroy(mapTexture);
-            mapTexture = MapChartModel.CreateTexture(state, boat.LogicalPosition, mapZoom);
-            mapImage.texture = mapTexture;
+            mapChartCenter = boat.LogicalPosition;
+            RefreshMapTexture();
             localZoomText.color = zoom == MapZoom.Local ? UiTheme.Brass : UiTheme.SecondaryText;
             wideZoomText.color = zoom == MapZoom.Wide ? UiTheme.Brass : UiTheme.SecondaryText;
+            RebuildMapMarkers();
+            UpdateMapStatus();
+        }
+
+        private void RefreshMapTexture()
+        {
+            if (mapTexture != null) Destroy(mapTexture);
+            mapTexture = MapChartModel.CreateTexture(state, mapChartCenter, mapZoom);
+            mapImage.texture = mapTexture;
+            mappedExploredChunkCount = state.ExploredChunks.Count;
+        }
+
+        private void UpdateLiveMap()
+        {
+            nextMapLiveUpdate = Time.unscaledTime + 0.12f;
+            bool recentered = MapChartModel.ShouldRecenter(boat.LogicalPosition, mapChartCenter, mapZoom);
+            if (recentered) mapChartCenter = boat.LogicalPosition;
+            if (recentered || mappedExploredChunkCount != state.ExploredChunks.Count)
+            {
+                RefreshMapTexture();
+                RebuildMapMarkers();
+            }
+            else
+            {
+                UpdateMapPlayerMarker();
+            }
+            UpdateMapStatus();
+        }
+
+        private void UpdateMapStatus()
+        {
+            if (mapStatus == null) return;
             int chunkX = Mathf.FloorToInt(boat.LogicalPosition.x / WorldGenerator.ChunkSize);
             int chunkY = Mathf.FloorToInt(boat.LogicalPosition.y / WorldGenerator.ChunkSize);
-            mapStatus.text = $"{(zoom == MapZoom.Local ? "LOCAL  4.5" : "WIDE  9.5")} GRID RADIUS   POSITION {chunkX:+0;-0;0}, {chunkY:+0;-0;0}";
-            RebuildMapMarkers();
+            mapStatus.text = $"LIVE  {(mapZoom == MapZoom.Local ? "LOCAL 4.5" : "WIDE 9.5")}   POS {chunkX:+0;-0;0},{chunkY:+0;-0;0}   HDG {boat.HeadingDegrees:000}°   {SpeedGaugeModel.GetMotionLabel(boat.CruiseStep, boat.MaxCruiseStep, boat.Speed, boat.TargetSpeed)}";
         }
 
         private void RebuildMapMarkers()
@@ -460,10 +496,10 @@ namespace Desktopirates
             if (mapMarkersRoot == null) return;
             foreach (Transform child in mapMarkersRoot.transform) Destroy(child.gameObject);
             float radius = MapChartModel.GetWorldRadius(mapZoom);
-            int minX = Mathf.FloorToInt((boat.LogicalPosition.x - radius) / WorldGenerator.ChunkSize);
-            int maxX = Mathf.FloorToInt((boat.LogicalPosition.x + radius) / WorldGenerator.ChunkSize);
-            int minY = Mathf.FloorToInt((boat.LogicalPosition.y - radius) / WorldGenerator.ChunkSize);
-            int maxY = Mathf.FloorToInt((boat.LogicalPosition.y + radius) / WorldGenerator.ChunkSize);
+            int minX = Mathf.FloorToInt((mapChartCenter.x - radius) / WorldGenerator.ChunkSize);
+            int maxX = Mathf.FloorToInt((mapChartCenter.x + radius) / WorldGenerator.ChunkSize);
+            int minY = Mathf.FloorToInt((mapChartCenter.y - radius) / WorldGenerator.ChunkSize);
+            int maxY = Mathf.FloorToInt((mapChartCenter.y + radius) / WorldGenerator.ChunkSize);
             var events = new System.Collections.Generic.List<GeneratedEventData>();
             for (int chunkY = minY; chunkY <= maxY; chunkY++)
             for (int chunkX = minX; chunkX <= maxX; chunkX++)
@@ -473,7 +509,7 @@ namespace Desktopirates
                 foreach (GeneratedEventData data in events)
                 {
                     if (state.ResolvedEvents.Contains(data.Id)) continue;
-                    Vector2 position = MapChartModel.WorldToMap(data.Position, boat.LogicalPosition, mapZoom);
+                    Vector2 position = MapChartModel.WorldToMap(data.Position, mapChartCenter, mapZoom);
                     if (!MapChartModel.IsInside(position)) continue;
                     RectTransform marker = CreateUiObject($"Known {data.Kind}", mapMarkersRoot.transform);
                     marker.anchoredPosition = position; marker.sizeDelta = Vector2.one * (mapZoom == MapZoom.Local ? 36f : 28f);
@@ -481,12 +517,21 @@ namespace Desktopirates
                 }
             }
 
-            RectTransform heading = CreateUiObject("Ship Heading", mapMarkersRoot.transform); heading.anchoredPosition = new Vector2(0f, 25f); heading.sizeDelta = new Vector2(5f, 48f); heading.pivot = new Vector2(0.5f, 0f);
-            Image course = heading.gameObject.AddComponent<Image>(); course.color = UiTheme.Brass; course.raycastTarget = false;
-            heading.localRotation = Quaternion.Euler(0f, 0f, -boat.HeadingDegrees);
-            RectTransform playerMarker = CreateUiObject("Current Ship Position", mapMarkersRoot.transform); playerMarker.sizeDelta = new Vector2(44f, 44f);
-            RawImage playerImage = playerMarker.gameObject.AddComponent<RawImage>(); playerImage.texture = UiTextureFactory.LoadCompassArrow(); playerImage.color = UiTheme.PrimaryText; playerImage.raycastTarget = false;
-            playerMarker.localRotation = Quaternion.Euler(0f, 0f, -boat.HeadingDegrees);
+            mapHeading = CreateUiObject("Ship Heading", mapMarkersRoot.transform); mapHeading.sizeDelta = new Vector2(5f, 48f); mapHeading.pivot = new Vector2(0.5f, 0f);
+            Image course = mapHeading.gameObject.AddComponent<Image>(); course.color = UiTheme.Brass; course.raycastTarget = false;
+            mapPlayerMarker = CreateUiObject("Current Ship Position", mapMarkersRoot.transform); mapPlayerMarker.sizeDelta = new Vector2(44f, 44f);
+            RawImage playerImage = mapPlayerMarker.gameObject.AddComponent<RawImage>(); playerImage.texture = UiTextureFactory.LoadCompassArrow(); playerImage.color = UiTheme.PrimaryText; playerImage.raycastTarget = false;
+            UpdateMapPlayerMarker();
+        }
+
+        private void UpdateMapPlayerMarker()
+        {
+            if (mapPlayerMarker == null || mapHeading == null) return;
+            Vector2 position = MapChartModel.WorldToMap(boat.LogicalPosition, mapChartCenter, mapZoom);
+            mapPlayerMarker.anchoredPosition = position;
+            mapHeading.anchoredPosition = position;
+            mapPlayerMarker.localRotation = Quaternion.Euler(0f, 0f, -boat.HeadingDegrees);
+            mapHeading.localRotation = Quaternion.Euler(0f, 0f, -boat.HeadingDegrees);
         }
 
         private void CreateCardinalLabel(Transform parent, string label, Vector2 position)
@@ -522,6 +567,7 @@ namespace Desktopirates
             if (mapTexture != null) { Destroy(mapTexture); mapTexture = null; }
             if (mapRoot != null) { Destroy(mapRoot); mapRoot = null; }
             mapImage = null; mapMarkersRoot = null; mapStatus = null; localZoomText = null; wideZoomText = null;
+            mapPlayerMarker = null; mapHeading = null; mappedExploredChunkCount = -1;
         }
 
         private void CloseAll()

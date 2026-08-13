@@ -73,7 +73,7 @@ namespace Desktopirates
 
         private void BuildBagButton(RectTransform canvas)
         {
-            RectTransform buttonRect = CreateRect("Cargo Bag Button", canvas, new Vector2(296f, -505f), new Vector2(62f, 62f));
+            RectTransform buttonRect = CreateRect("Cargo Bag Button", canvas, new Vector2(302f, -696f), new Vector2(54f, 54f));
             launcherButton = buttonRect.gameObject;
             RawImage image = buttonRect.gameObject.AddComponent<RawImage>();
             image.texture = UiTextureFactory.LoadMenuButton(MenuGlyph.Inventory, 80);
@@ -81,7 +81,7 @@ namespace Desktopirates
             button.targetGraphic = image;
             button.onClick.AddListener(Toggle);
 
-            RectTransform hintPill = CreateRect("Cargo Tab Hint Pill", canvas, new Vector2(296f, -548f), new Vector2(46f, 20f));
+            RectTransform hintPill = CreateRect("Cargo Tab Hint Pill", canvas, new Vector2(302f, -731f), new Vector2(44f, 18f));
             launcherHint = hintPill.gameObject;
             Image hintBackground = hintPill.gameObject.AddComponent<Image>();
             hintBackground.sprite = UiTextureFactory.LoadPillSprite();

@@ -13,7 +13,7 @@ namespace Desktopirates
         private MenuController menu;
         private GameObject gaugeRoot;
         private readonly RawImage[] segments = new RawImage[SpeedGaugeModel.SegmentCount];
-        private RectTransform needle;
+        private Image motionBar;
         private Text stateLabel;
         private Text stepLabel;
         private Texture2D activeTexture;
@@ -30,10 +30,10 @@ namespace Desktopirates
             inactiveTexture = UiTextureFactory.LoadSpeedSegment(false);
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-            RectTransform root = CreateRect("Engine Telegraph", canvas);
+            RectTransform root = CreateRect("Compact Engine Telegraph", canvas);
             gaugeRoot = root.gameObject;
-            root.anchoredPosition = new Vector2(0f, -575f);
-            root.sizeDelta = new Vector2(255f, 102f);
+            root.anchoredPosition = new Vector2(-52f, -702f);
+            root.sizeDelta = new Vector2(438f, 44f);
             Image background = root.gameObject.AddComponent<Image>();
             background.sprite = UiTextureFactory.LoadPillSprite();
             background.type = Image.Type.Sliced;
@@ -42,31 +42,29 @@ namespace Desktopirates
 
             for (int i = 0; i < segments.Length; i++)
             {
-                float t = i / (float)(segments.Length - 1);
-                float degrees = Mathf.Lerp(154f, 26f, t);
-                float radians = degrees * Mathf.Deg2Rad;
                 RectTransform rect = CreateRect($"Telegraph Segment {i + 1}", root);
-                rect.anchoredPosition = new Vector2(Mathf.Cos(radians) * 82f, 8f + Mathf.Sin(radians) * 62f);
-                rect.sizeDelta = new Vector2(17f, 35f);
-                rect.localRotation = Quaternion.Euler(0f, 0f, degrees - 90f);
+                rect.anchoredPosition = new Vector2(-100f + i * 27f, 6f);
+                rect.sizeDelta = new Vector2(20f, 15f);
                 segments[i] = rect.gameObject.AddComponent<RawImage>();
                 segments[i].raycastTarget = false;
             }
 
-            needle = CreateRect("Telegraph Needle", root);
-            needle.pivot = new Vector2(0.5f, 0.08f);
-            needle.anchoredPosition = new Vector2(0f, -15f);
-            needle.sizeDelta = new Vector2(14f, 62f);
-            RawImage needleImage = needle.gameObject.AddComponent<RawImage>();
-            needleImage.texture = UiTextureFactory.LoadSpeedNeedle();
-            needleImage.raycastTarget = false;
+            RectTransform motionTrack = CreateRect("Actual Speed Track", root);
+            motionTrack.anchoredPosition = new Vector2(-5f, -12f);
+            motionTrack.sizeDelta = new Vector2(210f, 5f);
+            Image trackImage = motionTrack.gameObject.AddComponent<Image>();
+            trackImage.color = new Color(0.025f, 0.09f, 0.11f, 1f); trackImage.raycastTarget = false;
+            RectTransform motionFill = CreateRect("Actual Speed Fill", motionTrack);
+            motionFill.anchorMin = Vector2.zero; motionFill.anchorMax = Vector2.one; motionFill.offsetMin = motionFill.offsetMax = Vector2.zero;
+            motionBar = motionFill.gameObject.AddComponent<Image>(); motionBar.type = Image.Type.Filled; motionBar.fillMethod = Image.FillMethod.Horizontal;
+            motionBar.color = UiTheme.Mint; motionBar.raycastTarget = false;
 
-            stateLabel = CreateText("Speed State", root, font, 17, new Vector2(0f, -33f), new Vector2(128f, 24f));
+            stateLabel = CreateText("Speed State", root, font, 16, new Vector2(-166f, 1f), new Vector2(84f, 24f));
             stateLabel.color = UiTheme.Brass;
-            UiTheme.StyleText(stateLabel, 18);
-            stepLabel = CreateText("Speed Step Hint", root, font, 15, new Vector2(0f, -53f), new Vector2(190f, 22f));
+            UiTheme.StyleText(stateLabel, 16);
+            stepLabel = CreateText("Speed Step Hint", root, font, 13, new Vector2(160f, 1f), new Vector2(104f, 24f));
             stepLabel.color = UiTheme.SecondaryText;
-            UiTheme.StyleText(stepLabel, 15);
+            UiTheme.StyleText(stepLabel, 13);
             Refresh(true);
         }
 
@@ -94,17 +92,18 @@ namespace Desktopirates
                 }
             }
 
-            // Lamps show the engine order; the needle follows actual speed and visibly lags while coasting.
+            // Lamps show the engine order; the lower bar follows actual speed and visibly lags while coasting.
             float normalized = SpeedGaugeModel.GetActualNeedle01(boat.Speed, boat.MaxSpeed);
-            needle.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(62f, -62f, normalized));
+            motionBar.fillAmount = normalized;
+            motionBar.color = boat.IsCoasting ? UiTheme.Brass : UiTheme.Mint;
             stateLabel.text = SpeedGaugeModel.GetMotionLabel(step, max, boat.Speed, boat.TargetSpeed);
             if (boat.IsCoasting)
             {
-                stepLabel.text = step == 0 ? $"DRIFT  {boat.Speed:0.0}" : $"SLOWING  {step}/{max}";
+                stepLabel.text = step == 0 ? $"DRIFT {boat.Speed:0.0}" : $"SLOW {step}/{max}";
             }
             else
             {
-                stepLabel.text = step == 0 ? "W  AHEAD" : $"W +   {step}/{max}   S -";
+                stepLabel.text = step == 0 ? "W AHEAD" : $"W+ {step}/{max} S-";
             }
         }
 

@@ -72,8 +72,8 @@ namespace Desktopirates
 
                 Vector2 direction = relative.sqrMagnitude > 0.001f ? relative.normalized : Vector2.up;
                 Vector2 screenDirection = DistanceTagMath.Rotate(direction, -cameraRig.CurrentYaw);
-                float xRadius = 267f;
-                float yRadius = 177f;
+                float xRadius = 282f;
+                float yRadius = 188f;
                 Vector2 discCenter = new Vector2(0f, -63f);
                 Vector2 tagPosition = discCenter + new Vector2(screenDirection.x * xRadius, screenDirection.y * yRadius);
                 if (screenDirection.y > 0.72f && Mathf.Abs(screenDirection.x) < 0.38f)

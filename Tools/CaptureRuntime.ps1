@@ -101,6 +101,9 @@ try {
         return
     }
     if ($MapOnly) {
+        # Prove the chart remains live: order ahead and let the ship marker/course update before capture.
+        1..3 | ForEach-Object { Send-TestKey 0x57 }
+        Start-Sleep -Seconds 3
         Save-WindowCapture $game.MainWindowHandle $MapOutput
         return
     }

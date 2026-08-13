@@ -53,6 +53,18 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void LiveChartMarkerMovesUntilItNeedsRecentering()
+        {
+            Vector2 chartCenter = new Vector2(20f, -8f);
+            Vector2 nearbyShip = chartCenter + Vector2.right * 12f;
+            Vector2 farShip = chartCenter + Vector2.right * (MapChartModel.GetWorldRadius(MapZoom.Local) * 0.8f);
+
+            Assert.That(MapChartModel.WorldToMap(nearbyShip, chartCenter, MapZoom.Local).x, Is.GreaterThan(0f));
+            Assert.That(MapChartModel.ShouldRecenter(nearbyShip, chartCenter, MapZoom.Local), Is.False);
+            Assert.That(MapChartModel.ShouldRecenter(farShip, chartCenter, MapZoom.Local), Is.True);
+        }
+
+        [Test]
         public void ExplorationChartUsesATransparentCircularBoundary()
         {
             Texture2D chart = MapChartModel.CreateTexture(new GameState(), Vector2.zero, MapZoom.Local, 96);
