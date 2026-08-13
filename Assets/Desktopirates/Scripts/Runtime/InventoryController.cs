@@ -10,6 +10,8 @@ namespace Desktopirates
         private static readonly Color Mint = new Color(0.23f, 0.88f, 0.78f, 1f);
         private GameState state;
         private GameObject root;
+        private GameObject launcherButton;
+        private GameObject launcherHint;
         private Text totalText;
         private Text detailName;
         private Text detailText;
@@ -17,6 +19,7 @@ namespace Desktopirates
         private readonly Image[] slotFrames = new Image[SalvageInventory.PartKindCount];
         private SalvagePartKind selected;
         private Font font;
+        private bool launcherVisible;
 
         public bool IsOpen => root != null && root.activeSelf;
 
@@ -31,7 +34,7 @@ namespace Desktopirates
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Tab)) Toggle();
+            if (Input.GetKeyDown(KeyCode.Tab) && (launcherVisible || IsOpen)) Toggle();
             if (IsOpen && Input.GetKeyDown(KeyCode.Escape)) Close();
         }
 
@@ -52,6 +55,13 @@ namespace Desktopirates
             if (root != null) root.SetActive(false);
         }
 
+        public void SetLauncherVisible(bool visible)
+        {
+            launcherVisible = visible;
+            if (launcherButton != null) launcherButton.SetActive(visible);
+            if (launcherHint != null) launcherHint.SetActive(visible);
+        }
+
         public void Refresh()
         {
             if (state == null || totalText == null) return;
@@ -64,6 +74,7 @@ namespace Desktopirates
         private void BuildBagButton(RectTransform canvas)
         {
             RectTransform buttonRect = CreateRect("Cargo Bag Button", canvas, new Vector2(296f, -505f), new Vector2(62f, 62f));
+            launcherButton = buttonRect.gameObject;
             RawImage image = buttonRect.gameObject.AddComponent<RawImage>();
             image.texture = UiTextureFactory.LoadMenuButton(MenuGlyph.Inventory, 80);
             Button button = buttonRect.gameObject.AddComponent<Button>();
@@ -71,6 +82,7 @@ namespace Desktopirates
             button.onClick.AddListener(Toggle);
 
             RectTransform hintPill = CreateRect("Cargo Tab Hint Pill", canvas, new Vector2(296f, -548f), new Vector2(46f, 20f));
+            launcherHint = hintPill.gameObject;
             Image hintBackground = hintPill.gameObject.AddComponent<Image>();
             hintBackground.sprite = UiTextureFactory.LoadPillSprite();
             hintBackground.type = Image.Type.Sliced;

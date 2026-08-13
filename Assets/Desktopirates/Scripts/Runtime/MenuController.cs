@@ -18,6 +18,13 @@ namespace Desktopirates
         private GameObject compassRoot;
         private GameObject menuRoot;
         private GameObject mapRoot;
+        private GameObject mapMarkersRoot;
+        private RawImage mapImage;
+        private Text mapStatus;
+        private Text localZoomText;
+        private Text wideZoomText;
+        private Texture2D mapTexture;
+        private MapZoom mapZoom = MapZoom.Local;
         private GameObject portRoot;
         private GameObject shipyardRoot;
         private GameObject shipyardGunsPage;
@@ -74,6 +81,7 @@ namespace Desktopirates
                 OpenPort();
                 OpenShipyard();
             }
+            else if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--map-preview")) OpenMap();
         }
 
         private void Update()
@@ -89,10 +97,16 @@ namespace Desktopirates
             loadBar.color = loadRatio >= 0.92f ? UiTheme.Danger : loadRatio >= 0.78f ? UiTheme.Warning : UiTheme.Brass;
             bool normalHud = (inventory == null || !inventory.IsOpen) && !IsModalOpen;
             hudRoot.SetActive(normalHud);
+            inventory?.SetLauncherVisible(normalHud);
             if (compassRoot != null) compassRoot.SetActive(normalHud);
             prompt.text = pois.InteractionPrompt;
             prompt.transform.parent.gameObject.SetActive(normalHud && !string.IsNullOrEmpty(prompt.text));
             toast.transform.parent.gameObject.SetActive((inventory == null || !inventory.IsOpen) && Time.unscaledTime < toastUntil);
+            if (Input.GetKeyDown(KeyCode.M))
+            {
+                if (mapRoot != null) CloseMap();
+                else { CloseAll(); OpenMap(); }
+            }
             if (Input.GetKeyDown(KeyCode.Escape)) CloseAll();
         }
 
@@ -390,40 +404,124 @@ namespace Desktopirates
 
         private void OpenMap()
         {
-            mapRoot = CreateUiObject("Exploration Chart", canvas).gameObject;
-            var imageObject = CreateUiObject("Circular Map", mapRoot.transform);
-            var frameObject = CreateUiObject("Map Brass Bezel", mapRoot.transform);
-            Image frame = frameObject.gameObject.AddComponent<Image>(); frame.sprite = panelSprite; frame.color = Color.white; frame.raycastTarget = false;
-            frameObject.sizeDelta = new Vector2(340f, 340f); frameObject.anchoredPosition = new Vector2(0f, -405f);
-            frameObject.SetSiblingIndex(imageObject.GetSiblingIndex());
-            var map = imageObject.gameObject.AddComponent<RawImage>();
-            map.texture = CreateMapTexture(240);
-            imageObject.sizeDelta = new Vector2(320f, 320f);
-            imageObject.anchoredPosition = new Vector2(0f, -405f);
-            CreateButton(mapRoot.transform, "BACK", new Vector2(0f, -610f), () => { Destroy(mapRoot); mapRoot = null; });
+            if (mapRoot != null) return;
+            RectTransform panel = CreateUiObject("Exploration Chart", canvas);
+            mapRoot = panel.gameObject;
+            panel.anchoredPosition = new Vector2(0f, -405f);
+            panel.sizeDelta = new Vector2(550f, 550f);
+            Image panelBack = panel.gameObject.AddComponent<Image>(); panelBack.sprite = panelSprite; panelBack.color = Color.white; panelBack.raycastTarget = false;
+            UiTheme.AddChartWoodSurface(panel, new Vector2(510f, 510f), 0.58f, panelSprite);
+
+            Text title = CreateText(panel, "EXPLORATION CHART", new Vector2(0f, 246f), new Vector2(320f, 30f), 22, TextAnchor.MiddleCenter);
+            title.color = UiTheme.Brass; UiTheme.StyleText(title, 22);
+            localZoomText = CreateSizedButton(panel, "LOCAL", new Vector2(-74f, 211f), new Vector2(136f, 38f), () => SetMapZoom(MapZoom.Local)).GetComponentInChildren<Text>();
+            wideZoomText = CreateSizedButton(panel, "WIDE", new Vector2(74f, 211f), new Vector2(136f, 38f), () => SetMapZoom(MapZoom.Wide)).GetComponentInChildren<Text>();
+
+            RectTransform frameRect = CreateUiObject("Chart Brass Bezel", panel); frameRect.anchoredPosition = new Vector2(0f, -2f); frameRect.sizeDelta = new Vector2(438f, 438f);
+            Image frame = frameRect.gameObject.AddComponent<Image>(); frame.sprite = panelSprite; frame.color = Color.white; frame.raycastTarget = false;
+            RectTransform clip = CreateUiObject("Chart Circular Viewport", panel); clip.anchoredPosition = new Vector2(0f, -2f); clip.sizeDelta = new Vector2(408f, 408f);
+            Image clipGraphic = clip.gameObject.AddComponent<Image>(); clipGraphic.sprite = panelSprite; clipGraphic.color = Color.white; clipGraphic.raycastTarget = false;
+            Mask mask = clip.gameObject.AddComponent<Mask>(); mask.showMaskGraphic = false;
+            RectTransform mapRect = CreateUiObject("Explored Waters", clip); mapRect.sizeDelta = new Vector2(398f, 398f);
+            mapImage = mapRect.gameObject.AddComponent<RawImage>(); mapImage.raycastTarget = false;
+            RectTransform markersRect = CreateUiObject("Chart Markers", clip);
+            markersRect.sizeDelta = new Vector2(398f, 398f);
+            mapMarkersRoot = markersRect.gameObject;
+
+            CreateCardinalLabel(panel, "N", new Vector2(0f, 184f));
+            CreateCardinalLabel(panel, "E", new Vector2(208f, -2f));
+            CreateCardinalLabel(panel, "S", new Vector2(0f, -188f));
+            CreateCardinalLabel(panel, "W", new Vector2(-208f, -2f));
+            CreateMapStrip(panel, "Chart Position Strip", new Vector2(0f, -222f), new Vector2(390f, 27f));
+            mapStatus = CreateText(panel, "Chart Status", new Vector2(0f, -222f), new Vector2(382f, 24f), 15, TextAnchor.MiddleCenter);
+            mapStatus.color = UiTheme.SecondaryText; UiTheme.StyleText(mapStatus, 15);
+            BuildMapLegend(panel);
+            CreateButton(panel, "BACK", new Vector2(-232f, 224f), CloseMap);
+            SetMapZoom(mapZoom);
         }
 
-        private Texture2D CreateMapTexture(int size)
+        private void SetMapZoom(MapZoom zoom)
         {
-            var pixels = new Color32[size * size];
-            float c = (size - 1) * 0.5f;
-            int currentX = Mathf.FloorToInt(boat.LogicalPosition.x / WorldGenerator.ChunkSize);
-            int currentY = Mathf.FloorToInt(boat.LogicalPosition.y / WorldGenerator.ChunkSize);
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
+            mapZoom = zoom;
+            if (mapImage == null) return;
+            if (mapTexture != null) Destroy(mapTexture);
+            mapTexture = MapChartModel.CreateTexture(state, boat.LogicalPosition, mapZoom);
+            mapImage.texture = mapTexture;
+            localZoomText.color = zoom == MapZoom.Local ? UiTheme.Brass : UiTheme.SecondaryText;
+            wideZoomText.color = zoom == MapZoom.Wide ? UiTheme.Brass : UiTheme.SecondaryText;
+            int chunkX = Mathf.FloorToInt(boat.LogicalPosition.x / WorldGenerator.ChunkSize);
+            int chunkY = Mathf.FloorToInt(boat.LogicalPosition.y / WorldGenerator.ChunkSize);
+            mapStatus.text = $"{(zoom == MapZoom.Local ? "LOCAL  4.5" : "WIDE  9.5")} GRID RADIUS   POSITION {chunkX:+0;-0;0}, {chunkY:+0;-0;0}";
+            RebuildMapMarkers();
+        }
+
+        private void RebuildMapMarkers()
+        {
+            if (mapMarkersRoot == null) return;
+            foreach (Transform child in mapMarkersRoot.transform) Destroy(child.gameObject);
+            float radius = MapChartModel.GetWorldRadius(mapZoom);
+            int minX = Mathf.FloorToInt((boat.LogicalPosition.x - radius) / WorldGenerator.ChunkSize);
+            int maxX = Mathf.FloorToInt((boat.LogicalPosition.x + radius) / WorldGenerator.ChunkSize);
+            int minY = Mathf.FloorToInt((boat.LogicalPosition.y - radius) / WorldGenerator.ChunkSize);
+            int maxY = Mathf.FloorToInt((boat.LogicalPosition.y + radius) / WorldGenerator.ChunkSize);
+            var events = new System.Collections.Generic.List<GeneratedEventData>();
+            for (int chunkY = minY; chunkY <= maxY; chunkY++)
+            for (int chunkX = minX; chunkX <= maxX; chunkX++)
             {
-                float dx = x - c, dy = y - c;
-                if (dx * dx + dy * dy > c * c) { pixels[y * size + x] = Color.clear; continue; }
-                int cx = currentX + Mathf.FloorToInt((x - c) / 14f);
-                int cy = currentY + Mathf.FloorToInt((y - c) / 14f);
-                bool known = state.ExploredChunks.Contains(GameState.PackChunk(cx, cy));
-                bool grid = x % 14 == 0 || y % 14 == 0;
-                pixels[y * size + x] = known ? (grid ? new Color(0.18f, 0.52f, 0.58f) : new Color(0.08f, 0.27f, 0.34f)) : new Color(0.025f, 0.06f, 0.11f, 0.94f);
+                if (!state.ExploredChunks.Contains(GameState.PackChunk(chunkX, chunkY))) continue;
+                WorldGenerator.GenerateChunk(state.WorldSeed, chunkX, chunkY, events);
+                foreach (GeneratedEventData data in events)
+                {
+                    if (state.ResolvedEvents.Contains(data.Id)) continue;
+                    Vector2 position = MapChartModel.WorldToMap(data.Position, boat.LogicalPosition, mapZoom);
+                    if (!MapChartModel.IsInside(position)) continue;
+                    RectTransform marker = CreateUiObject($"Known {data.Kind}", mapMarkersRoot.transform);
+                    marker.anchoredPosition = position; marker.sizeDelta = Vector2.one * (mapZoom == MapZoom.Local ? 36f : 28f);
+                    RawImage image = marker.gameObject.AddComponent<RawImage>(); image.texture = UiTextureFactory.LoadPoiBadge(data.Kind); image.raycastTarget = false;
+                }
             }
-            for (int y = size / 2 - 3; y <= size / 2 + 3; y++)
-            for (int x = size / 2 - 3; x <= size / 2 + 3; x++) pixels[y * size + x] = Brass;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
-            texture.SetPixels32(pixels); texture.Apply(); return texture;
+
+            RectTransform heading = CreateUiObject("Ship Heading", mapMarkersRoot.transform); heading.anchoredPosition = new Vector2(0f, 25f); heading.sizeDelta = new Vector2(5f, 48f); heading.pivot = new Vector2(0.5f, 0f);
+            Image course = heading.gameObject.AddComponent<Image>(); course.color = UiTheme.Brass; course.raycastTarget = false;
+            heading.localRotation = Quaternion.Euler(0f, 0f, -boat.HeadingDegrees);
+            RectTransform playerMarker = CreateUiObject("Current Ship Position", mapMarkersRoot.transform); playerMarker.sizeDelta = new Vector2(44f, 44f);
+            RawImage playerImage = playerMarker.gameObject.AddComponent<RawImage>(); playerImage.texture = UiTextureFactory.LoadCompassArrow(); playerImage.color = UiTheme.PrimaryText; playerImage.raycastTarget = false;
+            playerMarker.localRotation = Quaternion.Euler(0f, 0f, -boat.HeadingDegrees);
+        }
+
+        private void CreateCardinalLabel(Transform parent, string label, Vector2 position)
+        {
+            Text text = CreateText(parent, label, position, new Vector2(34f, 30f), 18, TextAnchor.MiddleCenter);
+            text.color = label == "N" ? UiTheme.Brass : UiTheme.PrimaryText; UiTheme.StyleText(text, 18);
+        }
+
+        private void BuildMapLegend(Transform parent)
+        {
+            CreateMapStrip(parent, "Chart Legend Strip", new Vector2(0f, -252f), new Vector2(420f, 29f));
+            PoiKind[] kinds = { PoiKind.Port, PoiKind.Enemy, PoiKind.Wreck, PoiKind.Treasure };
+            string[] labels = { "PORT", "ENEMY", "WRECK", "TREASURE" };
+            for (int i = 0; i < kinds.Length; i++)
+            {
+                float x = -150f + i * 100f;
+                RectTransform icon = CreateUiObject(labels[i] + " Legend Icon", parent); icon.anchoredPosition = new Vector2(x - 26f, -252f); icon.sizeDelta = new Vector2(24f, 24f);
+                RawImage badge = icon.gameObject.AddComponent<RawImage>(); badge.texture = UiTextureFactory.LoadPoiBadge(kinds[i]); badge.raycastTarget = false;
+                Text label = CreateText(parent, labels[i], new Vector2(x + 12f, -252f), new Vector2(70f, 22f), 13, TextAnchor.MiddleLeft);
+                label.color = UiTheme.PrimaryText; UiTheme.StyleText(label, 13);
+            }
+        }
+
+        private void CreateMapStrip(Transform parent, string name, Vector2 position, Vector2 size)
+        {
+            RectTransform strip = CreateUiObject(name, parent); strip.anchoredPosition = position; strip.sizeDelta = size;
+            Image background = strip.gameObject.AddComponent<Image>(); background.sprite = pillSprite; background.type = Image.Type.Sliced;
+            background.color = new Color(0.015f, 0.045f, 0.070f, 0.94f); background.raycastTarget = false;
+        }
+
+        private void CloseMap()
+        {
+            if (mapTexture != null) { Destroy(mapTexture); mapTexture = null; }
+            if (mapRoot != null) { Destroy(mapRoot); mapRoot = null; }
+            mapImage = null; mapMarkersRoot = null; mapStatus = null; localZoomText = null; wideZoomText = null;
         }
 
         private void CloseAll()
@@ -432,7 +530,7 @@ namespace Desktopirates
             portRoot.SetActive(false);
             shipyardRoot.SetActive(false);
             inventory?.Close();
-            if (mapRoot != null) { Destroy(mapRoot); mapRoot = null; }
+            CloseMap();
         }
 
         private void Autosave() => saves.Save(state);

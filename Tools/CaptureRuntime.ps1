@@ -6,7 +6,9 @@ param(
     [string]$CoastingOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Coasting.png'),
     [string]$InventoryOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Inventory.png'),
     [string]$ShipyardOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Shipyard.png'),
-    [switch]$ShipyardOnly
+    [string]$MapOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Map.png'),
+    [switch]$ShipyardOnly,
+    [switch]$MapOnly
 )
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -80,6 +82,7 @@ $game = $null
 try {
     $launch = @{ FilePath = [IO.Path]::GetFullPath($Executable); PassThru = $true }
     if ($ShipyardOnly) { $launch.ArgumentList = '--shipyard-preview' }
+    elseif ($MapOnly) { $launch.ArgumentList = '--map-preview' }
     $game = Start-Process @launch
     for ($i = 0; $i -lt 60 -and $game.MainWindowHandle -eq 0; $i++) {
         Start-Sleep -Milliseconds 200
@@ -95,6 +98,10 @@ try {
 
     if ($ShipyardOnly) {
         Save-WindowCapture $game.MainWindowHandle $ShipyardOutput
+        return
+    }
+    if ($MapOnly) {
+        Save-WindowCapture $game.MainWindowHandle $MapOutput
         return
     }
 

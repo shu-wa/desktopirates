@@ -31,6 +31,44 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void ExplorationChartKeepsPlayerCenteredAndNorthUp()
+        {
+            Vector2 center = new Vector2(73f, -41f);
+            Assert.That(MapChartModel.WorldToMap(center, center, MapZoom.Local), Is.EqualTo(Vector2.zero));
+            Assert.That(MapChartModel.WorldToMap(center + Vector2.up * 10f, center, MapZoom.Local).y, Is.GreaterThan(0f));
+            Assert.That(MapChartModel.WorldToMap(center + Vector2.right * 10f, center, MapZoom.Local).x, Is.GreaterThan(0f));
+        }
+
+        [Test]
+        public void WideChartShowsMoreWorldWithoutMovingKnownLocations()
+        {
+            Vector2 center = new Vector2(-18f, 27f);
+            Vector2 point = center + new Vector2(36f, 18f);
+            Vector2 local = MapChartModel.WorldToMap(point, center, MapZoom.Local);
+            Vector2 wide = MapChartModel.WorldToMap(point, center, MapZoom.Wide);
+
+            Assert.That(local.normalized.x, Is.EqualTo(wide.normalized.x).Within(0.001f));
+            Assert.That(local.normalized.y, Is.EqualTo(wide.normalized.y).Within(0.001f));
+            Assert.That(wide.magnitude, Is.LessThan(local.magnitude));
+        }
+
+        [Test]
+        public void ExplorationChartUsesATransparentCircularBoundary()
+        {
+            Texture2D chart = MapChartModel.CreateTexture(new GameState(), Vector2.zero, MapZoom.Local, 96);
+            try
+            {
+                Assert.That(chart.GetPixel(0, 0).a, Is.EqualTo(0f).Within(0.001f));
+                Assert.That(chart.GetPixel(chart.width / 2, chart.height / 2).a, Is.GreaterThan(0.8f));
+                Assert.That(chart.filterMode, Is.EqualTo(FilterMode.Point));
+            }
+            finally
+            {
+                Object.DestroyImmediate(chart);
+            }
+        }
+
+        [Test]
         public void CompactSaveRoundTripsAllGameplayState()
         {
             var state = new GameState
