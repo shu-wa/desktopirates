@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
@@ -31,8 +33,11 @@ namespace Desktopirates
 
             WindowsOverlayController overlay = gameObject.AddComponent<WindowsOverlayController>();
             gameObject.AddComponent<AmbientAudioController>();
-            var saves = new SaveSystem();
-            GameState state = saves.LoadOrNew();
+            bool preview = Array.Exists(Environment.GetCommandLineArgs(), argument => argument.EndsWith("-preview", StringComparison.Ordinal));
+            var saves = preview
+                ? new SaveSystem(Path.Combine(Application.temporaryCachePath, "desktopirates-preview.dprs"))
+                : new SaveSystem();
+            GameState state = preview ? new GameState() : saves.LoadOrNew();
             Camera camera = CreateCamera();
             Light sun = CreateSun();
             CreateFillLight();
@@ -53,10 +58,13 @@ namespace Desktopirates
             CameraRigController cameraRig = gameObject.AddComponent<CameraRigController>();
             cameraRig.Initialize(camera);
 
+            CombatVfxController combatVfx = gameObject.AddComponent<CombatVfxController>();
+            combatVfx.Initialize(world);
+
             var poiObject = new GameObject("Hidden Map POIs", typeof(PoiSystem));
             poiObject.transform.SetParent(world, false);
             PoiSystem poiSystem = poiObject.GetComponent<PoiSystem>();
-            poiSystem.Initialize(boat, state);
+            poiSystem.Initialize(boat, state, combatVfx);
 
             DayNightVisualController dayNight = gameObject.AddComponent<DayNightVisualController>();
             dayNight.Initialize(ocean, sun);
@@ -146,18 +154,6 @@ namespace Desktopirates
             connector.rectTransform.anchoredPosition = new Vector2(0f, -109f);
             connector.rectTransform.sizeDelta = new Vector2(5f, 34f);
 
-            var handleObject = new GameObject("Menu Circle Brass Handle", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            handleObject.transform.SetParent(canvas, false);
-            Image handle = handleObject.GetComponent<Image>();
-            handle.sprite = UiTextureFactory.LoadDiamondSprite(24);
-            handle.color = Color.white;
-            handle.raycastTarget = false;
-            handle.rectTransform.anchorMin = new Vector2(0.5f, 1f);
-            handle.rectTransform.anchorMax = new Vector2(0.5f, 1f);
-            handle.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            handle.rectTransform.anchoredPosition = new Vector2(0f, -126f);
-            handle.rectTransform.sizeDelta = new Vector2(18f, 18f);
-
             var orbObject = new GameObject("Menu Circle", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage), typeof(MenuCircleController));
             orbObject.transform.SetParent(canvas, false);
             RawImage orb = orbObject.GetComponent<RawImage>();
@@ -165,7 +161,7 @@ namespace Desktopirates
             orb.rectTransform.anchorMax = new Vector2(0.5f, 1f);
             orb.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             orb.rectTransform.anchoredPosition = new Vector2(0f, -66f);
-            orb.rectTransform.sizeDelta = new Vector2(88f, 88f);
+            orb.rectTransform.sizeDelta = new Vector2(104f, 104f);
             orbObject.GetComponent<MenuCircleController>().Initialize(dayNight, overlay, menu);
         }
 

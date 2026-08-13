@@ -170,6 +170,43 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void FiringSlotListMatchesCrewAndInstalledArc()
+        {
+            var state = new GameState
+            {
+                Crew = 1,
+                CannonMountMask = (1 << (int)CannonSlot.PortFore) | (1 << (int)CannonSlot.PortAft) | (1 << (int)CannonSlot.StarboardFore)
+            };
+            var slots = new List<CannonSlot>();
+
+            int count = ShipCustomizationModel.GetFiringSlots(state, -90f, slots);
+
+            Assert.That(count, Is.EqualTo(1));
+            Assert.That(slots[0] == CannonSlot.PortFore || slots[0] == CannonSlot.PortAft, Is.True);
+        }
+
+        [Test]
+        public void HarborPilotUsesAnOuterApproachThenAnAlignedBerth()
+        {
+            Vector2 port = new Vector2(18f, -7f);
+            Vector2 approach = DockingModel.GetApproach(port);
+            Vector2 berth = DockingModel.GetBerth(port);
+
+            Assert.That(approach.x, Is.EqualTo(berth.x).Within(0.001f));
+            Assert.That(Vector2.Distance(approach, port), Is.GreaterThan(Vector2.Distance(berth, port)));
+            Assert.That(DockingModel.GetHeading(approach, berth), Is.EqualTo(DockingModel.FinalHeading).Within(0.001f));
+            Assert.That(DockingModel.GetPilotSpeed(0.2f, true), Is.LessThan(DockingModel.GetPilotSpeed(2f, false)));
+        }
+
+        [Test]
+        public void CannonFlightTimeIsReadableAndBoundedAtDesktopScale()
+        {
+            Assert.That(CombatVfxMath.GetProjectileDuration(0.1f), Is.EqualTo(0.28f).Within(0.001f));
+            Assert.That(CombatVfxMath.GetProjectileDuration(3f), Is.InRange(0.35f, 0.45f));
+            Assert.That(CombatVfxMath.GetProjectileDuration(99f), Is.EqualTo(0.68f).Within(0.001f));
+        }
+
+        [Test]
         public void InstalledMassReducesSpeedAndTurning()
         {
             var light = new GameState { Crew = 2, Supplies = 0, CannonMountMask = 0 };

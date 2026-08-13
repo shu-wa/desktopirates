@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,6 +14,8 @@ namespace Desktopirates
         public int Reward;
         public int Health;
         public bool Resolved;
+        public bool IsUnderFire;
+        public bool IsSinking;
         public Transform Visual;
     }
 
@@ -29,16 +32,21 @@ namespace Desktopirates
         private readonly List<GeneratedEventData> generated = new List<GeneratedEventData>();
         private BoatController player;
         private GameState state;
+        private CombatVfxController combatVfx;
+        private readonly List<CannonSlot> firingSlots = new List<CannonSlot>();
         private int centerChunkX = int.MinValue;
         private int centerChunkY = int.MinValue;
         private float enemyFireCooldown;
         private float cannonCooldown;
 
-        public void Initialize(BoatController boat, GameState gameState)
+        public void Initialize(BoatController boat, GameState gameState, CombatVfxController effects = null)
         {
             player = boat;
             state = gameState;
+            combatVfx = effects;
             RefreshChunks(true);
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--combat-preview")) StartCoroutine(CombatPreviewRoutine());
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--dock-preview")) StartCoroutine(DockPreviewRoutine());
         }
 
         private void Update()
@@ -53,15 +61,15 @@ namespace Desktopirates
             foreach (PoiRecord item in items)
             {
                 if (item.Resolved) continue;
-                if (item.Kind == PoiKind.Enemy) UpdateEnemy(item);
+                if (item.Kind == PoiKind.Enemy && !item.IsSinking) UpdateEnemy(item);
                 Vector2 relative = item.LogicalPosition - player.LogicalPosition;
                 float distance = relative.magnitude;
                 if (distance < closestDistance) { closest = item; closestDistance = distance; }
                 bool visible = distance <= VisibleRadius;
                 if (item.Visual.gameObject.activeSelf != visible) item.Visual.gameObject.SetActive(visible);
                 if (!visible) continue;
-                item.Visual.localPosition = new Vector3(relative.x, 0.30f, relative.y);
-                if (item.Kind != PoiKind.Enemy) item.Visual.localRotation = Quaternion.identity;
+                if (!item.IsSinking) item.Visual.localPosition = new Vector3(relative.x, 0.30f, relative.y);
+                if (item.Kind != PoiKind.Enemy && !item.IsSinking) item.Visual.localRotation = Quaternion.identity;
             }
 
             InteractionPrompt = BuildPrompt(closest, closestDistance);
@@ -75,6 +83,7 @@ namespace Desktopirates
             int chunkY = Mathf.FloorToInt(player.LogicalPosition.y / WorldGenerator.ChunkSize);
             state.ExploredChunks.Add(GameState.PackChunk(chunkX, chunkY));
             if (!force && chunkX == centerChunkX && chunkY == centerChunkY) return;
+            if (!force && (player.IsAutoNavigating || items.Exists(item => item.IsUnderFire || item.IsSinking))) return;
             centerChunkX = chunkX;
             centerChunkY = chunkY;
             foreach (PoiRecord item in items) if (item.Visual != null) Destroy(item.Visual.gameObject);
@@ -122,15 +131,23 @@ namespace Desktopirates
             if (!harborSafe && distance < 2.35f && enemyFireCooldown <= 0f)
             {
                 enemyFireCooldown = 2.7f;
-                state.Hull = Mathf.Max(0, state.Hull - 1);
-                Message?.Invoke("敵の砲撃！ 船体 -1");
-                StateChanged?.Invoke();
-                if (state.Hull == 0) RescueTow();
+                if (combatVfx != null) combatVfx.PlayEnemyShot(enemy.Visual, player.Visual, ApplyEnemyHit);
+                else ApplyEnemyHit();
             }
+        }
+
+        private void ApplyEnemyHit()
+        {
+            state.Hull = Mathf.Max(0, state.Hull - 1);
+            Message?.Invoke("敵弾着弾！ 船体 -1");
+            StateChanged?.Invoke();
+            if (state.Hull == 0) RescueTow();
         }
 
         private string BuildPrompt(PoiRecord item, float distance)
         {
+            if (player.IsAutoNavigating) return "HARBOR PILOT — 自動接岸中…";
+            if (player.IsMoored) return item != null && item.Kind == PoiKind.Port ? "F PORT SERVICES" : string.Empty;
             if (item == null) return string.Empty;
             if (item.Kind == PoiKind.Enemy && distance <= 4.2f)
             {
@@ -141,6 +158,7 @@ namespace Desktopirates
                 if (salvo.CannonsFiring <= 0) return $"{salvo.ArcName} 砲員が必要";
                 return $"SPACE {salvo.ArcName}斉射  {salvo.CannonsFiring}/{salvo.CannonsInArc}門";
             }
+            if (item.Kind == PoiKind.Port && distance <= 3.4f) return "F AUTO-DOCK  港へ入港";
             if (distance > 1.35f) return string.Empty;
             if (Mathf.Abs(player.Speed) > 1.15f) return "速度を落として接近";
             return item.Kind == PoiKind.Port ? "F 港に入る" : item.Kind == PoiKind.Wreck ? "F 残骸を回収" : "F 宝を引き上げる";
@@ -148,13 +166,24 @@ namespace Desktopirates
 
         private void Interact(PoiRecord item, float distance)
         {
-            if (distance > 1.35f || Mathf.Abs(player.Speed) > 1.15f || item.Kind == PoiKind.Enemy) return;
             if (item.Kind == PoiKind.Port)
             {
-                PortRequested?.Invoke();
-                Message?.Invoke("入港しました。ここは安全地帯です");
+                if (distance > 3.4f || player.IsAutoNavigating) return;
+                if (player.IsMoored)
+                {
+                    PortRequested?.Invoke();
+                    return;
+                }
+                player.BeginDocking(item.LogicalPosition, () =>
+                {
+                    Message?.Invoke("係留完了 — 港内は安全です");
+                    PortRequested?.Invoke();
+                    StateChanged?.Invoke();
+                });
+                Message?.Invoke("水先案内人が操船を引き継ぎました");
                 return;
             }
+            if (distance > 1.35f || Mathf.Abs(player.Speed) > 1.15f || item.Kind == PoiKind.Enemy) return;
             int gold = item.Reward + (item.Kind == PoiKind.Treasure ? 18 : 0);
             state.Gold += gold;
             string cargo = string.Empty;
@@ -178,6 +207,7 @@ namespace Desktopirates
 
         private bool PlayerInSafeHarbor()
         {
+            if (player.IsAutoNavigating || player.IsMoored) return true;
             foreach (PoiRecord item in items)
                 if (!item.Resolved && item.Kind == PoiKind.Port && Vector2.Distance(item.LogicalPosition, player.LogicalPosition) < 2.8f) return true;
             return false;
@@ -193,23 +223,36 @@ namespace Desktopirates
 
         private void FireCannon()
         {
-            if (cannonCooldown > 0f) return;
+            if (cannonCooldown > 0f || player.IsAutoNavigating || player.IsMoored) return;
             PoiRecord target = FindCombatTarget(out float best);
             if (target == null) { Message?.Invoke("射程内に敵はいません"); return; }
             float bearing = ShipCustomizationModel.GetRelativeBearing(player.HeadingDegrees, player.LogicalPosition, target.LogicalPosition);
             SalvoSolution salvo = ShipCustomizationModel.GetSalvo(state, bearing);
             if (salvo.CannonsInArc <= 0) { Message?.Invoke($"{salvo.ArcName}側に砲台がありません — 船を旋回してください"); return; }
             if (salvo.CannonsFiring <= 0) { Message?.Invoke("砲台を操作する船員がいません"); return; }
+            ShipCustomizationModel.GetFiringSlots(state, bearing, firingSlots);
             cannonCooldown = Mathf.Max(0.65f, 1.25f - state.CannonLevel * 0.08f);
             int damage = ShipCustomizationModel.GetSalvoDamage(state, salvo);
             target.Health -= damage;
-            if (target.Health <= 0)
+            bool willSink = target.Health <= 0;
+            target.IsUnderFire = true;
+            target.IsSinking = willSink;
+            Message?.Invoke($"{salvo.ArcName}斉射 {salvo.CannonsFiring}門 — FIRE!");
+
+            Action impact = () =>
             {
+                Message?.Invoke(willSink ? "直撃 — 敵船炎上！" : $"直撃 — {damage} DAMAGE");
+            };
+            Action completed = () =>
+            {
+                target.IsUnderFire = false;
+                if (!willSink) return;
                 state.Gold += target.Reward;
                 Resolve(target);
-                Message?.Invoke($"{salvo.ArcName}斉射 {salvo.CannonsFiring}門 — 敵船撃破：{target.Reward}G");
-            }
-            else Message?.Invoke($"{salvo.ArcName}斉射 {salvo.CannonsFiring}門 — {damage} DAMAGE");
+                Message?.Invoke($"敵船沈没 — {target.Reward}G SALVAGED");
+            };
+            if (combatVfx != null) combatVfx.PlayPlayerSalvo(player.Visual, firingSlots.ToArray(), target.Visual, willSink, impact, completed);
+            else { impact(); completed(); }
         }
 
         private PoiRecord FindCombatTarget(out float bestDistance)
@@ -218,7 +261,7 @@ namespace Desktopirates
             bestDistance = 4.25f;
             foreach (PoiRecord item in items)
             {
-                if (item.Resolved || item.Kind != PoiKind.Enemy) continue;
+                if (item.Resolved || item.IsUnderFire || item.IsSinking || item.Kind != PoiKind.Enemy) continue;
                 float distance = Vector2.Distance(item.LogicalPosition, player.LogicalPosition);
                 if (distance < bestDistance) { bestDistance = distance; target = item; }
             }
@@ -242,6 +285,63 @@ namespace Desktopirates
             Message?.Invoke($"救助船が最寄りの港へ曳航しました（-{lost}G）");
             StateChanged?.Invoke();
             RefreshChunks(true);
+        }
+
+        private IEnumerator CombatPreviewRoutine()
+        {
+            yield return new WaitForSeconds(4.95f);
+            player.TowTo(Vector2.zero);
+            RefreshChunks(true);
+            foreach (PoiRecord item in items)
+            {
+                if (item.Kind != PoiKind.Enemy) continue;
+                item.Resolved = true;
+                item.Visual.gameObject.SetActive(false);
+            }
+            state.Crew = Mathf.Max(state.Crew, 2);
+            state.CannonMountMask |= 1 << (int)CannonSlot.Bow;
+            player.RefreshCustomizationVisual();
+            float radians = player.HeadingDegrees * Mathf.Deg2Rad;
+            Vector2 direction = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
+            PoiRecord enemy = AddPreviewPoi(0xD35C70A1UL, PoiKind.Enemy, player.LogicalPosition + direction * 2.35f, 42);
+            enemy.Visual.localScale *= 1.3f;
+            enemy.Health = 99;
+            enemyFireCooldown = 999f;
+            yield return null;
+            FireCannon();
+            yield return new WaitForSeconds(1.4f);
+            enemy.Health = 1;
+            FireCannon();
+        }
+
+        private IEnumerator DockPreviewRoutine()
+        {
+            yield return new WaitForSeconds(3.8f);
+            Vector2 portPosition = Vector2.zero;
+            player.TowTo(DockingModel.GetApproach(portPosition) + Vector2.down * 0.55f);
+            RefreshChunks(true);
+            PoiRecord port = AddPreviewPoi(0xD0C0A11UL, PoiKind.Port, portPosition, 0);
+            Interact(port, Vector2.Distance(player.LogicalPosition, portPosition));
+        }
+
+        private PoiRecord AddPreviewPoi(ulong id, PoiKind kind, Vector2 position, int reward)
+        {
+            Transform visual = ProceduralSceneFactory.CreatePoiVisual(kind, transform);
+            visual.gameObject.SetActive(true);
+            Vector2 relative = position - player.LogicalPosition;
+            visual.localPosition = new Vector3(relative.x, 0.30f, relative.y);
+            var record = new PoiRecord
+            {
+                Id = id,
+                Kind = kind,
+                LogicalPosition = position,
+                SpawnPosition = position,
+                Reward = reward,
+                Health = kind == PoiKind.Enemy ? 3 : 1,
+                Visual = visual
+            };
+            items.Add(record);
+            return record;
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Desktopirates
@@ -136,6 +137,18 @@ namespace Desktopirates
                 arcName = GetDefinition(slot).ArcName;
             }
             return new SalvoSolution(inArc, Mathf.Min(inArc, Mathf.Max(0, state.Crew)), arcName);
+        }
+
+        public static int GetFiringSlots(GameState state, float relativeBearing, IList<CannonSlot> output)
+        {
+            output.Clear();
+            int availableCrew = Mathf.Max(0, state.Crew);
+            for (int i = 0; i < CannonSlotCount && output.Count < availableCrew; i++)
+            {
+                CannonSlot slot = (CannonSlot)i;
+                if (HasCannon(state, slot) && IsInArc(slot, relativeBearing)) output.Add(slot);
+            }
+            return output.Count;
         }
 
         public static int GetSalvoDamage(GameState state, SalvoSolution salvo)

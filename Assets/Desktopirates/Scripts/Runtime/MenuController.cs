@@ -201,7 +201,7 @@ namespace Desktopirates
             Button engineButton = CreateWideButton(portRoot.transform, "ENGINE +MAX SPEED", new Vector2(0f, -30f), UpgradeEngine);
             engineUpgradeText = engineButton.GetComponentInChildren<Text>();
             CreateWideButton(portRoot.transform, "SHIPYARD / CREW", new Vector2(0f, -75f), OpenShipyard);
-            CreateButton(portRoot.transform, "SAIL", new Vector2(0f, -126f), () => { portRoot.SetActive(false); saves.Save(state); });
+            CreateButton(portRoot.transform, "SAIL", new Vector2(0f, -126f), () => DepartPort(portRoot));
             portRoot.SetActive(false);
         }
 
@@ -237,7 +237,7 @@ namespace Desktopirates
             gunUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "GUNS", new Vector2(-120f, -32f), UpgradeCannon);
             crewHireText = CreateCompactButton(shipyardSystemsPage.transform, "HIRE CREW", new Vector2(120f, -32f), HireCrew);
             CreateCompactButton(shipyardRoot.transform, "BACK TO PORT", new Vector2(-120f, -188f), () => { shipyardRoot.SetActive(false); portRoot.SetActive(true); });
-            CreateCompactButton(shipyardRoot.transform, "SAIL", new Vector2(120f, -188f), () => { shipyardRoot.SetActive(false); saves.Save(state); });
+            CreateCompactButton(shipyardRoot.transform, "SAIL", new Vector2(120f, -188f), () => DepartPort(shipyardRoot));
             shipyardRoot.SetActive(false);
             ShowShipyardPage(true);
         }
@@ -260,9 +260,18 @@ namespace Desktopirates
         private void OpenPort()
         {
             CloseAll();
+            boat.HoldAtMooring();
             RefreshEngineUpgradeText();
             portRoot.SetActive(true);
             saves.Save(state);
+        }
+
+        private void DepartPort(GameObject panel)
+        {
+            panel.SetActive(false);
+            boat.ReleaseMooring();
+            saves.Save(state);
+            ShowMessage("CAST OFF — W/S TELEGRAPH READY");
         }
 
         private void OpenShipyard()

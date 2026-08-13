@@ -13,6 +13,7 @@ namespace Desktopirates
         private WindowsOverlayController windowOverlay;
         private MenuController menu;
         private Texture2D generatedTexture;
+        private RawImage liveTimeFace;
         private float shownHour = -100f;
         private Vector3 targetScale = Vector3.one;
         private Vector2 pointerStart;
@@ -25,6 +26,19 @@ namespace Desktopirates
             dayNight = visualController;
             windowOverlay = overlayController;
             menu = menuController;
+            Texture2D authoredCircle = UiTextureFactory.LoadGeneratedMenuCircle();
+            if (authoredCircle != null)
+            {
+                image.texture = authoredCircle;
+                var faceObject = new GameObject("Live Time Face", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+                faceObject.transform.SetParent(transform, false);
+                liveTimeFace = faceObject.GetComponent<RawImage>();
+                liveTimeFace.raycastTarget = false;
+                liveTimeFace.rectTransform.anchorMin = liveTimeFace.rectTransform.anchorMax = Vector2.one * 0.5f;
+                liveTimeFace.rectTransform.pivot = Vector2.one * 0.5f;
+                liveTimeFace.rectTransform.anchoredPosition = new Vector2(0f, 3f);
+                liveTimeFace.rectTransform.sizeDelta = new Vector2(54f, 54f);
+            }
             RefreshTexture(true);
         }
 
@@ -64,7 +78,8 @@ namespace Desktopirates
             shownHour = hour;
             if (generatedTexture != null) Destroy(generatedTexture);
             generatedTexture = PixelTextureFactory.CreateTimeOrb(hour, 96);
-            image.texture = generatedTexture;
+            if (liveTimeFace != null) liveTimeFace.texture = generatedTexture;
+            else image.texture = generatedTexture;
         }
 
         private void OnDestroy() { if (generatedTexture != null) Destroy(generatedTexture); }

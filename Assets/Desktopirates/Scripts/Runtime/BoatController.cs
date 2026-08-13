@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Desktopirates
@@ -12,10 +13,17 @@ namespace Desktopirates
         public float TargetSpeed => CruiseModel.GetTargetSpeed(CruiseStep, State != null ? State.EngineLevel : 0) * (State != null ? ShipCustomizationModel.GetSpeedMultiplier(State) : 1f);
         public float MaxSpeed => CruiseModel.GetMaxSpeed(State != null ? State.EngineLevel : 0) * (State != null ? ShipCustomizationModel.GetSpeedMultiplier(State) : 1f);
         public bool IsCoasting => CruiseModel.IsCoasting(Speed, TargetSpeed);
+        public bool IsAutoNavigating { get; private set; }
+        public bool IsMoored { get; private set; }
+        public Transform Visual => boatVisual;
         public GameState State { get; private set; }
 
         private Transform boatVisual;
         private float wakePulse;
+        private Vector2 dockApproach;
+        private Vector2 dockBerth;
+        private int dockingLeg;
+        private Action dockingCompleted;
 
         public void Initialize(Transform visual, GameState state)
         {
@@ -31,6 +39,19 @@ namespace Desktopirates
         private void Update()
         {
             if (boatVisual == null) return;
+
+            if (IsAutoNavigating)
+            {
+                AdvanceDocking(Time.deltaTime);
+                return;
+            }
+            if (IsMoored)
+            {
+                Speed = 0f;
+                CruiseStep = 0;
+                ApplyVisual(Time.deltaTime);
+                return;
+            }
 
             if (Input.GetKeyDown(KeyCode.W)) IncreaseCruiseStep();
             if (Input.GetKeyDown(KeyCode.S)) DecreaseCruiseStep();
@@ -54,10 +75,74 @@ namespace Desktopirates
             State.PlayerPosition = LogicalPosition;
             State.HeadingDegrees = HeadingDegrees;
 
+            ApplyVisual(deltaTime);
+        }
+
+        private void ApplyVisual(float deltaTime)
+        {
             boatVisual.localRotation = Quaternion.Euler(0f, HeadingDegrees, 0f);
-            wakePulse += deltaTime * (2f + Speed);
+            wakePulse += deltaTime * (2f + Mathf.Max(0f, Speed));
             boatVisual.localPosition = new Vector3(0f, 0.28f + Mathf.Sin(wakePulse) * 0.025f, 0f);
         }
+
+        public void BeginDocking(Vector2 portPosition, Action completed)
+        {
+            if (IsAutoNavigating) return;
+            dockApproach = DockingModel.GetApproach(portPosition);
+            dockBerth = DockingModel.GetBerth(portPosition);
+            dockingLeg = Vector2.Distance(LogicalPosition, dockApproach) <= 0.25f ? 1 : 0;
+            dockingCompleted = completed;
+            IsMoored = false;
+            IsAutoNavigating = true;
+            CruiseStep = 0;
+        }
+
+        private void AdvanceDocking(float deltaTime)
+        {
+            Vector2 target = dockingLeg == 0 ? dockApproach : dockBerth;
+            float distance = Vector2.Distance(LogicalPosition, target);
+            bool finalLeg = dockingLeg == 1;
+            float desiredSpeed = DockingModel.GetPilotSpeed(distance, finalLeg);
+            Speed = Mathf.MoveTowards(Speed, desiredSpeed, deltaTime * 2.2f);
+            float desiredHeading = distance > DockingModel.ArrivalDistance
+                ? DockingModel.GetHeading(LogicalPosition, target)
+                : DockingModel.FinalHeading;
+            HeadingDegrees = Mathf.MoveTowardsAngle(HeadingDegrees, desiredHeading, deltaTime * (finalLeg ? 95f : 125f));
+            LogicalPosition = Vector2.MoveTowards(LogicalPosition, target, Speed * deltaTime);
+
+            if (distance <= DockingModel.ArrivalDistance)
+            {
+                LogicalPosition = target;
+                if (!finalLeg)
+                {
+                    dockingLeg = 1;
+                }
+                else if (Mathf.Abs(Mathf.DeltaAngle(HeadingDegrees, DockingModel.FinalHeading)) <= 1.5f)
+                {
+                    HeadingDegrees = DockingModel.FinalHeading;
+                    Speed = 0f;
+                    IsAutoNavigating = false;
+                    IsMoored = true;
+                    Action completed = dockingCompleted;
+                    dockingCompleted = null;
+                    completed?.Invoke();
+                }
+            }
+
+            State.PlayerPosition = LogicalPosition;
+            State.HeadingDegrees = HeadingDegrees;
+            ApplyVisual(deltaTime);
+        }
+
+        public void HoldAtMooring()
+        {
+            IsAutoNavigating = false;
+            IsMoored = true;
+            CruiseStep = 0;
+            Speed = 0f;
+        }
+
+        public void ReleaseMooring() => IsMoored = false;
 
         public void IncreaseCruiseStep() => CruiseStep = CruiseModel.ChangeStep(CruiseStep, 1, State != null ? State.EngineLevel : 0);
 
@@ -70,6 +155,9 @@ namespace Desktopirates
 
         public void TowTo(Vector2 position)
         {
+            IsAutoNavigating = false;
+            IsMoored = false;
+            dockingCompleted = null;
             LogicalPosition = position;
             State.PlayerPosition = position;
             CruiseStep = 0;

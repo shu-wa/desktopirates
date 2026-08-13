@@ -7,8 +7,14 @@ param(
     [string]$InventoryOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Inventory.png'),
     [string]$ShipyardOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Shipyard.png'),
     [string]$MapOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Map.png'),
+    [string]$CombatFireOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Combat-Fire.png'),
+    [string]$CombatSinkOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Combat-Sink.png'),
+    [string]$DockingOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Docking.png'),
+    [string]$DockedOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Docked.png'),
     [switch]$ShipyardOnly,
-    [switch]$MapOnly
+    [switch]$MapOnly,
+    [switch]$CombatOnly,
+    [switch]$DockOnly
 )
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -83,6 +89,8 @@ try {
     $launch = @{ FilePath = [IO.Path]::GetFullPath($Executable); PassThru = $true }
     if ($ShipyardOnly) { $launch.ArgumentList = '--shipyard-preview' }
     elseif ($MapOnly) { $launch.ArgumentList = '--map-preview' }
+    elseif ($CombatOnly) { $launch.ArgumentList = '--combat-preview' }
+    elseif ($DockOnly) { $launch.ArgumentList = '--dock-preview' }
     $game = Start-Process @launch
     for ($i = 0; $i -lt 60 -and $game.MainWindowHandle -eq 0; $i++) {
         Start-Sleep -Milliseconds 200
@@ -105,6 +113,20 @@ try {
         1..3 | ForEach-Object { Send-TestKey 0x57 }
         Start-Sleep -Seconds 3
         Save-WindowCapture $game.MainWindowHandle $MapOutput
+        return
+    }
+    if ($CombatOnly) {
+        Start-Sleep -Milliseconds 150
+        Save-WindowCapture $game.MainWindowHandle $CombatFireOutput
+        Start-Sleep -Milliseconds 1550
+        Save-WindowCapture $game.MainWindowHandle $CombatSinkOutput
+        return
+    }
+    if ($DockOnly) {
+        Start-Sleep -Milliseconds 2500
+        Save-WindowCapture $game.MainWindowHandle $DockingOutput
+        Start-Sleep -Seconds 8
+        Save-WindowCapture $game.MainWindowHandle $DockedOutput
         return
     }
 

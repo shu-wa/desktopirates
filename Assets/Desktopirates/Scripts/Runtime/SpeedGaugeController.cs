@@ -32,26 +32,25 @@ namespace Desktopirates
 
             RectTransform root = CreateRect("Compact Engine Telegraph", canvas);
             gaugeRoot = root.gameObject;
-            root.anchoredPosition = new Vector2(-52f, -702f);
-            root.sizeDelta = new Vector2(438f, 44f);
-            Image background = root.gameObject.AddComponent<Image>();
-            background.sprite = UiTextureFactory.LoadPillSprite();
-            background.type = Image.Type.Sliced;
-            background.color = new Color(1f, 1f, 1f, 0.96f);
+            root.anchoredPosition = new Vector2(-52f, -700f);
+            root.sizeDelta = new Vector2(420f, 105f);
+            RawImage background = root.gameObject.AddComponent<RawImage>();
+            background.texture = UiTextureFactory.LoadGeneratedTelegraph();
+            background.color = Color.white;
             background.raycastTarget = false;
 
             for (int i = 0; i < segments.Length; i++)
             {
                 RectTransform rect = CreateRect($"Telegraph Segment {i + 1}", root);
-                rect.anchoredPosition = new Vector2(-100f + i * 27f, 6f);
-                rect.sizeDelta = new Vector2(20f, 15f);
+                rect.anchoredPosition = new Vector2(-132f + i * 37.5f, 14f);
+                rect.sizeDelta = new Vector2(23f, 19f);
                 segments[i] = rect.gameObject.AddComponent<RawImage>();
                 segments[i].raycastTarget = false;
             }
 
             RectTransform motionTrack = CreateRect("Actual Speed Track", root);
-            motionTrack.anchoredPosition = new Vector2(-5f, -12f);
-            motionTrack.sizeDelta = new Vector2(210f, 5f);
+            motionTrack.anchoredPosition = new Vector2(0f, -22f);
+            motionTrack.sizeDelta = new Vector2(280f, 6f);
             Image trackImage = motionTrack.gameObject.AddComponent<Image>();
             trackImage.color = new Color(0.025f, 0.09f, 0.11f, 1f); trackImage.raycastTarget = false;
             RectTransform motionFill = CreateRect("Actual Speed Fill", motionTrack);
@@ -59,10 +58,10 @@ namespace Desktopirates
             motionBar = motionFill.gameObject.AddComponent<Image>(); motionBar.type = Image.Type.Filled; motionBar.fillMethod = Image.FillMethod.Horizontal;
             motionBar.color = UiTheme.Mint; motionBar.raycastTarget = false;
 
-            stateLabel = CreateText("Speed State", root, font, 16, new Vector2(-166f, 1f), new Vector2(84f, 24f));
+            stateLabel = CreateText("Speed State", root, font, 15, new Vector2(-174f, -17f), new Vector2(72f, 22f));
             stateLabel.color = UiTheme.Brass;
             UiTheme.StyleText(stateLabel, 16);
-            stepLabel = CreateText("Speed Step Hint", root, font, 13, new Vector2(160f, 1f), new Vector2(104f, 24f));
+            stepLabel = CreateText("Speed Step Hint", root, font, 12, new Vector2(174f, -17f), new Vector2(76f, 22f));
             stepLabel.color = UiTheme.SecondaryText;
             UiTheme.StyleText(stepLabel, 13);
             Refresh(true);

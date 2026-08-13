@@ -15,6 +15,16 @@ namespace Desktopirates
 
         public static Texture2D LoadMenuButton(MenuGlyph glyph, int size = 80)
         {
+            if (glyph == MenuGlyph.Inventory)
+            {
+                Texture2D generatedInventory = Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_button_inventory_pixel_v01");
+                if (generatedInventory != null) return generatedInventory;
+            }
+            if (glyph == MenuGlyph.Back)
+            {
+                Texture2D generatedBack = Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_button_back_pixel_v01");
+                if (generatedBack != null) return generatedBack;
+            }
             return Resources.Load<Texture2D>($"Textures/UI/Menu/menu_{glyph.ToString().ToLowerInvariant()}")
                 ?? CreateMenuButton(glyph, size);
         }
@@ -27,9 +37,17 @@ namespace Desktopirates
 
         public static Texture2D LoadPoiBadge(PoiKind kind, int size = 64)
         {
+            Texture2D generated = Resources.Load<Texture2D>($"Textures/UI/GeneratedPixel/ui_marker_{kind.ToString().ToLowerInvariant()}_pixel_v01");
+            if (generated != null) return generated;
             return Resources.Load<Texture2D>($"Textures/UI/Markers/marker_{kind.ToString().ToLowerInvariant()}")
                 ?? CreatePoiBadge(kind, size);
         }
+
+        public static Texture2D LoadGeneratedMenuCircle()
+            => Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_menu_circle_pixel_v01");
+
+        public static Texture2D LoadGeneratedTelegraph()
+            => Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_telegraph_pixel_v01");
 
         public static Texture2D LoadInventoryIcon(SalvagePartKind kind, int size = 64)
         {

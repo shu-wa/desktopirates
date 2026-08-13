@@ -80,6 +80,15 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void RuntimeUiLoadersPreferTheAuthoredPixelTextureSet()
+        {
+            Assert.That(UiTextureFactory.LoadGeneratedMenuCircle().width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadGeneratedTelegraph().width, Is.EqualTo(512));
+            Assert.That(UiTextureFactory.LoadPoiBadge(PoiKind.Enemy).width, Is.EqualTo(96));
+            Assert.That(UiTextureFactory.LoadMenuButton(MenuGlyph.Inventory).width, Is.EqualTo(80));
+        }
+
+        [Test]
         public void HudSurface_IsDarkTileableAndMemoryBounded()
         {
             Texture2D texture = Resources.Load<Texture2D>("Textures/UI/Surfaces/hud_chartwood_navy_v01");
