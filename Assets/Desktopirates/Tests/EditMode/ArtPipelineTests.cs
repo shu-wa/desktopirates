@@ -61,6 +61,24 @@ namespace Desktopirates.Tests
             Assert.That(Mathf.Max(texture.width, texture.height), Is.LessThanOrEqualTo(256));
         }
 
+        [TestCase("Textures/UI/GeneratedPixel/ui_menu_circle_pixel_v01", 128, 128)]
+        [TestCase("Textures/UI/GeneratedPixel/ui_marker_enemy_pixel_v01", 96, 96)]
+        [TestCase("Textures/UI/GeneratedPixel/ui_marker_wreck_pixel_v01", 96, 96)]
+        [TestCase("Textures/UI/GeneratedPixel/ui_marker_treasure_pixel_v01", 96, 96)]
+        [TestCase("Textures/UI/GeneratedPixel/ui_marker_port_pixel_v01", 96, 96)]
+        [TestCase("Textures/UI/GeneratedPixel/ui_button_inventory_pixel_v01", 80, 80)]
+        [TestCase("Textures/UI/GeneratedPixel/ui_button_back_pixel_v01", 80, 80)]
+        [TestCase("Textures/UI/GeneratedPixel/ui_telegraph_pixel_v01", 512, 128)]
+        public void GeneratedPixelUiTextures_KeepAuthoredDimensionsAndFiltering(string resourcePath, int width, int height)
+        {
+            Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+            Assert.That(texture, Is.Not.Null, resourcePath);
+            Assert.That(texture.width, Is.EqualTo(width));
+            Assert.That(texture.height, Is.EqualTo(height));
+            Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));
+        }
+
         [Test]
         public void HudSurface_IsDarkTileableAndMemoryBounded()
         {
