@@ -102,6 +102,27 @@ namespace Desktopirates.Tests
             }
         }
 
+        [TestCase("enemy")]
+        [TestCase("port")]
+        [TestCase("wreck")]
+        [TestCase("treasure")]
+        public void LandmarkMarkersAreClosedCirclesWithoutPointerTabs(string kind)
+        {
+            string path = $"Assets/Desktopirates/Resources/Textures/UI/ConceptV02/Icons/marker_{kind}_v02.png";
+            Assert.That(System.IO.File.Exists(path), Is.True, path);
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            Assert.That(texture.LoadImage(System.IO.File.ReadAllBytes(path)), Is.True, path);
+            Vector2 center = new Vector2((texture.width - 1) * 0.5f, (texture.height - 1) * 0.5f);
+            float permittedRadius = 64f;
+            for (int y = 0; y < texture.height; y++)
+            for (int x = 0; x < texture.width; x++)
+            {
+                if (Vector2.Distance(new Vector2(x, y), center) <= permittedRadius) continue;
+                Assert.That(texture.GetPixel(x, y).a, Is.LessThan(0.05f), $"{kind} has a protruding pixel at {x},{y}");
+            }
+            Object.DestroyImmediate(texture);
+        }
+
         [Test]
         public void HudSurface_IsDarkTileableAndMemoryBounded()
         {

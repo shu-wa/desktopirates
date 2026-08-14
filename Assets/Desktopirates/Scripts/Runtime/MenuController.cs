@@ -156,14 +156,13 @@ namespace Desktopirates
         private void BuildHud()
         {
             RectTransform dashboard = CreateUiObject("Ship Dashboard", canvas);
-            dashboard.anchoredPosition = new Vector2(0f, -205f);
-            dashboard.sizeDelta = new Vector2(600f, 92f);
+            dashboard.anchoredPosition = new Vector2(0f, -190f);
+            dashboard.sizeDelta = new Vector2(640f, 76f);
             hudRoot = dashboard.gameObject;
-            Image dashboardBack = dashboard.gameObject.AddComponent<Image>(); dashboardBack.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "hud_dashboard_frame"); dashboardBack.color = Color.white; dashboardBack.raycastTarget = false;
-            hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-210f, 0f), UiTheme.Mint, out hullBar);
-            goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-70f, 0f), UiTheme.Brass, out _);
-            crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(70f, 0f), UiTheme.SecondaryText, out _);
-            loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(210f, 0f), UiTheme.Brass, out loadBar);
+            hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-252f, 0f), UiTheme.Mint, out hullBar);
+            goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-108f, 0f), UiTheme.Brass, out _);
+            crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(108f, 0f), UiTheme.SecondaryText, out _);
+            loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(252f, 0f), UiTheme.Brass, out loadBar);
 
             prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -625f), new Vector2(390f, 34f), 17);
             prompt.color = UiTheme.PrimaryText;
@@ -176,7 +175,10 @@ namespace Desktopirates
 
         private Text CreateStatusCard(Transform parent, string label, Vector2 position, Color accent, out Image meter)
         {
-            RectTransform card = CreateUiObject(label + " Status Card", parent); card.anchoredPosition = position; card.sizeDelta = new Vector2(132f, 66f);
+            RectTransform card = CreateUiObject(label + " Status Card", parent); card.anchoredPosition = position; card.sizeDelta = new Vector2(136f, 66f);
+            Image cardFill = card.gameObject.AddComponent<Image>(); cardFill.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill"); cardFill.color = Color.white; cardFill.raycastTarget = false;
+            RectTransform cardFrame = CreateUiObject(label + " Status Frame", card); cardFrame.sizeDelta = card.sizeDelta;
+            Image frameImage = cardFrame.gameObject.AddComponent<Image>(); frameImage.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f); frameImage.type = Image.Type.Sliced; frameImage.color = Color.white; frameImage.raycastTarget = false;
             RectTransform iconRect = CreateUiObject(label + " Authored Icon", card); iconRect.anchoredPosition = new Vector2(-44f, 0f); iconRect.sizeDelta = new Vector2(38f, 38f);
             RawImage icon = iconRect.gameObject.AddComponent<RawImage>(); icon.texture = UiTextureFactory.LoadConceptTexture("Navigation", $"status_{label.ToLowerInvariant()}"); icon.raycastTarget = false;
             Text caption = CreateText(card, label, new Vector2(20f, 18f), new Vector2(82f, 20f), 15, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 15);

@@ -24,5 +24,11 @@ namespace Desktopirates
             // viewpoint world-north appears on the left, which is the same positive 2D rotation.
             return Rotate(worldDirection, cameraYawDegrees);
         }
+
+        public static Vector2 PositionOnEllipse(Vector2 direction, Vector2 center, Vector2 radii)
+        {
+            Vector2 unit = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector2.up;
+            return center + new Vector2(unit.x * radii.x, unit.y * radii.y);
+        }
     }
 }

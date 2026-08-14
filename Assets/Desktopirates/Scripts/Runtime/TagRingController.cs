@@ -72,16 +72,11 @@ namespace Desktopirates
 
                 Vector2 direction = relative.sqrMagnitude > 0.001f ? relative.normalized : Vector2.up;
                 Vector2 screenDirection = DistanceTagMath.WorldToScreenDirection(direction, cameraRig.CurrentYaw);
-                float xRadius = 312f;
-                float yRadius = 218f;
                 Vector2 discCenter = new Vector2(0f, -63f);
-                Vector2 tagPosition = discCenter + new Vector2(screenDirection.x * xRadius, screenDirection.y * yRadius);
-                if (screenDirection.y > 0.72f && Mathf.Abs(screenDirection.x) < 0.38f)
-                    tagPosition.x += poi.Kind == PoiKind.Enemy || poi.Kind == PoiKind.Treasure ? -72f : 72f;
-                // Keep forward discoveries below the persistent status dashboard. The tag stays
-                // on the unexplored-water rim, but never competes with hull/crew/load readouts.
-                tagPosition.y = Mathf.Min(tagPosition.y, 55f);
-                marker.rectTransform.anchoredPosition = tagPosition;
+                marker.rectTransform.anchoredPosition = DistanceTagMath.PositionOnEllipse(
+                    screenDirection,
+                    discCenter,
+                    new Vector2(312f, 218f));
 
                 float scale = DistanceTagMath.ScaleForDistance(distance);
                 float pixels = Mathf.Clamp(76f * scale, 62f, 98f);

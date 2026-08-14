@@ -39,5 +39,21 @@ namespace Desktopirates.Tests
             Assert.That(screen.x, Is.EqualTo(1f).Within(0.001f));
             Assert.That(screen.y, Is.EqualTo(0f).Within(0.001f));
         }
+
+        [TestCase(1f, 0f)]
+        [TestCase(0f, 1f)]
+        [TestCase(-1f, 0f)]
+        [TestCase(0f, -1f)]
+        [TestCase(0.7071068f, 0.7071068f)]
+        public void LandmarkPositionAlwaysLiesOnTheSeaEllipse(float x, float y)
+        {
+            Vector2 center = new Vector2(0f, -63f);
+            Vector2 radii = new Vector2(312f, 218f);
+            Vector2 position = DistanceTagMath.PositionOnEllipse(new Vector2(x, y), center, radii);
+            Vector2 normalized = new Vector2(
+                (position.x - center.x) / radii.x,
+                (position.y - center.y) / radii.y);
+            Assert.That(normalized.sqrMagnitude, Is.EqualTo(1f).Within(0.001f));
+        }
     }
 }
