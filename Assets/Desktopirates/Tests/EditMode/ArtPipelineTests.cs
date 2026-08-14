@@ -101,6 +101,8 @@ namespace Desktopirates.Tests
             Assert.That(UiTextureFactory.LoadPoiBadge(PoiKind.Enemy).width, Is.EqualTo(128));
             Assert.That(UiTextureFactory.LoadMenuButton(MenuGlyph.Inventory).width, Is.EqualTo(128));
             Assert.That(UiTextureFactory.LoadPortIcon("repair").width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadPortIcon("food").width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadPortIcon("water").width, Is.EqualTo(128));
             Assert.That(UiTextureFactory.LoadConceptTexture("Chrome", "port_panel_frame").width, Is.EqualTo(384));
         }
 

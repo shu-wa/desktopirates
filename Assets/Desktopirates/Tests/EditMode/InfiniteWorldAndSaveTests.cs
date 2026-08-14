@@ -113,6 +113,8 @@ namespace Desktopirates.Tests
             state.AddPerk(CrewPerk.FastHands, 2);
             state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.FastHands);
             state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.FastHands);
+            state.AddPerk(CrewPerk.PowderExpert, PerkRank.IV);
+            state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.PowderExpert);
             state.AddPerk(CrewPerk.RapidRepair);
             state.TryEquipPerkStack(CrewRole.Repairer, CrewPerk.RapidRepair);
             for (int y = -10; y <= 10; y++)
@@ -141,8 +143,10 @@ namespace Desktopirates.Tests
             Assert.That(restored.ProvisionClock, Is.EqualTo(71.4f).Within(0.11f));
             Assert.That(restored.GetRoleCrew(CrewRole.Cannons), Is.EqualTo(3));
             Assert.That(restored.GetRoleCrew(CrewRole.Repairer), Is.EqualTo(1));
-            Assert.That(restored.GetEquippedPerk(CrewRole.Cannons), Is.EqualTo(CrewPerk.FastHands));
+            Assert.That(restored.GetEquippedPerk(CrewRole.Cannons), Is.EqualTo(CrewPerk.PowderExpert));
             Assert.That(restored.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.FastHands), Is.EqualTo(2));
+            Assert.That(restored.GetPerkCount(CrewPerk.PowderExpert, PerkRank.IV), Is.EqualTo(1));
+            Assert.That(restored.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.PowderExpert, PerkRank.IV), Is.EqualTo(1));
             Assert.That(restored.GetEquippedPerkCount(CrewRole.Repairer, CrewPerk.RapidRepair), Is.EqualTo(1));
             Assert.That(restored.ExploredChunks.SetEquals(state.ExploredChunks), Is.True);
             Assert.That(restored.ResolvedEvents.SetEquals(state.ResolvedEvents), Is.True);
@@ -472,6 +476,75 @@ namespace Desktopirates.Tests
                     || CrewManagementModel.IsCompatible(CrewRole.Helm, first)
                     || CrewManagementModel.IsCompatible(CrewRole.Cannons, first)
                     || CrewManagementModel.IsCompatible(CrewRole.Repairer, first), Is.True);
+        }
+
+        [Test]
+        public void EveryBossHasAGuaranteedDeterministicWorldEncounter()
+        {
+            for (int value = (int)BossKind.GangAdmiral; value <= (int)BossKind.Poseidon; value++)
+            {
+                BossKind boss = (BossKind)value;
+                WorldGenerator.GetGuaranteedBossChunk(7919, boss, out int x, out int y);
+                var events = new List<GeneratedEventData>();
+                WorldGenerator.GenerateChunk(7919, x, y, events);
+                Assert.That(events.Exists(item => item.Boss == boss), Is.True, boss.ToString());
+            }
+        }
+
+        [Test]
+        public void InfiniteSectorsKeepProducingBossAnchorsFarFromTheOrigin()
+        {
+            int found = 0;
+            var events = new List<GeneratedEventData>();
+            for (int y = 24; y < 48; y++)
+            for (int x = 24; x < 48; x++)
+            {
+                WorldGenerator.GenerateChunk(173, x, y, events);
+                if (events.Exists(item => item.Boss != BossKind.None)) found++;
+            }
+            Assert.That(found, Is.GreaterThanOrEqualTo(4));
+        }
+
+        [Test]
+        public void HigherRankPerksGiveStrongerEffectsAndStatusChance()
+        {
+            var low = new GameState { Crew = 1 };
+            low.SetRoleCrew(CrewRole.Sails, 0);
+            low.SetRoleCrew(CrewRole.Anchor, 0);
+            low.SetRoleCrew(CrewRole.Cannons, 1);
+            low.AddPerk(CrewPerk.PowderExpert, PerkRank.I);
+            low.AddPerk(CrewPerk.Firebrand, PerkRank.I);
+            Assert.That(low.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.PowderExpert), Is.True);
+            low.SetRoleCrew(CrewRole.Cannons, 2);
+            Assert.That(low.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.Firebrand), Is.True);
+
+            var high = new GameState { Crew = 1 };
+            high.SetRoleCrew(CrewRole.Sails, 0);
+            high.SetRoleCrew(CrewRole.Anchor, 0);
+            high.SetRoleCrew(CrewRole.Cannons, 1);
+            high.AddPerk(CrewPerk.PowderExpert, PerkRank.IV);
+            high.AddPerk(CrewPerk.Firebrand, PerkRank.IV);
+            Assert.That(high.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.PowderExpert), Is.True);
+            high.SetRoleCrew(CrewRole.Cannons, 2);
+            Assert.That(high.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.Firebrand), Is.True);
+
+            Assert.That(CrewManagementModel.GetCannonDamageMultiplier(high), Is.GreaterThan(CrewManagementModel.GetCannonDamageMultiplier(low)));
+            Assert.That(CrewManagementModel.GetStatusProcChance(high, CrewPerk.Firebrand), Is.GreaterThan(CrewManagementModel.GetStatusProcChance(low, CrewPerk.Firebrand)));
+        }
+
+        [Test]
+        public void BossPerkRankTableMakesTopRanksRarest()
+        {
+            int[] counts = new int[PerkRankModel.RankCount];
+            for (ulong id = 1; id <= 20000; id++)
+            {
+                PerkDrop drop = BossModel.RollPerkDrop(BossKind.Poseidon, id);
+                if (!drop.IsEmpty) counts[(int)drop.Rank]++;
+            }
+            Assert.That(counts[0], Is.GreaterThan(counts[1]));
+            Assert.That(counts[1], Is.GreaterThan(counts[2]));
+            Assert.That(counts[2], Is.GreaterThan(counts[3]));
+            Assert.That(counts[3], Is.GreaterThan(0));
         }
 
         [Test]

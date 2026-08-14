@@ -35,6 +35,7 @@ namespace Desktopirates
     public static class WorldGenerator
     {
         public const float ChunkSize = 18f;
+        private const int BossSectorSize = 12;
 
         public static void GenerateChunk(int seed, int chunkX, int chunkY, List<GeneratedEventData> output)
         {
@@ -45,7 +46,8 @@ namespace Desktopirates
             if (chunkX == 0 && chunkY == 0)
                 output.Add(new GeneratedEventData(Hash(seed, 0, 0, 99), PoiKind.Port, new Vector2(3.0f, 3.5f), 0));
 
-            int count = (root & 7UL) < 2UL ? 0 : ((root >> 3) & 7UL) == 0UL ? 2 : 1;
+            int densityRoll = (int)(root & 15UL);
+            int count = densityRoll < 3 ? 0 : densityRoll < 12 ? 1 : densityRoll < 15 ? 2 : 3;
             for (int i = 0; i < count; i++)
             {
                 ulong h = Hash(seed, chunkX, chunkY, i + 1);
@@ -58,15 +60,60 @@ namespace Desktopirates
                 output.Add(new GeneratedEventData(Hash(seed, chunkX, chunkY, i + 11), kind, position, reward));
             }
 
-            int range = Mathf.Max(Mathf.Abs(chunkX), Mathf.Abs(chunkY));
-            if (range >= 3 && root % 43UL == 0UL)
+            bool hasBoss = false;
+            for (int value = (int)BossKind.GangAdmiral; value <= (int)BossKind.Poseidon; value++)
             {
-                BossKind boss = range < 7 ? BossKind.GangAdmiral : range < 12 ? BossKind.GhostShip : range < 18 ? BossKind.Kraken : BossKind.Poseidon;
-                ulong h = Hash(seed, chunkX, chunkY, 777);
-                Vector2 position = new Vector2(chunkX * ChunkSize + 4f + Unit(h) * (ChunkSize - 8f), chunkY * ChunkSize + 4f + Unit(h >> 19) * (ChunkSize - 8f));
-                output.Add(new GeneratedEventData(Hash(seed, chunkX, chunkY, 778), PoiKind.Enemy, position, 120 + (int)boss * 70, boss));
+                BossKind boss = (BossKind)value;
+                GetGuaranteedBossChunk(seed, boss, out int bossX, out int bossY);
+                if (chunkX != bossX || chunkY != bossY) continue;
+                AddBoss(seed, chunkX, chunkY, boss, 700 + value, output);
+                hasBoss = true;
+                break;
+            }
+
+            // Every infinite 12x12 sector owns one deterministic boss anchor, so bosses
+            // remain farmable after the four introductory encounters are resolved.
+            int sectorX = FloorDiv(chunkX, BossSectorSize);
+            int sectorY = FloorDiv(chunkY, BossSectorSize);
+            ulong sectorHash = Hash(seed, sectorX, sectorY, 6401);
+            int sectorBossX = sectorX * BossSectorSize + (int)(sectorHash % BossSectorSize);
+            int sectorBossY = sectorY * BossSectorSize + (int)((sectorHash >> 12) % BossSectorSize);
+            int range = Mathf.Max(Mathf.Abs(chunkX), Mathf.Abs(chunkY));
+            if (!hasBoss && range >= 4 && chunkX == sectorBossX && chunkY == sectorBossY)
+            {
+                BossKind boss = (BossKind)(1 + (int)((sectorHash >> 24) % 4UL));
+                AddBoss(seed, chunkX, chunkY, boss, 6500 + (int)(sectorHash & 1023UL), output);
             }
         }
+
+        public static void GetGuaranteedBossChunk(int seed, BossKind boss, out int chunkX, out int chunkY)
+        {
+            int[] rings = { 0, 4, 7, 11, 16 };
+            int ring = rings[Mathf.Clamp((int)boss, 1, 4)];
+            ulong hash = Hash(seed, (int)boss, ring, 5011);
+            Vector2Int[] directions =
+            {
+                new Vector2Int(1, 0), new Vector2Int(1, 1), new Vector2Int(0, 1), new Vector2Int(-1, 1),
+                new Vector2Int(-1, 0), new Vector2Int(-1, -1), new Vector2Int(0, -1), new Vector2Int(1, -1)
+            };
+            Vector2Int direction = directions[(int)(hash % (ulong)directions.Length)];
+            int jitter = (int)((hash >> 8) % 3UL) - 1;
+            Vector2Int tangent = new Vector2Int(-direction.y, direction.x);
+            Vector2Int coordinate = direction * ring + tangent * jitter;
+            chunkX = coordinate.x;
+            chunkY = coordinate.y;
+        }
+
+        private static void AddBoss(int seed, int chunkX, int chunkY, BossKind boss, int salt, List<GeneratedEventData> output)
+        {
+            ulong h = Hash(seed, chunkX, chunkY, salt);
+            Vector2 position = new Vector2(
+                chunkX * ChunkSize + 4f + Unit(h) * (ChunkSize - 8f),
+                chunkY * ChunkSize + 4f + Unit(h >> 19) * (ChunkSize - 8f));
+            output.Add(new GeneratedEventData(Hash(seed, chunkX, chunkY, salt + 1), PoiKind.Enemy, position, 120 + (int)boss * 70, boss));
+        }
+
+        private static int FloorDiv(int value, int divisor) => Mathf.FloorToInt(value / (float)divisor);
 
         public static ulong Hash(int seed, int x, int y, int salt)
         {

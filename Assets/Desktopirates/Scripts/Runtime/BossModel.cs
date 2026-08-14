@@ -2,6 +2,19 @@ using UnityEngine;
 
 namespace Desktopirates
 {
+    public readonly struct PerkDrop
+    {
+        public readonly CrewPerk Perk;
+        public readonly PerkRank Rank;
+        public bool IsEmpty => Perk == CrewPerk.None;
+
+        public PerkDrop(CrewPerk perk, PerkRank rank)
+        {
+            Perk = perk;
+            Rank = rank;
+        }
+    }
+
     public static class BossModel
     {
         public static int GetHull(BossKind boss) => boss switch
@@ -31,10 +44,10 @@ namespace Desktopirates
             _ => ShipStatus.None
         };
 
-        public static CrewPerk RollPerk(BossKind boss, ulong encounterId)
+        public static PerkDrop RollPerkDrop(BossKind boss, ulong encounterId)
         {
             ulong roll = WorldGenerator.Hash(unchecked((int)encounterId), (int)(encounterId >> 32), (int)boss, 991);
-            if (roll % 100UL >= 42UL) return CrewPerk.None;
+            if (roll % 100UL >= 42UL) return new PerkDrop(CrewPerk.None, PerkRank.I);
             CrewPerk[] pool = boss switch
             {
                 BossKind.GangAdmiral => new[] { CrewPerk.PowderExpert, CrewPerk.FastHands, CrewPerk.RapidRepair },
@@ -43,8 +56,15 @@ namespace Desktopirates
                 BossKind.Poseidon => new[] { CrewPerk.WindWhisperer, CrewPerk.Helmsman, CrewPerk.FrostShot },
                 _ => new[] { CrewPerk.None }
             };
-            return pool[(int)((roll >> 8) % (ulong)pool.Length)];
+            int rankRoll = (int)((roll >> 20) % 1000UL);
+            PerkRank rank = rankRoll < 720 ? PerkRank.I
+                : rankRoll < 920 ? PerkRank.II
+                : rankRoll < 990 ? PerkRank.III
+                : PerkRank.IV;
+            return new PerkDrop(pool[(int)((roll >> 8) % (ulong)pool.Length)], rank);
         }
+
+        public static CrewPerk RollPerk(BossKind boss, ulong encounterId) => RollPerkDrop(boss, encounterId).Perk;
     }
 
     public sealed class BossMotionController : MonoBehaviour

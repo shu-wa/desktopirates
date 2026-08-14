@@ -17,14 +17,14 @@ namespace Desktopirates
         {
             try
             {
-                return File.Exists(SavePath) ? CompactSaveCodec.Deserialize(File.ReadAllBytes(SavePath)) : new GameState();
+                return File.Exists(SavePath) ? CompactSaveCodec.Deserialize(File.ReadAllBytes(SavePath)) : GameState.CreateRandomVoyage();
             }
             catch (Exception exception)
             {
                 Debug.LogWarning($"Save recovery: {exception.Message}");
                 string broken = SavePath + ".broken";
                 if (File.Exists(SavePath)) File.Copy(SavePath, broken, true);
-                return new GameState();
+                return GameState.CreateRandomVoyage();
             }
         }
 

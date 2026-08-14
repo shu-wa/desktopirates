@@ -83,8 +83,10 @@ namespace Desktopirates
                 Vector3 direction = carriage != null ? carriage.forward : (targetPoint - muzzle).normalized;
                 EmitMuzzle(muzzle, direction);
                 float duration = CombatVfxMath.GetProjectileDuration(Vector3.Distance(muzzle, targetPoint));
-                longestFlight = Mathf.Max(longestFlight, duration + i * 0.055f);
-                StartCoroutine(ProjectileRoutine(muzzle, target, duration, i * 0.055f));
+                longestFlight = Mathf.Max(longestFlight, duration);
+                // A broadside is one command: every manned cannon in the arc fires on
+                // the same frame, then the whole battery shares one reload cooldown.
+                StartCoroutine(ProjectileRoutine(muzzle, target, duration, 0f));
             }
 
             yield return new WaitForSeconds(longestFlight);

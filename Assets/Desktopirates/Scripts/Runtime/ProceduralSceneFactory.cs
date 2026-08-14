@@ -11,7 +11,6 @@ namespace Desktopirates
         private static readonly Color SailCanvas = new Color(0.79f, 0.68f, 0.47f);
         private static readonly Color Brass = new Color(0.92f, 0.52f, 0.08f);
         private static readonly Color Rope = new Color(0.49f, 0.28f, 0.09f);
-        private static readonly Color Foam = new Color(0.68f, 0.94f, 1f);
         private static readonly Dictionary<int, Material> MaterialCache = new Dictionary<int, Material>();
         private static readonly Dictionary<int, Material> SailMaterialCache = new Dictionary<int, Material>();
         private static readonly Dictionary<string, Material> TexturedMaterialCache = new Dictionary<string, Material>();
@@ -35,7 +34,6 @@ namespace Desktopirates
             root.SetParent(parent, false);
             root.name = "Player Ship — Golden Wake";
             CreatePlayerTierVisual(root, shipLevel);
-            CreateWake(root);
             return root;
         }
 
@@ -384,19 +382,6 @@ namespace Desktopirates
             CreateTexturedPart(root, PrimitiveType.Cube, "Keel", new Vector3(0f, -0.09f, -0.02f), new Vector3(0.10f, 0.12f, 1.55f), WoodTexturePath, enemy ? new Color(0.30f, 0.08f, 0.08f) : new Color(0.48f, 0.27f, 0.16f));
             CreatePart(root, PrimitiveType.Cube, "Golden Gunwale L", new Vector3(-0.41f, 0.36f, -0.08f), new Vector3(0.04f, 0.05f, 1.24f), Brass);
             CreatePart(root, PrimitiveType.Cube, "Golden Gunwale R", new Vector3(0.41f, 0.36f, -0.08f), new Vector3(0.04f, 0.05f, 1.24f), Brass);
-        }
-
-        private static void CreateWake(Transform root)
-        {
-            for (int i = 0; i < 4; i++)
-            {
-                float z = -1.05f - i * 0.34f;
-                float width = 0.10f - i * 0.012f;
-                float spread = 0.25f + i * 0.105f;
-                Color color = Color.Lerp(Foam, new Color(0.22f, 0.58f, 0.64f), i / 4f);
-                CreatePart(root, PrimitiveType.Cube, $"Wake Port {i}", new Vector3(-spread, -0.24f, z), new Vector3(width, 0.018f, 0.47f), color, Quaternion.Euler(0f, -10f - i * 2f, 0f), true);
-                CreatePart(root, PrimitiveType.Cube, $"Wake Starboard {i}", new Vector3(spread, -0.24f, z), new Vector3(width, 0.018f, 0.47f), color, Quaternion.Euler(0f, 10f + i * 2f, 0f), true);
-            }
         }
 
         private static void CreateHarbor(Transform root)

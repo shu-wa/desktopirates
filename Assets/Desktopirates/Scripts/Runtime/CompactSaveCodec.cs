@@ -10,9 +10,11 @@ namespace Desktopirates
 {
     public static class CompactSaveCodec
     {
-        private const byte Version = 5;
+        private const byte Version = 6;
         private const int Version4RoleCount = 4;
         private const int Version4PerkCount = 14;
+        private const int Version5RoleCount = 5;
+        private const int Version5PerkCount = 20;
         private const float PositionScale = 16f;
 
         public static byte[] Serialize(GameState state)
@@ -47,10 +49,12 @@ namespace Desktopirates
                 for (int i = 0; i < CrewManagementModel.RoleCount; i++)
                     WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetRoleCrew((CrewRole)i)));
                 for (int i = 1; i < CrewManagementModel.PerkCount; i++)
-                    WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetPerkCount((CrewPerk)i)));
+                for (int rank = 0; rank < PerkRankModel.RankCount; rank++)
+                    WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetPerkCount((CrewPerk)i, (PerkRank)rank)));
                 for (int role = 0; role < CrewManagementModel.RoleCount; role++)
                 for (int perk = 1; perk < CrewManagementModel.PerkCount; perk++)
-                    WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetEquippedPerkCount((CrewRole)role, (CrewPerk)perk)));
+                for (int rank = 0; rank < PerkRankModel.RankCount; rank++)
+                    WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetEquippedPerkCount((CrewRole)role, (CrewPerk)perk, (PerkRank)rank)));
                 WriteExploration(writer, state.ExploredChunks);
                 WriteResolved(writer, state.ResolvedEvents);
             }
@@ -104,14 +108,26 @@ namespace Desktopirates
                 state.Food = checked((int)ReadUnsigned(reader));
                 state.Water = checked((int)ReadUnsigned(reader));
                 state.ProvisionClock = ReadUnsigned(reader) / 10f;
-                if (version >= 5)
+                if (version >= 6)
                 {
                     for (int i = 0; i < CrewManagementModel.RoleCount; i++)
                         state.SetRoleCrew((CrewRole)i, checked((int)ReadUnsigned(reader)));
                     for (int i = 1; i < CrewManagementModel.PerkCount; i++)
-                        state.SetPerkCount((CrewPerk)i, checked((int)ReadUnsigned(reader)));
+                    for (int rank = 0; rank < PerkRankModel.RankCount; rank++)
+                        state.SetPerkCount((CrewPerk)i, (PerkRank)rank, checked((int)ReadUnsigned(reader)));
                     for (int role = 0; role < CrewManagementModel.RoleCount; role++)
                     for (int perk = 1; perk < CrewManagementModel.PerkCount; perk++)
+                    for (int rank = 0; rank < PerkRankModel.RankCount; rank++)
+                        state.SetEquippedPerkCount((CrewRole)role, (CrewPerk)perk, (PerkRank)rank, checked((int)ReadUnsigned(reader)));
+                }
+                else if (version >= 5)
+                {
+                    for (int i = 0; i < Version5RoleCount; i++)
+                        state.SetRoleCrew((CrewRole)i, checked((int)ReadUnsigned(reader)));
+                    for (int i = 1; i < Version5PerkCount; i++)
+                        state.SetPerkCount((CrewPerk)i, checked((int)ReadUnsigned(reader)));
+                    for (int role = 0; role < Version5RoleCount; role++)
+                    for (int perk = 1; perk < Version5PerkCount; perk++)
                         state.SetEquippedPerkCount((CrewRole)role, (CrewPerk)perk, checked((int)ReadUnsigned(reader)));
                 }
                 else

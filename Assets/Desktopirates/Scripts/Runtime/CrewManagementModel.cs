@@ -3,6 +3,7 @@ using UnityEngine;
 namespace Desktopirates
 {
     public enum CrewRole : byte { Cannons, Helm, Sails, Anchor, Repairer }
+    public enum PerkRank : byte { I, II, III, IV }
     public enum CrewPerk : byte
     {
         None,
@@ -25,6 +26,29 @@ namespace Desktopirates
         VenomShot,
         FrostShot,
         TarShot
+    }
+
+    public static class PerkRankModel
+    {
+        public const int RankCount = 4;
+
+        public static float GetPower(PerkRank rank) => rank switch
+        {
+            PerkRank.II => 1.45f,
+            PerkRank.III => 2.05f,
+            PerkRank.IV => 2.85f,
+            _ => 1f
+        };
+
+        public static float GetStatusChance(PerkRank rank) => rank switch
+        {
+            PerkRank.II => 0.38f,
+            PerkRank.III => 0.62f,
+            PerkRank.IV => 0.86f,
+            _ => 0.20f
+        };
+
+        public static string GetLabel(PerkRank rank) => $"R{(int)rank + 1}";
     }
 
     public static class CrewManagementModel
@@ -71,6 +95,25 @@ namespace Desktopirates
             => state.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.TarShot) > 0;
         public static float GetStatusDuration(GameState state, CrewPerk perk, float baseDuration)
             => baseDuration * (1f + Mathf.Max(0f, GetEffectiveStacks(state, CrewRole.Cannons, perk) - 1f) * 0.22f);
+
+        public static float GetStatusProcChance(GameState state, CrewPerk perk)
+        {
+            float noProc = 1f;
+            float performance = Mathf.Clamp01(state.CrewPerformanceMultiplier);
+            for (int rank = 0; rank < PerkRankModel.RankCount; rank++)
+            {
+                int count = state.GetEquippedPerkCount(CrewRole.Cannons, perk, (PerkRank)rank);
+                float chance = PerkRankModel.GetStatusChance((PerkRank)rank) * performance;
+                for (int i = 0; i < count; i++) noProc *= 1f - chance;
+            }
+            return 1f - noProc;
+        }
+
+        public static bool RollStatusProc(GameState state, CrewPerk perk, ulong entropy)
+        {
+            float unit = (entropy & 0xFFFFFFUL) / 16777215f;
+            return unit < GetStatusProcChance(state, perk);
+        }
         public static float GetTurningMultiplier(GameState state)
             => 1f + GetEffectiveStacks(state, CrewRole.Helm, CrewPerk.Helmsman) * 0.18f;
         public static float GetSailSpeedMultiplier(GameState state)
@@ -88,8 +131,28 @@ namespace Desktopirates
         public static float GetConditionCureIntervalMultiplier(GameState state)
             => 1f / (1f + GetEffectiveStacks(state, CrewRole.Repairer, CrewPerk.ConditionSpecialist) * 0.30f);
 
+        public static PerkRank GetHighestEquippedRank(GameState state, CrewRole role, CrewPerk perk)
+        {
+            for (int rank = PerkRankModel.RankCount - 1; rank >= 0; rank--)
+                if (state.GetEquippedPerkCount(role, perk, (PerkRank)rank) > 0) return (PerkRank)rank;
+            return PerkRank.I;
+        }
+
+        public static PerkRank GetHighestEquippedRank(GameState state, CrewRole role)
+        {
+            for (int rank = PerkRankModel.RankCount - 1; rank >= 0; rank--)
+            for (int perk = 1; perk < PerkCount; perk++)
+                if (state.GetEquippedPerkCount(role, (CrewPerk)perk, (PerkRank)rank) > 0) return (PerkRank)rank;
+            return PerkRank.I;
+        }
+
         private static float GetEffectiveStacks(GameState state, CrewRole role, CrewPerk perk)
-            => state.GetEquippedPerkCount(role, perk) * Mathf.Clamp(state.CrewPerformanceMultiplier, 0f, 1f);
+        {
+            float total = 0f;
+            for (int rank = 0; rank < PerkRankModel.RankCount; rank++)
+                total += state.GetEquippedPerkCount(role, perk, (PerkRank)rank) * PerkRankModel.GetPower((PerkRank)rank);
+            return total * Mathf.Clamp(state.CrewPerformanceMultiplier, 0f, 1f);
+        }
 
         public static string GetPerkName(CrewPerk perk) => perk switch
         {

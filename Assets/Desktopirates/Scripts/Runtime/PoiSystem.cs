@@ -44,6 +44,7 @@ namespace Desktopirates
         private int centerChunkY = int.MinValue;
         private float enemyFireCooldown;
         private float cannonCooldown;
+        private ulong cannonSalvoSerial;
 
         public void Initialize(BoatController boat, GameState gameState, CombatVfxController effects = null, PlayerShipConditionController conditions = null)
         {
@@ -282,6 +283,7 @@ namespace Desktopirates
             ShipCustomizationModel.GetFiringSlots(state, bearing, firingSlots);
             cannonCooldown = Mathf.Max(0.48f, (1.25f - state.CannonLevel * 0.08f) * CrewManagementModel.GetReloadMultiplier(state));
             int damage = ShipCustomizationModel.GetSalvoDamage(state, salvo);
+            ulong salvoEntropy = WorldGenerator.Hash(state.WorldSeed, unchecked((int)target.Id), unchecked((int)(target.Id >> 32)), unchecked((int)++cannonSalvoSerial));
             target.Health -= damage;
             bool willSink = target.Health <= 0;
             target.IsUnderFire = true;
@@ -290,7 +292,7 @@ namespace Desktopirates
 
             Action impact = () =>
             {
-                string statuses = ApplyPlayerRoundStatuses(target);
+                string statuses = ApplyPlayerRoundStatuses(target, salvoEntropy);
                 Message?.Invoke(willSink
                     ? $"DIRECT HIT — {damage}  SINKING!"
                     : string.IsNullOrEmpty(statuses) ? $"DIRECT HIT — {damage} DAMAGE" : $"DIRECT HIT — {damage}  {statuses}");
@@ -305,31 +307,38 @@ namespace Desktopirates
             else { impact(); completed(); }
         }
 
-        private string ApplyPlayerRoundStatuses(PoiRecord target)
+        private string ApplyPlayerRoundStatuses(PoiRecord target, ulong salvoEntropy)
         {
             if (target == null || target.Resolved) return string.Empty;
             var labels = new List<string>();
-            if (CrewManagementModel.HasIncendiaryRounds(state))
+            if (RollStatusProc(CrewPerk.Firebrand, salvoEntropy))
             {
                 target.Conditions.Apply(ShipStatus.Burning, CrewManagementModel.GetStatusDuration(state, CrewPerk.Firebrand, 8f));
                 labels.Add("BURNING");
             }
-            if (CrewManagementModel.HasVenomRounds(state))
+            if (RollStatusProc(CrewPerk.VenomShot, salvoEntropy))
             {
                 target.Conditions.Apply(ShipStatus.Poisoned, CrewManagementModel.GetStatusDuration(state, CrewPerk.VenomShot, 10f));
                 labels.Add("POISON");
             }
-            if (CrewManagementModel.HasFrostRounds(state))
+            if (RollStatusProc(CrewPerk.FrostShot, salvoEntropy))
             {
                 target.Conditions.Apply(ShipStatus.Frozen, CrewManagementModel.GetStatusDuration(state, CrewPerk.FrostShot, 8f));
                 labels.Add("FROZEN");
             }
-            if (CrewManagementModel.HasTarRounds(state))
+            if (RollStatusProc(CrewPerk.TarShot, salvoEntropy))
             {
                 target.Conditions.Apply(ShipStatus.Sticky, CrewManagementModel.GetStatusDuration(state, CrewPerk.TarShot, 8f));
                 labels.Add("STICKY");
             }
             return string.Join(" + ", labels);
+        }
+
+        private bool RollStatusProc(CrewPerk perk, ulong salvoEntropy)
+        {
+            if (state.GetEquippedPerkCount(CrewRole.Cannons, perk) <= 0) return false;
+            ulong entropy = WorldGenerator.Hash(unchecked((int)salvoEntropy), unchecked((int)(salvoEntropy >> 32)), (int)perk, 8309);
+            return CrewManagementModel.RollStatusProc(state, perk, entropy);
         }
 
         private PoiRecord FindCombatTarget(out float bestDistance)
@@ -360,12 +369,12 @@ namespace Desktopirates
             if (target == null || target.Resolved) return;
             target.IsUnderFire = false;
             state.Gold += target.Reward;
-            CrewPerk perk = BossModel.RollPerk(target.Boss, target.Id);
-            if (perk != CrewPerk.None) state.AddPerk(perk);
+            PerkDrop drop = BossModel.RollPerkDrop(target.Boss, target.Id);
+            if (!drop.IsEmpty) state.AddPerk(drop.Perk, drop.Rank);
             Resolve(target);
-            Message?.Invoke(perk == CrewPerk.None
+            Message?.Invoke(drop.IsEmpty
                 ? $"ENEMY SUNK — {target.Reward}G SALVAGED"
-                : $"BOSS DEFEATED — {target.Reward}G  PERK: {CrewManagementModel.GetPerkName(perk)}");
+                : $"BOSS DEFEATED — {target.Reward}G  {CrewManagementModel.GetPerkName(drop.Perk)} {PerkRankModel.GetLabel(drop.Rank)}");
         }
 
         private static void AttachStatusVisual(PoiRecord record)

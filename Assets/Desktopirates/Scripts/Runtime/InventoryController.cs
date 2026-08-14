@@ -95,7 +95,7 @@ namespace Desktopirates
             RectTransform panel = CreateRect("Scrollable Cargo Manifest", canvas, new Vector2(0f, -398f), new Vector2(500f, 520f));
             root = panel.gameObject;
             Image background = root.AddComponent<Image>();
-            background.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "port_panel_frame", 34f);
+            background.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "cargo_panel_frame", 34f);
             background.type = Image.Type.Sliced;
             background.color = new Color(1f, 1f, 1f, 0.985f);
             AddAuthoredPanelFill(panel, new Vector2(450f, 468f));
@@ -118,7 +118,7 @@ namespace Desktopirates
             content.anchorMin = new Vector2(0.5f, 1f);
             content.anchorMax = new Vector2(0.5f, 1f);
             content.pivot = new Vector2(0.5f, 1f);
-            content.anchoredPosition = new Vector2(-6f, -6f);
+            content.anchoredPosition = new Vector2(0f, -6f);
 
             for (int i = 0; i < SalvageInventory.PartKindCount; i++)
             {
@@ -139,7 +139,7 @@ namespace Desktopirates
             Text scrollHint = CreateText("Cargo Scroll Hint", panel, "SCROLL  /  DRAG", 12, new Vector2(0f, -218f), new Vector2(200f, 22f));
             scrollHint.color = new Color(0.72f, 0.76f, 0.70f, 0.9f);
 
-            RectTransform backRect = CreateRect("Close Cargo", panel, new Vector2(-215f, -220f), new Vector2(58f, 58f));
+            RectTransform backRect = CreateRect("Close Cargo", panel, new Vector2(-205f, -220f), new Vector2(58f, 58f));
             RawImage backImage = backRect.gameObject.AddComponent<RawImage>();
             backImage.texture = UiTextureFactory.LoadMenuButton(MenuGlyph.Back, 80);
             Button back = backRect.gameObject.AddComponent<Button>();
@@ -173,13 +173,19 @@ namespace Desktopirates
             icon.texture = UiTextureFactory.LoadInventoryIcon(kind);
             icon.raycastTarget = false;
 
-            Text name = CreateText($"{kind} Name", slot, SalvageInventory.GetDisplayName(kind), 16, new Vector2(-48f, 13f), new Vector2(180f, 24f));
+            // The authored service frame reserves its left notch for the round icon.
+            // Keep every glyph to the right of that notch and the quantity inside
+            // the brass end-cap so rows remain aligned at every window scale.
+            Text name = CreateText($"{kind} Name", slot, SalvageInventory.GetDisplayName(kind), 16, new Vector2(15f, 13f), new Vector2(190f, 24f));
             name.alignment = TextAnchor.MiddleLeft;
             name.color = new Color(1f, 0.78f, 0.34f, 1f);
-            Text description = CreateText($"{kind} Description", slot, SalvageInventory.GetDescription(kind), 12, new Vector2(-15f, -14f), new Vector2(246f, 28f));
+            Text description = CreateText($"{kind} Description", slot, SalvageInventory.GetDescription(kind), 12, new Vector2(15f, -14f), new Vector2(190f, 28f));
             description.alignment = TextAnchor.MiddleLeft;
             description.color = new Color(0.80f, 0.85f, 0.80f, 1f);
-            counts[index] = CreateText($"{kind} Count", slot, "0", 20, new Vector2(151f, 0f), new Vector2(58f, 30f));
+            description.resizeTextForBestFit = true;
+            description.resizeTextMinSize = 10;
+            description.resizeTextMaxSize = 12;
+            counts[index] = CreateText($"{kind} Count", slot, "0", 20, new Vector2(140f, 0f), new Vector2(42f, 30f));
             counts[index].color = Color.white;
         }
 
@@ -230,7 +236,7 @@ namespace Desktopirates
         {
             RectTransform frame = CreateRect("Authored Cargo Frame Overlay", parent, Vector2.zero, size);
             RawImage image = frame.gameObject.AddComponent<RawImage>();
-            image.texture = UiTextureFactory.LoadConceptTexture("Chrome", "port_panel_frame");
+            image.texture = UiTextureFactory.LoadConceptTexture("Chrome", "cargo_panel_frame");
             image.raycastTarget = false;
         }
     }
