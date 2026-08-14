@@ -143,50 +143,29 @@ namespace Desktopirates
 
         private static void CreateMenuCircle(RectTransform canvas, DayNightVisualController dayNight, WindowsOverlayController overlay, MenuController menu)
         {
-            var connectorObject = new GameObject("Menu Circle Connector", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            connectorObject.transform.SetParent(canvas, false);
-            Image connector = connectorObject.GetComponent<Image>();
-            connector.color = new Color(0.78f, 0.54f, 0.20f, 0.95f);
-            connector.raycastTarget = false;
-            connector.rectTransform.anchorMin = new Vector2(0.5f, 1f);
-            connector.rectTransform.anchorMax = new Vector2(0.5f, 1f);
-            connector.rectTransform.pivot = new Vector2(0.5f, 1f);
-            connector.rectTransform.anchoredPosition = new Vector2(0f, -109f);
-            connector.rectTransform.sizeDelta = new Vector2(5f, 34f);
-
             var orbObject = new GameObject("Menu Circle", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage), typeof(MenuCircleController));
             orbObject.transform.SetParent(canvas, false);
             RawImage orb = orbObject.GetComponent<RawImage>();
             orb.rectTransform.anchorMin = new Vector2(0.5f, 1f);
             orb.rectTransform.anchorMax = new Vector2(0.5f, 1f);
             orb.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            orb.rectTransform.anchoredPosition = new Vector2(0f, -66f);
-            orb.rectTransform.sizeDelta = new Vector2(104f, 104f);
+            orb.rectTransform.anchoredPosition = new Vector2(0f, -72f);
+            orb.rectTransform.sizeDelta = new Vector2(120f, 120f);
             orbObject.GetComponent<MenuCircleController>().Initialize(dayNight, overlay, menu);
         }
 
         private static GameObject CreateCompassArc(RectTransform canvas)
         {
-            var root = new GameObject("Compass Arc", typeof(RectTransform));
+            var root = new GameObject("Authored Compass Arc", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
             root.transform.SetParent(canvas, false);
-            for (int i = 0; i < 9; i++)
-            {
-                float degrees = Mathf.Lerp(205f, 335f, i / 8f);
-                float radians = degrees * Mathf.Deg2Rad;
-                var tickObject = new GameObject($"Compass Tick {i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
-                tickObject.transform.SetParent(root.transform, false);
-                RawImage tick = tickObject.GetComponent<RawImage>();
-                tick.texture = UiTextureFactory.LoadCompassArrow();
-                tick.color = i == 4 ? new Color(1f, 0.42f, 0.08f, 1f) : new Color(0.86f, 0.62f, 0.25f, 0.92f);
-                tick.raycastTarget = false;
-                RectTransform rect = tick.rectTransform;
-                rect.anchorMin = new Vector2(0.5f, 0.5f);
-                rect.anchorMax = new Vector2(0.5f, 0.5f);
-                rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.anchoredPosition = new Vector2(Mathf.Cos(radians) * 237f, -63f + Mathf.Sin(radians) * 164f);
-                rect.sizeDelta = i == 4 ? new Vector2(18f, 25f) : new Vector2(13f, 19f);
-                rect.localRotation = Quaternion.Euler(0f, 0f, degrees - 90f);
-            }
+            RawImage compass = root.GetComponent<RawImage>();
+            compass.texture = UiTextureFactory.LoadConceptTexture("Chrome", "compass_arc");
+            compass.raycastTarget = false;
+            RectTransform rect = compass.rectTransform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, -550f);
+            rect.sizeDelta = new Vector2(260f, 98f);
             return root;
         }
     }

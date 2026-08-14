@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Desktopirates
@@ -6,6 +7,8 @@ namespace Desktopirates
 
     public static class UiTextureFactory
     {
+        private const string ConceptRoot = "Textures/UI/ConceptV02";
+        private static readonly Dictionary<string, Sprite> ConceptSprites = new Dictionary<string, Sprite>();
         private static readonly Color32 Clear = new Color32(0, 0, 0, 0);
         private static readonly Color32 Navy = new Color32(4, 15, 27, 255);
         private static readonly Color32 NavyLight = new Color32(9, 34, 48, 255);
@@ -15,59 +18,70 @@ namespace Desktopirates
 
         public static Texture2D LoadMenuButton(MenuGlyph glyph, int size = 80)
         {
-            if (glyph == MenuGlyph.Inventory)
-            {
-                Texture2D generatedInventory = Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_button_inventory_pixel_v01");
-                if (generatedInventory != null) return generatedInventory;
-            }
-            if (glyph == MenuGlyph.Back)
-            {
-                Texture2D generatedBack = Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_button_back_pixel_v01");
-                if (generatedBack != null) return generatedBack;
-            }
+            Texture2D concept = LoadConceptTexture("Icons", $"menu_{glyph.ToString().ToLowerInvariant()}");
+            if (concept != null) return concept;
             return Resources.Load<Texture2D>($"Textures/UI/Menu/menu_{glyph.ToString().ToLowerInvariant()}")
                 ?? CreateMenuButton(glyph, size);
         }
 
         public static Texture2D LoadGlyph(MenuGlyph glyph, int size = 32)
         {
+            Texture2D concept = LoadConceptTexture("Icons", $"menu_{glyph.ToString().ToLowerInvariant()}");
+            if (concept != null) return concept;
             return Resources.Load<Texture2D>($"Textures/UI/Glyphs/glyph_{glyph.ToString().ToLowerInvariant()}")
                 ?? CreateGlyph(glyph, size);
         }
 
         public static Texture2D LoadPoiBadge(PoiKind kind, int size = 64)
         {
-            Texture2D generated = Resources.Load<Texture2D>($"Textures/UI/GeneratedPixel/ui_marker_{kind.ToString().ToLowerInvariant()}_pixel_v01");
-            if (generated != null) return generated;
+            Texture2D concept = LoadConceptTexture("Icons", $"marker_{kind.ToString().ToLowerInvariant()}");
+            if (concept != null) return concept;
             return Resources.Load<Texture2D>($"Textures/UI/Markers/marker_{kind.ToString().ToLowerInvariant()}")
                 ?? CreatePoiBadge(kind, size);
         }
 
-        public static Texture2D LoadGeneratedMenuCircle()
-            => Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_menu_circle_pixel_v01");
+        public static Texture2D LoadMenuCircleFrame() => LoadConceptTexture("Chrome", "menu_circle_frame");
+
+        public static Texture2D LoadTimeFace(float hour)
+        {
+            hour = Mathf.Repeat(hour, 24f);
+            string phase = hour >= 5f && hour < 10f ? "morning"
+                : hour >= 10f && hour < 17f ? "noon"
+                : hour >= 17f && hour < 20f ? "evening"
+                : "night";
+            return LoadConceptTexture("Navigation", $"time_{phase}");
+        }
 
         public static Texture2D LoadGeneratedTelegraph()
             => Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_telegraph_pixel_v01");
 
         public static Texture2D LoadInventoryIcon(SalvagePartKind kind, int size = 64)
         {
+            Texture2D concept = LoadConceptTexture("Icons", $"item_{kind.ToString().ToLowerInvariant()}");
+            if (concept != null) return concept;
             return Resources.Load<Texture2D>($"Textures/UI/Inventory/item_{kind.ToString().ToLowerInvariant()}")
                 ?? CreateInventoryIcon(kind, size);
         }
 
         public static Texture2D LoadSpeedSegment(bool active)
         {
+            Texture2D concept = LoadConceptTexture("Navigation", $"speed_{(active ? "active" : "inactive")}");
+            if (concept != null) return concept;
             return Resources.Load<Texture2D>($"Textures/UI/Navigation/speed_segment_{(active ? "active" : "inactive")}")
                 ?? CreateSpeedSegment(active);
         }
 
         public static Texture2D LoadSpeedNeedle()
         {
+            Texture2D concept = LoadConceptTexture("Navigation", "speed_needle");
+            if (concept != null) return concept;
             return Resources.Load<Texture2D>("Textures/UI/Navigation/speed_needle") ?? CreateSpeedNeedle();
         }
 
         public static Texture2D LoadCompassArrow()
         {
+            Texture2D concept = LoadConceptTexture("Navigation", "compass_north");
+            if (concept != null) return concept;
             return Resources.Load<Texture2D>("Textures/UI/Navigation/compass_arrow") ?? CreateCompassArrow();
         }
 
@@ -78,12 +92,16 @@ namespace Desktopirates
 
         public static Sprite LoadPanelSprite(int size = 128)
         {
+            Sprite concept = LoadConceptSprite("Chrome", "cargo_panel_frame", 0f);
+            if (concept != null) return concept;
             Texture2D texture = Resources.Load<Texture2D>("Textures/UI/Chrome/panel_circle");
             return texture != null ? Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.one * 0.5f, texture.width) : CreatePanelSprite(size);
         }
 
         public static Sprite LoadPillSprite()
         {
+            Sprite concept = LoadConceptSprite("Chrome", "notification_pill", 18f);
+            if (concept != null) return concept;
             Texture2D texture = Resources.Load<Texture2D>("Textures/UI/Chrome/pill_9slice");
             return texture != null
                 ? Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.one * 0.5f, 32f, 0, SpriteMeshType.FullRect, new Vector4(15, 15, 15, 15))
@@ -92,9 +110,28 @@ namespace Desktopirates
 
         public static Sprite LoadDiamondSprite(int size = 24)
         {
+            Sprite concept = LoadConceptSprite("Chrome", "slider_knob", 0f);
+            if (concept != null) return concept;
             Texture2D texture = Resources.Load<Texture2D>("Textures/UI/Chrome/slider_diamond");
             return texture != null ? Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.one * 0.5f, texture.width) : CreateDiamondSprite(size);
         }
+
+        public static Texture2D LoadConceptTexture(string folder, string name)
+            => Resources.Load<Texture2D>($"{ConceptRoot}/{folder}/{name}_v02");
+
+        public static Sprite LoadConceptSprite(string folder, string name, float border = 0f)
+        {
+            string key = $"{folder}/{name}:{border:0.##}";
+            if (ConceptSprites.TryGetValue(key, out Sprite sprite)) return sprite;
+            Texture2D texture = LoadConceptTexture(folder, name);
+            if (texture == null) return null;
+            Vector4 borders = border > 0f ? Vector4.one * border : Vector4.zero;
+            sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), Vector2.one * 0.5f, texture.width, 0, SpriteMeshType.FullRect, borders);
+            ConceptSprites[key] = sprite;
+            return sprite;
+        }
+
+        public static Texture2D LoadPortIcon(string name) => LoadConceptTexture("Port", name);
 
         public static Texture2D CreateMenuButton(MenuGlyph glyph, int size = 80)
         {

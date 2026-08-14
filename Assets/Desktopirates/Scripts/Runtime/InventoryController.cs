@@ -30,6 +30,7 @@ namespace Desktopirates
             BuildBagButton(canvas);
             BuildInventory(canvas);
             root.SetActive(false);
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--inventory-preview")) Open();
         }
 
         private void Update()
@@ -93,14 +94,15 @@ namespace Desktopirates
 
         private void BuildInventory(RectTransform canvas)
         {
-            RectTransform panel = CreateRect("Circular Cargo Hold", canvas, new Vector2(0f, -370f), new Vector2(400f, 400f));
+            RectTransform panel = CreateRect("Circular Cargo Hold", canvas, new Vector2(0f, -370f), new Vector2(440f, 440f));
             root = panel.gameObject;
             Image background = root.AddComponent<Image>();
-            background.sprite = UiTextureFactory.LoadPanelSprite(128);
+            background.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "cargo_panel_frame");
             background.color = new Color(1f, 1f, 1f, 0.985f);
-            UiTheme.AddChartWoodSurface(panel, new Vector2(350f, 350f), 0.52f, UiTextureFactory.LoadPanelSprite(128));
+            AddAuthoredPanelFill(panel, new Vector2(368f, 368f));
+            AddPanelFrameOverlay(panel, new Vector2(440f, 440f));
 
-            totalText = CreateText("Cargo Title", panel, "CARGO", 20, new Vector2(0f, 176f), new Vector2(190f, 28f));
+            totalText = CreateText("Cargo Title", panel, "CARGO", 20, new Vector2(0f, 190f), new Vector2(190f, 28f));
             totalText.color = Brass;
 
             for (int i = 0; i < SalvageInventory.PartKindCount; i++)
@@ -108,13 +110,13 @@ namespace Desktopirates
                 SalvagePartKind kind = (SalvagePartKind)i;
                 float degrees = 90f - i * 60f;
                 float radians = degrees * Mathf.Deg2Rad;
-                Vector2 position = new Vector2(Mathf.Cos(radians) * 112f, Mathf.Sin(radians) * 112f + 2f);
+                Vector2 position = new Vector2(Mathf.Cos(radians) * 126f, Mathf.Sin(radians) * 126f + 2f);
                 BuildSlot(panel, kind, position);
             }
 
             RectTransform center = CreateRect("Cargo Emblem", panel, Vector2.zero, new Vector2(86f, 86f));
             RawImage emblem = center.gameObject.AddComponent<RawImage>();
-            emblem.texture = UiTextureFactory.LoadMenuButton(MenuGlyph.Inventory, 80);
+            emblem.texture = UiTextureFactory.LoadConceptTexture("Icons", "menu_inventory");
             emblem.raycastTarget = false;
 
             detailName = CreateText("Selected Cargo Name", panel, "TIMBER", 17, new Vector2(0f, -142f), new Vector2(230f, 24f));
@@ -122,7 +124,7 @@ namespace Desktopirates
             detailText = CreateText("Selected Cargo Detail", panel, string.Empty, 15, new Vector2(0f, -166f), new Vector2(310f, 38f));
             detailText.color = new Color(0.82f, 0.87f, 0.82f, 1f);
 
-            RectTransform backRect = CreateRect("Close Cargo", panel, new Vector2(-166f, -158f), new Vector2(54f, 54f));
+            RectTransform backRect = CreateRect("Close Cargo", panel, new Vector2(-187f, -166f), new Vector2(64f, 64f));
             RawImage backImage = backRect.gameObject.AddComponent<RawImage>();
             backImage.texture = UiTextureFactory.LoadMenuButton(MenuGlyph.Back, 80);
             Button back = backRect.gameObject.AddComponent<Button>();
@@ -136,14 +138,14 @@ namespace Desktopirates
             int index = (int)kind;
             RectTransform slot = CreateRect($"{kind} Cargo Slot", parent, position, new Vector2(74f, 74f));
             Image frame = slot.gameObject.AddComponent<Image>();
-            frame.sprite = UiTextureFactory.LoadPanelSprite(80);
+            frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "item_slot_frame");
             frame.color = Color.white;
             slotFrames[index] = frame;
             Button button = slot.gameObject.AddComponent<Button>();
             button.targetGraphic = frame;
             button.onClick.AddListener(() => Select(kind));
 
-            RectTransform iconRect = CreateRect($"{kind} Icon", slot, new Vector2(0f, 5f), new Vector2(42f, 42f));
+            RectTransform iconRect = CreateRect($"{kind} Icon", slot, new Vector2(0f, 5f), new Vector2(48f, 48f));
             RawImage icon = iconRect.gameObject.AddComponent<RawImage>();
             icon.texture = UiTextureFactory.LoadInventoryIcon(kind);
             icon.raycastTarget = false;
@@ -189,6 +191,23 @@ namespace Desktopirates
             rect.anchoredPosition = position;
             rect.sizeDelta = size;
             return rect;
+        }
+
+        private static void AddAuthoredPanelFill(Transform parent, Vector2 size)
+        {
+            RectTransform fill = CreateRect("Authored Cargo Fill", parent, Vector2.zero, size);
+            RawImage image = fill.gameObject.AddComponent<RawImage>();
+            image.texture = UiTextureFactory.LoadConceptTexture("Chrome", "panel_fill");
+            image.raycastTarget = false;
+            fill.SetAsFirstSibling();
+        }
+
+        private static void AddPanelFrameOverlay(Transform parent, Vector2 size)
+        {
+            RectTransform frame = CreateRect("Authored Cargo Frame Overlay", parent, Vector2.zero, size);
+            RawImage image = frame.gameObject.AddComponent<RawImage>();
+            image.texture = UiTextureFactory.LoadConceptTexture("Chrome", "cargo_panel_frame");
+            image.raycastTarget = false;
         }
     }
 }

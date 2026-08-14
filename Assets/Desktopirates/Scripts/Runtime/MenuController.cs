@@ -46,6 +46,7 @@ namespace Desktopirates
         private Text engineUpgradeText;
         private Text shipyardSummary;
         private readonly Text[] cannonSlotTexts = new Text[ShipCustomizationModel.CannonSlotCount];
+        private readonly RawImage[] cannonSlotIcons = new RawImage[ShipCustomizationModel.CannonSlotCount];
         private Text capacityUpgradeText;
         private Text propulsionUpgradeText;
         private Text armorUpgradeText;
@@ -57,7 +58,7 @@ namespace Desktopirates
         private Sprite panelSprite;
         private Sprite pillSprite;
         private Sprite diamondSprite;
-        public bool IsModalOpen => (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf) || mapRoot != null;
+        public bool IsModalOpen => (menuRoot != null && menuRoot.activeSelf) || (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf) || mapRoot != null;
 
         public void Initialize(RectTransform canvasRoot, WindowsOverlayController windowOverlay, GameState gameState, SaveSystem saveSystem, BoatController player, PoiSystem poiSystem, InventoryController cargoInventory, GameObject compassDisplay)
         {
@@ -87,6 +88,8 @@ namespace Desktopirates
                 OpenShipyard();
             }
             else if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--map-preview")) OpenMap();
+            else if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--port-preview")) OpenPort();
+            else if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--menu-preview")) menuRoot.SetActive(true);
         }
 
         private void Update()
@@ -153,16 +156,16 @@ namespace Desktopirates
         private void BuildHud()
         {
             RectTransform dashboard = CreateUiObject("Ship Dashboard", canvas);
-            dashboard.anchoredPosition = new Vector2(0f, -194f);
-            dashboard.sizeDelta = new Vector2(408f, 48f);
+            dashboard.anchoredPosition = new Vector2(0f, -193f);
+            dashboard.sizeDelta = new Vector2(432f, 64f);
             hudRoot = dashboard.gameObject;
-            Image dashboardBack = dashboard.gameObject.AddComponent<Image>(); dashboardBack.sprite = pillSprite; dashboardBack.type = Image.Type.Sliced; dashboardBack.color = Color.white; dashboardBack.raycastTarget = false;
+            Image dashboardBack = dashboard.gameObject.AddComponent<Image>(); dashboardBack.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "hud_dashboard_frame"); dashboardBack.color = Color.white; dashboardBack.raycastTarget = false;
             hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-150f, 0f), UiTheme.Mint, out hullBar);
             goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-50f, 0f), UiTheme.Brass, out _);
             crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(50f, 0f), UiTheme.SecondaryText, out _);
             loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(150f, 0f), UiTheme.Brass, out loadBar);
 
-            prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -646f), new Vector2(390f, 34f), 17);
+            prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -625f), new Vector2(390f, 34f), 17);
             prompt.color = UiTheme.PrimaryText;
             UiTheme.StyleText(prompt, 18);
             toast = CreatePillText(canvas, "Event Message", new Vector2(0f, -365f), new Vector2(430f, 40f), 18);
@@ -174,10 +177,11 @@ namespace Desktopirates
         private Text CreateStatusCard(Transform parent, string label, Vector2 position, Color accent, out Image meter)
         {
             RectTransform card = CreateUiObject(label + " Status Card", parent); card.anchoredPosition = position; card.sizeDelta = new Vector2(94f, 40f);
-            Image background = card.gameObject.AddComponent<Image>(); background.sprite = pillSprite; background.type = Image.Type.Sliced; background.color = new Color(0.72f, 0.82f, 0.80f, 0.96f); background.raycastTarget = false;
-            Text caption = CreateText(card, label, new Vector2(0f, 9f), new Vector2(84f, 15f), 13, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 13);
-            Text value = CreateText(card, label + " Value", new Vector2(0f, -7f), new Vector2(84f, 20f), 16, TextAnchor.MiddleCenter); value.color = UiTheme.PrimaryText; UiTheme.StyleText(value, 16);
-            RectTransform bar = CreateUiObject(label + " Meter", card); bar.anchoredPosition = new Vector2(0f, -17f); bar.sizeDelta = new Vector2(68f, 3f);
+            RectTransform iconRect = CreateUiObject(label + " Authored Icon", card); iconRect.anchoredPosition = new Vector2(-29f, 1f); iconRect.sizeDelta = new Vector2(28f, 28f);
+            RawImage icon = iconRect.gameObject.AddComponent<RawImage>(); icon.texture = UiTextureFactory.LoadConceptTexture("Navigation", $"status_{label.ToLowerInvariant()}"); icon.raycastTarget = false;
+            Text caption = CreateText(card, label, new Vector2(13f, 9f), new Vector2(56f, 15f), 12, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 12);
+            Text value = CreateText(card, label + " Value", new Vector2(13f, -8f), new Vector2(58f, 20f), 15, TextAnchor.MiddleCenter); value.color = UiTheme.PrimaryText; UiTheme.StyleText(value, 15);
+            RectTransform bar = CreateUiObject(label + " Meter", card); bar.anchoredPosition = new Vector2(13f, -18f); bar.sizeDelta = new Vector2(52f, 3f);
             Image track = bar.gameObject.AddComponent<Image>(); track.color = new Color(0.04f, 0.12f, 0.15f, 1f); track.raycastTarget = false;
             RectTransform fill = CreateUiObject(label + " Meter Fill", bar); fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.offsetMin = fill.offsetMax = Vector2.zero;
             meter = fill.gameObject.AddComponent<Image>(); meter.type = Image.Type.Filled; meter.fillMethod = Image.FillMethod.Horizontal; meter.color = accent; meter.raycastTarget = false;
@@ -189,39 +193,48 @@ namespace Desktopirates
         {
             portRoot = CreateUiObject("Harbor Services", canvas).gameObject;
             Image back = portRoot.AddComponent<Image>();
-            back.sprite = panelSprite;
+            back.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "port_panel_frame");
             back.color = Color.white;
             RectTransform rect = (RectTransform)portRoot.transform;
             rect.anchoredPosition = new Vector2(0f, -390f);
-            rect.sizeDelta = new Vector2(330f, 330f);
-            UiTheme.AddChartWoodSurface(portRoot.transform, new Vector2(282f, 282f), 0.55f, panelSprite);
-            CreateText(portRoot.transform, "PORT", new Vector2(0f, 112f), new Vector2(220f, 30f), 22, TextAnchor.MiddleCenter).color = Brass;
-            CreateWideButton(portRoot.transform, "REPAIR  8G / HULL", new Vector2(0f, 60f), Repair);
-            CreateWideButton(portRoot.transform, "SUPPLIES +5  20G", new Vector2(0f, 15f), BuySupplies);
-            Button engineButton = CreateWideButton(portRoot.transform, "ENGINE +MAX SPEED", new Vector2(0f, -30f), UpgradeEngine);
+            rect.sizeDelta = new Vector2(404f, 404f);
+            AddAuthoredPanelFill(portRoot.transform, new Vector2(326f, 326f));
+            AddPanelFrameOverlay(portRoot.transform, "port_panel_frame", rect.sizeDelta);
+            CreateText(portRoot.transform, "PORT SERVICES", new Vector2(14f, 142f), new Vector2(250f, 32f), 22, TextAnchor.MiddleCenter).color = Brass;
+            CreateWideButton(portRoot.transform, "REPAIR  8G / HULL", new Vector2(12f, 82f), Repair);
+            CreateWideButton(portRoot.transform, "SUPPLIES +5  20G", new Vector2(12f, 29f), BuySupplies);
+            Button engineButton = CreateWideButton(portRoot.transform, "ENGINE +MAX SPEED", new Vector2(12f, -24f), UpgradeEngine);
             engineUpgradeText = engineButton.GetComponentInChildren<Text>();
-            CreateWideButton(portRoot.transform, "SHIPYARD / CREW", new Vector2(0f, -75f), OpenShipyard);
-            CreateButton(portRoot.transform, "SAIL", new Vector2(0f, -126f), () => DepartPort(portRoot));
+            CreateWideButton(portRoot.transform, "SHIPYARD / CREW", new Vector2(12f, -77f), OpenShipyard);
+            CreateButton(portRoot.transform, "SAIL", new Vector2(12f, -142f), () => DepartPort(portRoot));
             portRoot.SetActive(false);
         }
 
         private void BuildShipyardPanel()
         {
             shipyardRoot = CreateUiObject("Shipyard Customization", canvas).gameObject;
-            Image back = shipyardRoot.AddComponent<Image>(); back.sprite = panelSprite; back.color = Color.white;
+            Image back = shipyardRoot.AddComponent<Image>(); back.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "shipyard_panel_frame"); back.color = Color.white;
             RectTransform rect = (RectTransform)shipyardRoot.transform;
-            rect.anchoredPosition = new Vector2(0f, -390f);
+            rect.anchoredPosition = new Vector2(0f, -420f);
             rect.sizeDelta = new Vector2(520f, 500f);
-            UiTheme.AddChartWoodSurface(shipyardRoot.transform, new Vector2(460f, 438f), 0.58f, panelSprite);
-            CreateText(shipyardRoot.transform, "SHIPYARD", new Vector2(0f, 214f), new Vector2(260f, 30f), 22, TextAnchor.MiddleCenter).color = Brass;
-            shipyardSummary = CreateText(shipyardRoot.transform, "Shipyard Summary", new Vector2(0f, 178f), new Vector2(470f, 36f), 12, TextAnchor.MiddleCenter);
+            AddAuthoredPanelFill(shipyardRoot.transform, new Vector2(440f, 420f));
+            AddPanelFrameOverlay(shipyardRoot.transform, "shipyard_panel_frame", rect.sizeDelta);
+            RectTransform titleFill = CreateUiObject("Shipyard Title Navy Fill", shipyardRoot.transform);
+            titleFill.anchoredPosition = new Vector2(0f, 192f);
+            titleFill.sizeDelta = new Vector2(250f, 30f);
+            RawImage titleFillImage = titleFill.gameObject.AddComponent<RawImage>();
+            titleFillImage.texture = UiTextureFactory.LoadConceptTexture("Chrome", "button_fill");
+            titleFillImage.raycastTarget = false;
+            CreateMapStrip(shipyardRoot.transform, "Shipyard Title Plaque", new Vector2(0f, 192f), new Vector2(264f, 34f));
+            CreateText(shipyardRoot.transform, "SHIPYARD", new Vector2(0f, 192f), new Vector2(260f, 30f), 22, TextAnchor.MiddleCenter).color = Brass;
+            shipyardSummary = CreateText(shipyardRoot.transform, "Shipyard Summary", new Vector2(0f, 158f), new Vector2(470f, 36f), 13, TextAnchor.MiddleCenter);
             shipyardSummary.color = new Color(0.78f, 0.91f, 0.90f, 1f);
 
-            CreateSizedButton(shipyardRoot.transform, "GUN DECK", new Vector2(-112f, 132f), new Vector2(210f, 38f), () => ShowShipyardPage(true));
-            CreateSizedButton(shipyardRoot.transform, "SHIP SYSTEMS", new Vector2(112f, 132f), new Vector2(210f, 38f), () => ShowShipyardPage(false));
+            CreateSizedButton(shipyardRoot.transform, "GUN DECK", new Vector2(-112f, 116f), new Vector2(210f, 38f), () => ShowShipyardPage(true));
+            CreateSizedButton(shipyardRoot.transform, "SHIP SYSTEMS", new Vector2(112f, 116f), new Vector2(210f, 38f), () => ShowShipyardPage(false));
 
             shipyardGunsPage = CreateUiObject("Gun Deck Page", shipyardRoot.transform).gameObject;
-            CreateText(shipyardGunsPage.transform, "CLICK A HARDPOINT TO INSTALL OR STORE", new Vector2(0f, 92f), new Vector2(430f, 24f), 15, TextAnchor.MiddleCenter).color = UiTheme.SecondaryText;
+            CreateText(shipyardGunsPage.transform, "CLICK A HARDPOINT TO INSTALL OR STORE", new Vector2(0f, 76f), new Vector2(430f, 24f), 15, TextAnchor.MiddleCenter).color = UiTheme.SecondaryText;
             CreateCannonSlotButton(CannonSlot.Bow, new Vector2(0f, 58f));
             CreateCannonSlotButton(CannonSlot.PortFore, new Vector2(-125f, 18f));
             CreateCannonSlotButton(CannonSlot.StarboardFore, new Vector2(125f, 18f));
@@ -246,6 +259,7 @@ namespace Desktopirates
         {
             Button button = CreateSizedButton(shipyardGunsPage.transform, ShipCustomizationModel.GetDefinition(slot).ShortName, position, new Vector2(210f, 38f), () => ToggleCannon(slot));
             cannonSlotTexts[(int)slot] = button.GetComponentInChildren<Text>();
+            cannonSlotIcons[(int)slot] = AddButtonIcon(button.transform, UiTextureFactory.LoadPortIcon("hardpoint_empty"), new Vector2(-82f, 0f), 32f);
         }
 
         private Text CreateCompactButton(Transform parent, string label, Vector2 position, Action action)
@@ -358,6 +372,7 @@ namespace Desktopirates
                 CannonSlotDefinition definition = ShipCustomizationModel.GetDefinition(slot);
                 cannonSlotTexts[i].text = $"{definition.ShortName}  {(ShipCustomizationModel.HasCannon(state, slot) ? "● ARMED" : "+ EMPTY")}";
                 cannonSlotTexts[i].color = ShipCustomizationModel.HasCannon(state, slot) ? new Color(1f, 0.76f, 0.28f) : new Color(0.62f, 0.76f, 0.76f);
+                if (cannonSlotIcons[i] != null) cannonSlotIcons[i].texture = UiTextureFactory.LoadPortIcon(ShipCustomizationModel.HasCannon(state, slot) ? "hardpoint_cannon" : "hardpoint_empty");
             }
             capacityUpgradeText.text = UpgradeLabel("CAPACITY", state.CapacityLevel, ShipCustomizationModel.GetCapacityUpgradeCost(state.CapacityLevel));
             propulsionUpgradeText.text = UpgradeLabel("PROPULSION", state.EngineLevel, CruiseModel.GetUpgradeCost(state.EngineLevel));
@@ -422,10 +437,11 @@ namespace Desktopirates
             mapChartCenter = boat.LogicalPosition;
             RectTransform panel = CreateUiObject("Exploration Chart", canvas);
             mapRoot = panel.gameObject;
-            panel.anchoredPosition = new Vector2(0f, -405f);
+            panel.anchoredPosition = new Vector2(0f, -425f);
             panel.sizeDelta = new Vector2(550f, 550f);
-            Image panelBack = panel.gameObject.AddComponent<Image>(); panelBack.sprite = panelSprite; panelBack.color = Color.white; panelBack.raycastTarget = false;
-            UiTheme.AddChartWoodSurface(panel, new Vector2(510f, 510f), 0.58f, panelSprite);
+            Image panelBack = panel.gameObject.AddComponent<Image>(); panelBack.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "map_panel_frame"); panelBack.color = Color.white; panelBack.raycastTarget = false;
+            AddAuthoredPanelFill(panel, new Vector2(488f, 488f));
+            AddPanelFrameOverlay(panel, "map_panel_frame", panel.sizeDelta);
 
             Text title = CreateText(panel, "EXPLORATION CHART", new Vector2(0f, 246f), new Vector2(320f, 30f), 22, TextAnchor.MiddleCenter);
             title.color = UiTheme.Brass; UiTheme.StyleText(title, 22);
@@ -433,9 +449,9 @@ namespace Desktopirates
             wideZoomText = CreateSizedButton(panel, "WIDE", new Vector2(74f, 211f), new Vector2(136f, 38f), () => SetMapZoom(MapZoom.Wide)).GetComponentInChildren<Text>();
 
             RectTransform frameRect = CreateUiObject("Chart Brass Bezel", panel); frameRect.anchoredPosition = new Vector2(0f, -2f); frameRect.sizeDelta = new Vector2(438f, 438f);
-            Image frame = frameRect.gameObject.AddComponent<Image>(); frame.sprite = panelSprite; frame.color = Color.white; frame.raycastTarget = false;
+            Image frame = frameRect.gameObject.AddComponent<Image>(); frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "radial_hub"); frame.color = Color.white; frame.raycastTarget = false;
             RectTransform clip = CreateUiObject("Chart Circular Viewport", panel); clip.anchoredPosition = new Vector2(0f, -2f); clip.sizeDelta = new Vector2(408f, 408f);
-            Image clipGraphic = clip.gameObject.AddComponent<Image>(); clipGraphic.sprite = panelSprite; clipGraphic.color = Color.white; clipGraphic.raycastTarget = false;
+            Image clipGraphic = clip.gameObject.AddComponent<Image>(); clipGraphic.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "panel_fill"); clipGraphic.color = Color.white; clipGraphic.raycastTarget = false;
             Mask mask = clip.gameObject.AddComponent<Mask>(); mask.showMaskGraphic = false;
             RectTransform mapRect = CreateUiObject("Explored Waters", clip); mapRect.sizeDelta = new Vector2(398f, 398f);
             mapImage = mapRect.gameObject.AddComponent<RawImage>(); mapImage.raycastTarget = false;
@@ -445,11 +461,11 @@ namespace Desktopirates
 
             CreateCardinalLabel(panel, "N", new Vector2(0f, 184f));
             CreateCardinalLabel(panel, "E", new Vector2(208f, -2f));
-            CreateCardinalLabel(panel, "S", new Vector2(0f, -188f));
+            CreateCardinalLabel(panel, "S", new Vector2(0f, -169f));
             CreateCardinalLabel(panel, "W", new Vector2(-208f, -2f));
-            CreateMapStrip(panel, "Chart Position Strip", new Vector2(0f, -222f), new Vector2(390f, 27f));
-            mapStatus = CreateText(panel, "Chart Status", new Vector2(0f, -222f), new Vector2(382f, 24f), 15, TextAnchor.MiddleCenter);
-            mapStatus.color = UiTheme.SecondaryText; UiTheme.StyleText(mapStatus, 15);
+            CreateMapStrip(panel, "Chart Position Strip", new Vector2(0f, -199f), new Vector2(404f, 30f));
+            mapStatus = CreateText(panel, "Chart Status", new Vector2(0f, -199f), new Vector2(394f, 26f), 15, TextAnchor.MiddleCenter);
+            mapStatus.color = UiTheme.Brass; UiTheme.StyleText(mapStatus, 15);
             BuildMapLegend(panel);
             CreateButton(panel, "BACK", new Vector2(-232f, 224f), CloseMap);
             SetMapZoom(mapZoom);
@@ -521,15 +537,15 @@ namespace Desktopirates
                     Vector2 position = MapChartModel.WorldToMap(data.Position, mapChartCenter, mapZoom);
                     if (!MapChartModel.IsInside(position)) continue;
                     RectTransform marker = CreateUiObject($"Known {data.Kind}", mapMarkersRoot.transform);
-                    marker.anchoredPosition = position; marker.sizeDelta = Vector2.one * (mapZoom == MapZoom.Local ? 36f : 28f);
+                    marker.anchoredPosition = position; marker.sizeDelta = Vector2.one * (mapZoom == MapZoom.Local ? 46f : 36f);
                     RawImage image = marker.gameObject.AddComponent<RawImage>(); image.texture = UiTextureFactory.LoadPoiBadge(data.Kind); image.raycastTarget = false;
                 }
             }
 
             mapHeading = CreateUiObject("Ship Heading", mapMarkersRoot.transform); mapHeading.sizeDelta = new Vector2(5f, 48f); mapHeading.pivot = new Vector2(0.5f, 0f);
             Image course = mapHeading.gameObject.AddComponent<Image>(); course.color = UiTheme.Brass; course.raycastTarget = false;
-            mapPlayerMarker = CreateUiObject("Current Ship Position", mapMarkersRoot.transform); mapPlayerMarker.sizeDelta = new Vector2(44f, 44f);
-            RawImage playerImage = mapPlayerMarker.gameObject.AddComponent<RawImage>(); playerImage.texture = UiTextureFactory.LoadCompassArrow(); playerImage.color = UiTheme.PrimaryText; playerImage.raycastTarget = false;
+            mapPlayerMarker = CreateUiObject("Current Ship Position", mapMarkersRoot.transform); mapPlayerMarker.sizeDelta = new Vector2(48f, 48f);
+            RawImage playerImage = mapPlayerMarker.gameObject.AddComponent<RawImage>(); playerImage.texture = UiTextureFactory.LoadConceptTexture("Icons", "marker_player"); playerImage.color = Color.white; playerImage.raycastTarget = false;
             UpdateMapPlayerMarker();
         }
 
@@ -551,16 +567,16 @@ namespace Desktopirates
 
         private void BuildMapLegend(Transform parent)
         {
-            CreateMapStrip(parent, "Chart Legend Strip", new Vector2(0f, -252f), new Vector2(420f, 29f));
+            CreateMapStrip(parent, "Chart Legend Strip", new Vector2(0f, -234f), new Vector2(438f, 40f));
             PoiKind[] kinds = { PoiKind.Port, PoiKind.Enemy, PoiKind.Wreck, PoiKind.Treasure };
             string[] labels = { "PORT", "ENEMY", "WRECK", "TREASURE" };
             for (int i = 0; i < kinds.Length; i++)
             {
                 float x = -150f + i * 100f;
-                RectTransform icon = CreateUiObject(labels[i] + " Legend Icon", parent); icon.anchoredPosition = new Vector2(x - 26f, -252f); icon.sizeDelta = new Vector2(24f, 24f);
+                RectTransform icon = CreateUiObject(labels[i] + " Legend Icon", parent); icon.anchoredPosition = new Vector2(x - 28f, -234f); icon.sizeDelta = new Vector2(38f, 38f);
                 RawImage badge = icon.gameObject.AddComponent<RawImage>(); badge.texture = UiTextureFactory.LoadPoiBadge(kinds[i]); badge.raycastTarget = false;
-                Text label = CreateText(parent, labels[i], new Vector2(x + 12f, -252f), new Vector2(70f, 22f), 13, TextAnchor.MiddleLeft);
-                label.color = UiTheme.PrimaryText; UiTheme.StyleText(label, 13);
+                Text label = CreateText(parent, labels[i], new Vector2(x + 14f, -234f), new Vector2(72f, 24f), 14, TextAnchor.MiddleLeft);
+                label.color = UiTheme.PrimaryText; UiTheme.StyleText(label, 14);
             }
         }
 
@@ -594,43 +610,49 @@ namespace Desktopirates
         private Button CreateButton(Transform parent, string label, Vector2 position, Action action)
         {
             RectTransform rect = CreateUiObject(label, parent);
-            rect.anchoredPosition = position; rect.sizeDelta = new Vector2(72f, 72f);
+            rect.anchoredPosition = position; rect.sizeDelta = new Vector2(80f, 80f);
             MenuGlyph glyph = label == "SAVE" ? MenuGlyph.Save
                 : label == "BAG" ? MenuGlyph.Inventory
                 : label == "BACK" ? MenuGlyph.Back
                 : label == "EXIT" || label == "SAIL" ? MenuGlyph.Exit
                 : MenuGlyph.Map;
-            RawImage image = rect.gameObject.AddComponent<RawImage>(); image.texture = UiTextureFactory.LoadMenuButton(glyph, 80); image.color = Color.white;
+            RawImage image = rect.gameObject.AddComponent<RawImage>(); image.texture = label == "SAIL" ? UiTextureFactory.LoadPortIcon("sail") : UiTextureFactory.LoadMenuButton(glyph, 128); image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
             return button;
         }
 
         private Button CreateWideButton(Transform parent, string label, Vector2 position, Action action)
         {
-            RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(225f, 34f);
-            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = pillSprite; image.type = Image.Type.Sliced; image.color = Color.white;
+            RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(274f, 44f);
+            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f); image.type = Image.Type.Sliced; image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
-            Text text = CreateText(rect, label, Vector2.zero, rect.sizeDelta, 15, TextAnchor.MiddleCenter); text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 15);
+            Text text = CreateText(rect, label, new Vector2(15f, 0f), new Vector2(224f, 42f), 15, TextAnchor.MiddleCenter); text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 15);
+            Texture2D icon = GetActionIcon(label);
+            if (icon != null) AddButtonIcon(rect, icon, new Vector2(-105f, 0f), 34f);
             return button;
         }
 
         private Button CreateSizedButton(Transform parent, string label, Vector2 position, Vector2 size, Action action)
         {
             RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = size;
-            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = pillSprite; image.type = Image.Type.Sliced; image.color = Color.white;
+            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tab_frame", 18f); image.type = Image.Type.Sliced; image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
-            Text text = CreateText(rect, label, Vector2.zero, size - new Vector2(8f, 0f), 15, TextAnchor.MiddleCenter); text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 15);
+            Text text = CreateText(rect, label, new Vector2(12f, 0f), size - new Vector2(42f, 0f), 14, TextAnchor.MiddleCenter); text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 14);
+            Texture2D icon = GetActionIcon(label);
+            if (icon != null) AddButtonIcon(rect, icon, new Vector2(-size.x * 0.5f + 24f, 0f), Mathf.Min(32f, size.y - 6f));
             return button;
         }
 
         private void CreateSlider(Transform parent, string label, Vector2 position, float min, float max, float value, Action<float> changed, bool commitOnRelease = false)
         {
             RectTransform holder = CreateUiObject(label, parent); holder.anchoredPosition = position; holder.sizeDelta = new Vector2(152f, 48f);
-            Image holderBackground = holder.gameObject.AddComponent<Image>(); holderBackground.sprite = pillSprite; holderBackground.type = Image.Type.Sliced; holderBackground.color = Color.white;
+            Image holderBackground = holder.gameObject.AddComponent<Image>(); holderBackground.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill"); holderBackground.color = Color.white;
+            RectTransform holderFrame = CreateUiObject(label + " Authored Frame", holder); holderFrame.sizeDelta = holder.sizeDelta;
+            Image holderFrameImage = holderFrame.gameObject.AddComponent<Image>(); holderFrameImage.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f); holderFrameImage.type = Image.Type.Sliced; holderFrameImage.raycastTarget = false;
             RectTransform glyphRect = CreateUiObject(label + " Icon", holder); glyphRect.anchoredPosition = new Vector2(-55f, 0f); glyphRect.sizeDelta = new Vector2(28f, 28f);
             RawImage glyphImage = glyphRect.gameObject.AddComponent<RawImage>(); glyphImage.texture = UiTextureFactory.LoadGlyph(label == "VOL" ? MenuGlyph.Volume : MenuGlyph.Size, 32); glyphImage.raycastTarget = false;
             RectTransform bar = CreateUiObject("Bar", holder); bar.anchoredPosition = new Vector2(27f, commitOnRelease ? 6f : 0f); bar.sizeDelta = new Vector2(82f, 8f);
-            Image background = bar.gameObject.AddComponent<Image>(); background.color = new Color(0.10f, 0.21f, 0.26f, 1f);
+            Image background = bar.gameObject.AddComponent<Image>(); background.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "slider_rail", 14f); background.type = Image.Type.Sliced; background.color = Color.white;
             Slider slider = bar.gameObject.AddComponent<Slider>(); slider.minValue = min; slider.maxValue = max; slider.value = value;
             RectTransform fill = CreateUiObject("Fill", bar); fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.offsetMin = Vector2.zero; fill.offsetMax = Vector2.zero;
             Image fillImage = fill.gameObject.AddComponent<Image>(); fillImage.color = Brass; slider.fillRect = fill;
@@ -662,6 +684,55 @@ namespace Desktopirates
             Image background = pill.gameObject.AddComponent<Image>(); background.sprite = pillSprite; background.type = Image.Type.Sliced; background.color = Color.white; background.raycastTarget = false;
             Text text = CreateText(pill, name, Vector2.zero, size - new Vector2(12f, 0f), fontSize, TextAnchor.MiddleCenter);
             return text;
+        }
+
+        private void AddAuthoredPanelFill(Transform parent, Vector2 size)
+        {
+            RectTransform fill = CreateUiObject("Authored Navy Panel Fill", parent);
+            fill.sizeDelta = size;
+            RawImage image = fill.gameObject.AddComponent<RawImage>();
+            image.texture = UiTextureFactory.LoadConceptTexture("Chrome", "panel_fill");
+            image.color = Color.white;
+            image.raycastTarget = false;
+            fill.SetAsFirstSibling();
+        }
+
+        private static void AddPanelFrameOverlay(Transform parent, string textureName, Vector2 size)
+        {
+            RectTransform frame = CreateUiObject("Authored Frame Overlay", parent);
+            frame.sizeDelta = size;
+            RawImage image = frame.gameObject.AddComponent<RawImage>();
+            image.texture = UiTextureFactory.LoadConceptTexture("Chrome", textureName);
+            image.raycastTarget = false;
+        }
+
+        private static RawImage AddButtonIcon(Transform parent, Texture2D texture, Vector2 position, float size)
+        {
+            RectTransform rect = CreateUiObject("Authored Action Icon", parent);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = Vector2.one * size;
+            RawImage image = rect.gameObject.AddComponent<RawImage>();
+            image.texture = texture;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static Texture2D GetActionIcon(string label)
+        {
+            if (label.Contains("REPAIR")) return UiTextureFactory.LoadPortIcon("repair");
+            if (label.Contains("SUPPLIES")) return UiTextureFactory.LoadPortIcon("supplies");
+            if (label.Contains("ENGINE") || label.Contains("PROPULSION")) return UiTextureFactory.LoadPortIcon("propulsion");
+            if (label.Contains("SHIPYARD")) return UiTextureFactory.LoadPortIcon("shipyard");
+            if (label.Contains("CAPACITY")) return UiTextureFactory.LoadPortIcon("capacity");
+            if (label.Contains("ARMOR")) return UiTextureFactory.LoadPortIcon("armor");
+            if (label.Contains("TURNING")) return UiTextureFactory.LoadPortIcon("turning");
+            if (label.Contains("GUN DECK")) return UiTextureFactory.LoadPortIcon("gun_deck");
+            if (label.Contains("SHIP SYSTEMS")) return UiTextureFactory.LoadPortIcon("systems");
+            if (label.Contains("GUN")) return UiTextureFactory.LoadPortIcon("gun_upgrade");
+            if (label.Contains("CREW")) return UiTextureFactory.LoadPortIcon("hire_crew");
+            if (label.Contains("SAIL")) return UiTextureFactory.LoadPortIcon("sail");
+            if (label.Contains("BACK")) return UiTextureFactory.LoadMenuButton(MenuGlyph.Back);
+            return null;
         }
 
         private static RectTransform CreateUiObject(string name, Transform parent)

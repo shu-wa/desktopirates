@@ -82,10 +82,24 @@ namespace Desktopirates.Tests
         [Test]
         public void RuntimeUiLoadersPreferTheAuthoredPixelTextureSet()
         {
-            Assert.That(UiTextureFactory.LoadGeneratedMenuCircle().width, Is.EqualTo(128));
-            Assert.That(UiTextureFactory.LoadGeneratedTelegraph().width, Is.EqualTo(512));
-            Assert.That(UiTextureFactory.LoadPoiBadge(PoiKind.Enemy).width, Is.EqualTo(96));
-            Assert.That(UiTextureFactory.LoadMenuButton(MenuGlyph.Inventory).width, Is.EqualTo(80));
+            Assert.That(UiTextureFactory.LoadMenuCircleFrame().width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadTimeFace(23f).width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadPoiBadge(PoiKind.Enemy).width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadMenuButton(MenuGlyph.Inventory).width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadPortIcon("repair").width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadConceptTexture("Chrome", "port_panel_frame").width, Is.EqualTo(384));
+        }
+
+        [Test]
+        public void CompleteConceptUiSetIsPresentAndPixelFiltered()
+        {
+            Texture2D[] textures = Resources.LoadAll<Texture2D>("Textures/UI/ConceptV02");
+            Assert.That(textures.Length, Is.GreaterThanOrEqualTo(70));
+            foreach (Texture2D texture in textures)
+            {
+                Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point), texture.name);
+                Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Clamp), texture.name);
+            }
         }
 
         [Test]

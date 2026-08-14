@@ -40,7 +40,7 @@ namespace Desktopirates
                 var markerObject = new GameObject($"{poi.Kind} Direction Tag", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
                 markerObject.transform.SetParent(canvas, false);
                 var marker = markerObject.GetComponent<RawImage>();
-                marker.texture = PixelTextureFactory.CreatePoiIcon(poi.Kind, 24);
+                marker.texture = UiTextureFactory.LoadPoiBadge(poi.Kind, 128);
                 marker.color = Color.white;
                 marker.raycastTarget = false;
                 marker.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
@@ -66,22 +66,25 @@ namespace Desktopirates
                 RawImage marker = markers[i];
                 Vector2 relative = poi.LogicalPosition - player.LogicalPosition;
                 float distance = relative.magnitude;
-                bool showTag = !poi.Resolved && distance > PoiSystem.VisibleRadius && IsAmongNearest(i, distance, 7);
+                bool showTag = !poi.Resolved && distance > PoiSystem.VisibleRadius && IsAmongNearest(i, distance, 5);
                 marker.gameObject.SetActive(showTag);
                 if (!showTag) continue;
 
                 Vector2 direction = relative.sqrMagnitude > 0.001f ? relative.normalized : Vector2.up;
                 Vector2 screenDirection = DistanceTagMath.Rotate(direction, -cameraRig.CurrentYaw);
-                float xRadius = 282f;
-                float yRadius = 188f;
+                float xRadius = 312f;
+                float yRadius = 218f;
                 Vector2 discCenter = new Vector2(0f, -63f);
                 Vector2 tagPosition = discCenter + new Vector2(screenDirection.x * xRadius, screenDirection.y * yRadius);
                 if (screenDirection.y > 0.72f && Mathf.Abs(screenDirection.x) < 0.38f)
                     tagPosition.x += poi.Kind == PoiKind.Enemy || poi.Kind == PoiKind.Treasure ? -72f : 72f;
+                // Keep forward discoveries below the persistent status dashboard. The tag stays
+                // on the unexplored-water rim, but never competes with hull/crew/load readouts.
+                tagPosition.y = Mathf.Min(tagPosition.y, 105f);
                 marker.rectTransform.anchoredPosition = tagPosition;
 
                 float scale = DistanceTagMath.ScaleForDistance(distance);
-                float pixels = 34f * scale;
+                float pixels = Mathf.Clamp(76f * scale, 62f, 98f);
                 marker.rectTransform.sizeDelta = new Vector2(pixels, pixels);
                 marker.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0.72f, Mathf.InverseLerp(8f, 70f, distance)));
             }

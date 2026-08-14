@@ -12,8 +12,6 @@ namespace Desktopirates
         private DayNightVisualController dayNight;
         private WindowsOverlayController windowOverlay;
         private MenuController menu;
-        private Texture2D generatedTexture;
-        private RawImage liveTimeFace;
         private float shownHour = -100f;
         private Vector3 targetScale = Vector3.one;
         private Vector2 pointerStart;
@@ -26,18 +24,20 @@ namespace Desktopirates
             dayNight = visualController;
             windowOverlay = overlayController;
             menu = menuController;
-            Texture2D authoredCircle = UiTextureFactory.LoadGeneratedMenuCircle();
-            if (authoredCircle != null)
+            image.texture = UiTextureFactory.LoadMenuCircleFrame();
+            Texture2D timeFace = UiTextureFactory.LoadTimeFace(dayNight != null ? dayNight.CurrentHour : 12f);
+            if (timeFace != null)
             {
-                image.texture = authoredCircle;
-                var faceObject = new GameObject("Live Time Face", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+                var faceObject = new GameObject("Authored Time Face", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
                 faceObject.transform.SetParent(transform, false);
-                liveTimeFace = faceObject.GetComponent<RawImage>();
-                liveTimeFace.raycastTarget = false;
-                liveTimeFace.rectTransform.anchorMin = liveTimeFace.rectTransform.anchorMax = Vector2.one * 0.5f;
-                liveTimeFace.rectTransform.pivot = Vector2.one * 0.5f;
-                liveTimeFace.rectTransform.anchoredPosition = new Vector2(0f, 3f);
-                liveTimeFace.rectTransform.sizeDelta = new Vector2(54f, 54f);
+                RawImage face = faceObject.GetComponent<RawImage>();
+                face.texture = timeFace;
+                face.raycastTarget = false;
+                face.rectTransform.anchorMin = face.rectTransform.anchorMax = Vector2.one * 0.5f;
+                face.rectTransform.pivot = Vector2.one * 0.5f;
+                face.rectTransform.anchoredPosition = new Vector2(0f, 2f);
+                face.rectTransform.sizeDelta = new Vector2(70f, 70f);
+                face.transform.SetAsFirstSibling();
             }
             RefreshTexture(true);
         }
@@ -76,12 +76,8 @@ namespace Desktopirates
             float hour = dayNight.CurrentHour;
             if (!force && Mathf.Abs(hour - shownHour) < 0.01f) return;
             shownHour = hour;
-            if (generatedTexture != null) Destroy(generatedTexture);
-            generatedTexture = PixelTextureFactory.CreateTimeOrb(hour, 96);
-            if (liveTimeFace != null) liveTimeFace.texture = generatedTexture;
-            else image.texture = generatedTexture;
+            RawImage face = transform.Find("Authored Time Face")?.GetComponent<RawImage>();
+            if (face != null) face.texture = UiTextureFactory.LoadTimeFace(hour);
         }
-
-        private void OnDestroy() { if (generatedTexture != null) Destroy(generatedTexture); }
     }
 }

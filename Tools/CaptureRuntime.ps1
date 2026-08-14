@@ -11,10 +11,17 @@ param(
     [string]$CombatSinkOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Combat-Sink.png'),
     [string]$DockingOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Docking.png'),
     [string]$DockedOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Docked.png'),
+    [string]$PortOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Port.png'),
+    [string]$MenuOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Menu.png'),
+    [string]$VoyageOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Voyage.png'),
     [switch]$ShipyardOnly,
     [switch]$MapOnly,
     [switch]$CombatOnly,
-    [switch]$DockOnly
+    [switch]$DockOnly,
+    [switch]$PortOnly,
+    [switch]$MenuOnly,
+    [switch]$VoyageOnly,
+    [switch]$InventoryOnly
 )
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -91,6 +98,10 @@ try {
     elseif ($MapOnly) { $launch.ArgumentList = '--map-preview' }
     elseif ($CombatOnly) { $launch.ArgumentList = '--combat-preview' }
     elseif ($DockOnly) { $launch.ArgumentList = '--dock-preview' }
+    elseif ($PortOnly) { $launch.ArgumentList = '--port-preview' }
+    elseif ($MenuOnly) { $launch.ArgumentList = '--menu-preview' }
+    elseif ($VoyageOnly) { $launch.ArgumentList = '--voyage-preview' }
+    elseif ($InventoryOnly) { $launch.ArgumentList = '--inventory-preview' }
     $game = Start-Process @launch
     for ($i = 0; $i -lt 60 -and $game.MainWindowHandle -eq 0; $i++) {
         Start-Sleep -Milliseconds 200
@@ -129,6 +140,10 @@ try {
         Save-WindowCapture $game.MainWindowHandle $DockedOutput
         return
     }
+    if ($PortOnly) { Save-WindowCapture $game.MainWindowHandle $PortOutput; return }
+    if ($MenuOnly) { Save-WindowCapture $game.MainWindowHandle $MenuOutput; return }
+    if ($VoyageOnly) { Save-WindowCapture $game.MainWindowHandle $VoyageOutput; return }
+    if ($InventoryOnly) { Save-WindowCapture $game.MainWindowHandle $InventoryOutput; return }
 
     # Click the Menu Circle at the top-center of the 720 x 760 overlay.
     $rect = New-Object DesktopiratesCaptureNative+RECT
@@ -161,6 +176,8 @@ try {
     Save-WindowCapture $game.MainWindowHandle $CoastingOutput
 
     # TAB toggles the circular cargo hold without stopping the persistent voyage.
+    [DesktopiratesCaptureNative]::SetForegroundWindow($game.MainWindowHandle) | Out-Null
+    Start-Sleep -Milliseconds 250
     Send-TestKey 0x09
     Start-Sleep -Milliseconds 800
     Save-WindowCapture $game.MainWindowHandle $InventoryOutput
