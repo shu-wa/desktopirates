@@ -13,8 +13,6 @@ namespace Desktopirates
         private GameObject launcherButton;
         private GameObject launcherHint;
         private Text totalText;
-        private Text detailName;
-        private Text detailText;
         private readonly Text[] counts = new Text[SalvageInventory.PartKindCount];
         private readonly Image[] slotFrames = new Image[SalvageInventory.PartKindCount];
         private SalvagePartKind selected;
@@ -94,37 +92,54 @@ namespace Desktopirates
 
         private void BuildInventory(RectTransform canvas)
         {
-            RectTransform panel = CreateRect("Circular Cargo Hold", canvas, new Vector2(0f, -370f), new Vector2(440f, 440f));
+            RectTransform panel = CreateRect("Scrollable Cargo Manifest", canvas, new Vector2(0f, -398f), new Vector2(500f, 520f));
             root = panel.gameObject;
             Image background = root.AddComponent<Image>();
-            background.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "cargo_panel_frame");
+            background.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "port_panel_frame", 34f);
+            background.type = Image.Type.Sliced;
             background.color = new Color(1f, 1f, 1f, 0.985f);
-            AddAuthoredPanelFill(panel, new Vector2(368f, 368f));
-            AddPanelFrameOverlay(panel, new Vector2(440f, 440f));
+            AddAuthoredPanelFill(panel, new Vector2(450f, 468f));
+            AddPanelFrameOverlay(panel, new Vector2(500f, 520f));
 
-            totalText = CreateText("Cargo Title", panel, "CARGO", 20, new Vector2(0f, 190f), new Vector2(190f, 28f));
+            totalText = CreateText("Cargo Title", panel, "CARGO", 21, new Vector2(0f, 205f), new Vector2(270f, 30f));
             totalText.color = Brass;
+
+            RectTransform viewport = CreateRect("Cargo Scroll Viewport", panel, new Vector2(0f, -18f), new Vector2(420f, 384f));
+            Image viewportImage = viewport.gameObject.AddComponent<Image>();
+            // The mask must be fully rectangular. Decorative sprites have transparent
+            // corners and would clip the first/last manifest row.
+            viewportImage.sprite = null;
+            viewportImage.color = new Color(0.015f, 0.045f, 0.070f, 0.96f);
+            Mask mask = viewport.gameObject.AddComponent<Mask>();
+            mask.showMaskGraphic = true;
+
+            RectTransform content = CreateRect("Cargo Scroll Content", viewport, Vector2.zero,
+                new Vector2(400f, SalvageInventory.PartKindCount * 76f + 12f));
+            content.anchorMin = new Vector2(0.5f, 1f);
+            content.anchorMax = new Vector2(0.5f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = new Vector2(-6f, -6f);
 
             for (int i = 0; i < SalvageInventory.PartKindCount; i++)
             {
                 SalvagePartKind kind = (SalvagePartKind)i;
-                float degrees = 90f - i * 60f;
-                float radians = degrees * Mathf.Deg2Rad;
-                Vector2 position = new Vector2(Mathf.Cos(radians) * 126f, Mathf.Sin(radians) * 126f + 2f);
-                BuildSlot(panel, kind, position);
+                BuildRow(content, kind, new Vector2(0f, -38f - i * 76f));
             }
 
-            RectTransform center = CreateRect("Cargo Emblem", panel, Vector2.zero, new Vector2(86f, 86f));
-            RawImage emblem = center.gameObject.AddComponent<RawImage>();
-            emblem.texture = UiTextureFactory.LoadConceptTexture("Icons", "menu_inventory");
-            emblem.raycastTarget = false;
+            ScrollRect scroll = viewport.gameObject.AddComponent<ScrollRect>();
+            scroll.viewport = viewport;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 32f;
+            scroll.inertia = true;
+            scroll.decelerationRate = 0.12f;
 
-            detailName = CreateText("Selected Cargo Name", panel, "TIMBER", 17, new Vector2(0f, -142f), new Vector2(230f, 24f));
-            detailName.color = Mint;
-            detailText = CreateText("Selected Cargo Detail", panel, string.Empty, 15, new Vector2(0f, -166f), new Vector2(310f, 38f));
-            detailText.color = new Color(0.82f, 0.87f, 0.82f, 1f);
+            Text scrollHint = CreateText("Cargo Scroll Hint", panel, "SCROLL  /  DRAG", 12, new Vector2(0f, -218f), new Vector2(200f, 22f));
+            scrollHint.color = new Color(0.72f, 0.76f, 0.70f, 0.9f);
 
-            RectTransform backRect = CreateRect("Close Cargo", panel, new Vector2(-187f, -166f), new Vector2(64f, 64f));
+            RectTransform backRect = CreateRect("Close Cargo", panel, new Vector2(-215f, -220f), new Vector2(58f, 58f));
             RawImage backImage = backRect.gameObject.AddComponent<RawImage>();
             backImage.texture = UiTextureFactory.LoadMenuButton(MenuGlyph.Back, 80);
             Button back = backRect.gameObject.AddComponent<Button>();
@@ -133,26 +148,38 @@ namespace Desktopirates
             Select(SalvagePartKind.Timber);
         }
 
-        private void BuildSlot(RectTransform parent, SalvagePartKind kind, Vector2 position)
+        private void BuildRow(RectTransform parent, SalvagePartKind kind, Vector2 position)
         {
             int index = (int)kind;
-            RectTransform slot = CreateRect($"{kind} Cargo Slot", parent, position, new Vector2(74f, 74f));
+            RectTransform slot = CreateRect($"{kind} Cargo Row", parent, position, new Vector2(386f, 68f));
+            slot.anchorMin = new Vector2(0.5f, 1f);
+            slot.anchorMax = new Vector2(0.5f, 1f);
+            slot.pivot = new Vector2(0.5f, 0.5f);
             Image frame = slot.gameObject.AddComponent<Image>();
-            frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "item_slot_frame");
+            frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f);
+            frame.type = Image.Type.Sliced;
             frame.color = Color.white;
             slotFrames[index] = frame;
             Button button = slot.gameObject.AddComponent<Button>();
             button.targetGraphic = frame;
             button.onClick.AddListener(() => Select(kind));
 
-            RectTransform iconRect = CreateRect($"{kind} Icon", slot, new Vector2(0f, 5f), new Vector2(48f, 48f));
+            RectTransform iconFrame = CreateRect($"{kind} Icon Frame", slot, new Vector2(-156f, 0f), new Vector2(56f, 56f));
+            Image roundFrame = iconFrame.gameObject.AddComponent<Image>();
+            roundFrame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "item_slot_frame");
+            roundFrame.raycastTarget = false;
+            RectTransform iconRect = CreateRect($"{kind} Icon", iconFrame, Vector2.zero, new Vector2(42f, 42f));
             RawImage icon = iconRect.gameObject.AddComponent<RawImage>();
             icon.texture = UiTextureFactory.LoadInventoryIcon(kind);
             icon.raycastTarget = false;
 
-            Text name = CreateText($"{kind} Name", slot, SalvageInventory.GetDisplayName(kind), 13, new Vector2(0f, -24f), new Vector2(72f, 17f));
+            Text name = CreateText($"{kind} Name", slot, SalvageInventory.GetDisplayName(kind), 16, new Vector2(-48f, 13f), new Vector2(180f, 24f));
+            name.alignment = TextAnchor.MiddleLeft;
             name.color = new Color(1f, 0.78f, 0.34f, 1f);
-            counts[index] = CreateText($"{kind} Count", slot, "0", 15, new Vector2(23f, 22f), new Vector2(30f, 18f));
+            Text description = CreateText($"{kind} Description", slot, SalvageInventory.GetDescription(kind), 12, new Vector2(-15f, -14f), new Vector2(246f, 28f));
+            description.alignment = TextAnchor.MiddleLeft;
+            description.color = new Color(0.80f, 0.85f, 0.80f, 1f);
+            counts[index] = CreateText($"{kind} Count", slot, "0", 20, new Vector2(151f, 0f), new Vector2(58f, 30f));
             counts[index].color = Color.white;
         }
 
@@ -161,9 +188,6 @@ namespace Desktopirates
             selected = kind;
             for (int i = 0; i < slotFrames.Length; i++)
                 if (slotFrames[i] != null) slotFrames[i].color = i == (int)kind ? Mint : Color.white;
-            if (detailName == null) return;
-            detailName.text = $"{SalvageInventory.GetDisplayName(kind)}  x{state.GetPartCount(kind)}";
-            detailText.text = SalvageInventory.GetDescription(kind);
         }
 
         private Text CreateText(string name, Transform parent, string value, int size, Vector2 position, Vector2 dimensions)
@@ -206,7 +230,7 @@ namespace Desktopirates
         {
             RectTransform frame = CreateRect("Authored Cargo Frame Overlay", parent, Vector2.zero, size);
             RawImage image = frame.gameObject.AddComponent<RawImage>();
-            image.texture = UiTextureFactory.LoadConceptTexture("Chrome", "cargo_panel_frame");
+            image.texture = UiTextureFactory.LoadConceptTexture("Chrome", "port_panel_frame");
             image.raycastTarget = false;
         }
     }

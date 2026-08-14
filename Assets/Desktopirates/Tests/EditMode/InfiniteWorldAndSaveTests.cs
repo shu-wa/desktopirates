@@ -89,8 +89,6 @@ namespace Desktopirates.Tests
                 PlayerPosition = new Vector2(-123.375f, 456.625f),
                 HeadingDegrees = 271.4f,
                 Gold = 9021,
-                Hull = 13,
-                MaxHull = 17,
                 Supplies = 28,
                 EngineLevel = 4,
                 CannonLevel = 3,
@@ -99,8 +97,20 @@ namespace Desktopirates.Tests
                 ArmorLevel = 3,
                 TurningLevel = 1,
                 CannonMountMask = 0b101101,
-                SpareCannons = 2
+                SpareCannons = 2,
+                ShipLevel = 3,
+                Food = 47,
+                Water = 39,
+                ProvisionClock = 71.4f,
+                MaxHull = 33,
+                Hull = 29
             };
+            state.SetRoleCrew(CrewRole.Cannons, 3);
+            state.SetRoleCrew(CrewRole.Helm, 1);
+            state.SetRoleCrew(CrewRole.Sails, 2);
+            state.SetRoleCrew(CrewRole.Anchor, 1);
+            state.AddPerk(CrewPerk.FastHands);
+            state.EquipPerk(CrewRole.Cannons, CrewPerk.FastHands);
             for (int y = -10; y <= 10; y++)
             for (int x = -22; x <= 22; x++) state.ExploredChunks.Add(GameState.PackChunk(x, y));
             for (ulong i = 0; i < 300; i++) state.ResolvedEvents.Add(1000000UL + i * 17UL);
@@ -121,6 +131,12 @@ namespace Desktopirates.Tests
             Assert.That(restored.TurningLevel, Is.EqualTo(state.TurningLevel));
             Assert.That(restored.CannonMountMask, Is.EqualTo(state.CannonMountMask));
             Assert.That(restored.SpareCannons, Is.EqualTo(state.SpareCannons));
+            Assert.That(restored.ShipLevel, Is.EqualTo(3));
+            Assert.That(restored.Food, Is.EqualTo(47));
+            Assert.That(restored.Water, Is.EqualTo(39));
+            Assert.That(restored.ProvisionClock, Is.EqualTo(71.4f).Within(0.11f));
+            Assert.That(restored.GetRoleCrew(CrewRole.Cannons), Is.EqualTo(3));
+            Assert.That(restored.GetEquippedPerk(CrewRole.Cannons), Is.EqualTo(CrewPerk.FastHands));
             Assert.That(restored.ExploredChunks.SetEquals(state.ExploredChunks), Is.True);
             Assert.That(restored.ResolvedEvents.SetEquals(state.ResolvedEvents), Is.True);
             for (int i = 0; i < SalvageInventory.PartKindCount; i++)
@@ -143,6 +159,7 @@ namespace Desktopirates.Tests
                 Crew = 6,
                 CannonMountMask = (1 << (int)CannonSlot.Bow) | (1 << (int)CannonSlot.PortFore) | (1 << (int)CannonSlot.PortAft)
             };
+            state.SetRoleCrew(CrewRole.Cannons, 6);
 
             SalvoSolution bow = ShipCustomizationModel.GetSalvo(state, 4f);
             SalvoSolution port = ShipCustomizationModel.GetSalvo(state, -88f);
@@ -163,6 +180,9 @@ namespace Desktopirates.Tests
                 Crew = 1,
                 CannonMountMask = (1 << (int)CannonSlot.StarboardFore) | (1 << (int)CannonSlot.StarboardAft)
             };
+            state.SetRoleCrew(CrewRole.Sails, 0);
+            state.SetRoleCrew(CrewRole.Anchor, 0);
+            state.SetRoleCrew(CrewRole.Cannons, 1);
 
             SalvoSolution salvo = ShipCustomizationModel.GetSalvo(state, 90f);
             Assert.That(salvo.CannonsInArc, Is.EqualTo(2));
@@ -177,6 +197,9 @@ namespace Desktopirates.Tests
                 Crew = 1,
                 CannonMountMask = (1 << (int)CannonSlot.PortFore) | (1 << (int)CannonSlot.PortAft) | (1 << (int)CannonSlot.StarboardFore)
             };
+            state.SetRoleCrew(CrewRole.Sails, 0);
+            state.SetRoleCrew(CrewRole.Anchor, 0);
+            state.SetRoleCrew(CrewRole.Cannons, 1);
             var slots = new List<CannonSlot>();
 
             int count = ShipCustomizationModel.GetFiringSlots(state, -90f, slots);
@@ -229,7 +252,8 @@ namespace Desktopirates.Tests
             var state = new GameState
             {
                 Crew = 3,
-                Supplies = 4,
+                Supplies = 50,
+                ShipLevel = 1,
                 CannonMountMask = 0b000111
             };
             bool before = ShipCustomizationModel.CanAddMass(state, ShipCustomizationModel.CannonMass);
@@ -396,6 +420,47 @@ namespace Desktopirates.Tests
             {
                 Object.DestroyImmediate(sliderObject);
             }
+        }
+
+        [Test]
+        public void ShipLevelsUnlockSixClearProgressionTiers()
+        {
+            Assert.That(ShipProgressionModel.TierCount, Is.EqualTo(6));
+            Assert.That(ShipProgressionModel.Get(0).Name, Is.EqualTo("RAFT"));
+            Assert.That(ShipProgressionModel.Get(5).Name, Is.EqualTo("LARGE SHIP"));
+            for (int i = 1; i < ShipProgressionModel.TierCount; i++)
+            {
+                Assert.That(ShipProgressionModel.Get(i).BaseHull, Is.GreaterThan(ShipProgressionModel.Get(i - 1).BaseHull));
+                Assert.That(ShipProgressionModel.Get(i).MaxCrew, Is.GreaterThan(ShipProgressionModel.Get(i - 1).MaxCrew));
+                Assert.That(ShipProgressionModel.Get(i).MaxCannons, Is.GreaterThan(ShipProgressionModel.Get(i - 1).MaxCannons));
+            }
+        }
+
+        [Test]
+        public void CrewMustBeExplicitlyAssignedToFireCannons()
+        {
+            var state = new GameState { Crew = 4, ShipLevel = 3, CannonMountMask = 0b001110 };
+            Assert.That(ShipCustomizationModel.GetSalvo(state, -90f).CannonsFiring, Is.Zero);
+            Assert.That(CrewManagementModel.AssignOne(state, CrewRole.Cannons), Is.True);
+            Assert.That(ShipCustomizationModel.GetSalvo(state, -90f).CannonsFiring, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SinkingSequenceBurnsFiveSecondsThenSinksForThree()
+        {
+            Assert.That(CombatVfxMath.GetSinkProgress(4.99f), Is.Zero);
+            Assert.That(CombatVfxMath.GetSinkProgress(6.5f), Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(CombatVfxMath.GetSinkProgress(8f), Is.EqualTo(1f).Within(0.001f));
+        }
+
+        [Test]
+        public void BossPerkRollIsDeterministicAndCompatibleWithAUseCase()
+        {
+            CrewPerk first = BossModel.RollPerk(BossKind.Kraken, 0x12345678UL);
+            CrewPerk second = BossModel.RollPerk(BossKind.Kraken, 0x12345678UL);
+            Assert.That(second, Is.EqualTo(first));
+            if (first != CrewPerk.None)
+                Assert.That(CrewManagementModel.IsCompatible(CrewRole.Anchor, first) || CrewManagementModel.IsCompatible(CrewRole.Helm, first), Is.True);
         }
     }
 }

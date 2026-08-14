@@ -58,13 +58,9 @@ function Save-WindowCapture([IntPtr]$Handle, [string]$Path) {
     $bitmap = New-Object Drawing.Bitmap $width, $height
     $graphics = [Drawing.Graphics]::FromImage($bitmap)
     try {
-        $hdc = $graphics.GetHdc()
-        try {
-            if (-not [DesktopiratesCaptureNative]::PrintWindow($Handle, $hdc, 0)) {
-                throw 'PrintWindow failed.'
-            }
-        }
-        finally { $graphics.ReleaseHdc($hdc) }
+        # PrintWindow can report success while returning an empty alpha-composited
+        # surface for a layered overlay. Capture the actual desktop composition.
+        $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, (New-Object Drawing.Size $width, $height))
         $bitmap.Save([IO.Path]::GetFullPath($Path), [Drawing.Imaging.ImageFormat]::Png)
     }
     finally { $graphics.Dispose(); $bitmap.Dispose() }
@@ -89,7 +85,7 @@ $backdrop = New-Object Windows.Forms.Form
 $backdrop.FormBorderStyle = [Windows.Forms.FormBorderStyle]::None
 $backdrop.Bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
 $backdrop.BackColor = [Drawing.Color]::FromArgb(2, 10, 24)
-$backdrop.TopMost = $true
+$backdrop.TopMost = $false
 $backdrop.ShowInTaskbar = $false
 $backdrop.Show()
 [Windows.Forms.Application]::DoEvents()

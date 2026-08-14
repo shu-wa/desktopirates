@@ -12,19 +12,23 @@ namespace Desktopirates
         Port
     }
 
+    public enum BossKind : byte { None, GangAdmiral, GhostShip, Kraken, Poseidon }
+
     public readonly struct GeneratedEventData
     {
         public readonly ulong Id;
         public readonly PoiKind Kind;
         public readonly Vector2 Position;
         public readonly int Reward;
+        public readonly BossKind Boss;
 
-        public GeneratedEventData(ulong id, PoiKind kind, Vector2 position, int reward)
+        public GeneratedEventData(ulong id, PoiKind kind, Vector2 position, int reward, BossKind boss = BossKind.None)
         {
             Id = id;
             Kind = kind;
             Position = position;
             Reward = reward;
+            Boss = boss;
         }
     }
 
@@ -52,6 +56,15 @@ namespace Desktopirates
                 PoiKind kind = roll < 33 ? PoiKind.Enemy : roll < 59 ? PoiKind.Wreck : roll < 83 ? PoiKind.Treasure : PoiKind.Port;
                 int reward = 18 + (int)((h >> 45) % 48UL);
                 output.Add(new GeneratedEventData(Hash(seed, chunkX, chunkY, i + 11), kind, position, reward));
+            }
+
+            int range = Mathf.Max(Mathf.Abs(chunkX), Mathf.Abs(chunkY));
+            if (range >= 3 && root % 43UL == 0UL)
+            {
+                BossKind boss = range < 7 ? BossKind.GangAdmiral : range < 12 ? BossKind.GhostShip : range < 18 ? BossKind.Kraken : BossKind.Poseidon;
+                ulong h = Hash(seed, chunkX, chunkY, 777);
+                Vector2 position = new Vector2(chunkX * ChunkSize + 4f + Unit(h) * (ChunkSize - 8f), chunkY * ChunkSize + 4f + Unit(h >> 19) * (ChunkSize - 8f));
+                output.Add(new GeneratedEventData(Hash(seed, chunkX, chunkY, 778), PoiKind.Enemy, position, 120 + (int)boss * 70, boss));
             }
         }
 

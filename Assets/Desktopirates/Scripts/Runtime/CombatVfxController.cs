@@ -8,8 +8,14 @@ namespace Desktopirates
 {
     public static class CombatVfxMath
     {
+        public const float BurningDuration = 5f;
+        public const float SinkingDuration = 3f;
+
         public static float GetProjectileDuration(float distance)
             => Mathf.Clamp(distance / 7.5f, 0.28f, 0.68f);
+
+        public static float GetSinkProgress(float elapsed)
+            => Mathf.Clamp01((elapsed - BurningDuration) / SinkingDuration);
     }
 
     /// <summary>Small opaque, low-poly combat effects that remain readable in the desktop overlay.</summary>
@@ -110,12 +116,13 @@ namespace Desktopirates
             Vector3 startingPosition = target.localPosition;
             Quaternion startingRotation = target.localRotation;
             float nextParticle = 0f;
-            const float duration = 2.35f;
+            float duration = CombatVfxMath.BurningDuration + CombatVfxMath.SinkingDuration;
             for (float elapsed = 0f; elapsed < duration && target != null; elapsed += Time.deltaTime)
             {
-                float t = elapsed / duration;
-                float sinkT = Mathf.Clamp01((t - 0.28f) / 0.72f);
-                target.localPosition = startingPosition + Vector3.down * (sinkT * 1.20f);
+                float sinkT = CombatVfxMath.GetSinkProgress(elapsed);
+                // X/Z are maintained by PoiSystem so the wreck stays at its world coordinate.
+                Vector3 currentPosition = target.localPosition;
+                target.localPosition = new Vector3(currentPosition.x, startingPosition.y - sinkT * 1.20f, currentPosition.z);
                 target.localRotation = startingRotation * Quaternion.Euler(19f * sinkT, 0f, 31f * sinkT);
                 if (elapsed >= nextParticle)
                 {
@@ -123,7 +130,7 @@ namespace Desktopirates
                     Vector3 jitter = new Vector3(Mathf.Sin(elapsed * 17f), 0f, Mathf.Cos(elapsed * 13f)) * 0.20f;
                     StartCoroutine(BlockParticle(center + jitter, Vector3.up * 0.46f, 0.55f, Vector3.one * 0.23f, flame, false));
                     StartCoroutine(BlockParticle(center - jitter, Vector3.up * 0.34f, 0.94f, Vector3.one * 0.26f, smoke, true));
-                    nextParticle += 0.13f;
+                    nextParticle += sinkT <= 0f ? 0.22f : 0.13f;
                 }
                 yield return null;
             }

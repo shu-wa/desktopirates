@@ -10,7 +10,7 @@ namespace Desktopirates
 {
     public static class CompactSaveCodec
     {
-        private const byte Version = 3;
+        private const byte Version = 4;
         private const float PositionScale = 16f;
 
         public static byte[] Serialize(GameState state)
@@ -38,6 +38,16 @@ namespace Desktopirates
                 writer.Write((byte)Mathf.Clamp(state.TurningLevel, 0, 255));
                 WriteUnsigned(writer, (ulong)(state.CannonMountMask & ((1 << ShipCustomizationModel.CannonSlotCount) - 1)));
                 WriteUnsigned(writer, (ulong)Mathf.Max(0, state.SpareCannons));
+                writer.Write((byte)Mathf.Clamp(state.ShipLevel, 0, ShipProgressionModel.TierCount - 1));
+                WriteUnsigned(writer, (ulong)Mathf.Max(0, state.Food));
+                WriteUnsigned(writer, (ulong)Mathf.Max(0, state.Water));
+                WriteUnsigned(writer, (ulong)Mathf.Max(0, Mathf.RoundToInt(state.ProvisionClock * 10f)));
+                for (int i = 0; i < CrewManagementModel.RoleCount; i++)
+                    WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetRoleCrew((CrewRole)i)));
+                for (int i = 1; i < CrewManagementModel.PerkCount; i++)
+                    WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetPerkCount((CrewPerk)i)));
+                for (int i = 0; i < CrewManagementModel.RoleCount; i++)
+                    writer.Write((byte)state.GetEquippedPerk((CrewRole)i));
                 WriteExploration(writer, state.ExploredChunks);
                 WriteResolved(writer, state.ResolvedEvents);
             }
@@ -84,6 +94,30 @@ namespace Desktopirates
                 state.CannonMountMask = checked((int)ReadUnsigned(reader));
                 state.SpareCannons = checked((int)ReadUnsigned(reader));
             }
+            if (version >= 4)
+            {
+                state.ShipLevel = Mathf.Clamp(reader.ReadByte(), 0, ShipProgressionModel.TierCount - 1);
+                state.Food = checked((int)ReadUnsigned(reader));
+                state.Water = checked((int)ReadUnsigned(reader));
+                state.ProvisionClock = ReadUnsigned(reader) / 10f;
+                for (int i = 0; i < CrewManagementModel.RoleCount; i++)
+                    state.SetRoleCrew((CrewRole)i, checked((int)ReadUnsigned(reader)));
+                for (int i = 1; i < CrewManagementModel.PerkCount; i++)
+                    state.SetPerkCount((CrewPerk)i, checked((int)ReadUnsigned(reader)));
+                for (int i = 0; i < CrewManagementModel.RoleCount; i++)
+                    state.EquipPerk((CrewRole)i, (CrewPerk)reader.ReadByte());
+            }
+            else
+            {
+                // Existing captains keep the former starter ship and an immediately usable crew layout.
+                state.ShipLevel = 1;
+                for (int i = 0; i < CrewManagementModel.RoleCount; i++) state.SetRoleCrew((CrewRole)i, 0);
+                int gunCrew = Mathf.Min(state.Crew, Mathf.Max(1, ShipCustomizationModel.GetInstalledCannonCount(state)));
+                state.SetRoleCrew(CrewRole.Cannons, gunCrew);
+                if (state.Crew > gunCrew) state.SetRoleCrew(CrewRole.Helm, 1);
+            }
+            state.MaxHull = ShipProgressionModel.GetMaxHull(state);
+            state.Hull = Mathf.Min(state.Hull, state.MaxHull);
             ReadExploration(reader, state.ExploredChunks);
             ReadResolved(reader, state.ResolvedEvents);
             return state;

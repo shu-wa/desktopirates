@@ -70,6 +70,25 @@ namespace Desktopirates
         public static bool HasCannon(GameState state, CannonSlot slot)
             => (state.CannonMountMask & (1 << (int)slot)) != 0;
 
+        public static int GetUpgradeCap(GameState state) => ShipProgressionModel.Get(state.ShipLevel).UpgradeCap;
+        public static int GetCannonCapacity(GameState state) => ShipProgressionModel.Get(state.ShipLevel).MaxCannons;
+        public static int GetCrewCapacity(GameState state) => ShipProgressionModel.Get(state.ShipLevel).MaxCrew;
+        public static bool IsHardpointUnlocked(GameState state, CannonSlot slot)
+        {
+            int level = Mathf.Clamp(state.ShipLevel, 0, ShipProgressionModel.TierCount - 1);
+            int required = slot switch
+            {
+                CannonSlot.PortFore => 1,
+                CannonSlot.StarboardFore => 1,
+                CannonSlot.Bow => 2,
+                CannonSlot.PortAft => 3,
+                CannonSlot.StarboardAft => 4,
+                CannonSlot.Stern => 5,
+                _ => 5
+            };
+            return level >= required;
+        }
+
         public static int GetInstalledCannonCount(GameState state)
         {
             int count = 0;
@@ -80,7 +99,7 @@ namespace Desktopirates
 
         public static float GetMass(GameState state)
         {
-            float structure = 9.5f + state.CapacityLevel * 1.6f;
+            float structure = 5.5f + state.ShipLevel * 5.2f + state.CapacityLevel * 1.6f;
             float machinery = state.EngineLevel * 1.25f + state.TurningLevel * 0.75f;
             float armor = state.ArmorLevel * 3.4f;
             float weapons = GetInstalledCannonCount(state) * CannonMass;
@@ -89,17 +108,19 @@ namespace Desktopirates
             return structure + machinery + armor + weapons + crew + stores;
         }
 
-        public static float GetCapacity(GameState state) => 22f + Mathf.Clamp(state.CapacityLevel, 0, MaxUpgradeLevel) * 7.5f;
+        public static float GetCapacity(GameState state) => 14f + state.ShipLevel * 10f + Mathf.Clamp(state.CapacityLevel, 0, GetUpgradeCap(state)) * 7.5f;
 
         public static float GetLoadRatio(GameState state) => GetMass(state) / Mathf.Max(1f, GetCapacity(state));
 
         public static float GetSpeedMultiplier(GameState state)
-            => Mathf.Clamp(1.12f - GetLoadRatio(state) * 0.34f, 0.48f, 1.02f);
+            => Mathf.Clamp(1.12f - GetLoadRatio(state) * 0.34f, 0.48f, 1.02f)
+               * CrewManagementModel.GetSailSpeedMultiplier(state);
 
         public static float GetTurningMultiplier(GameState state)
         {
             float steeringGear = 1f + Mathf.Clamp(state.TurningLevel, 0, MaxUpgradeLevel) * 0.11f;
-            return Mathf.Clamp((1.10f - GetLoadRatio(state) * 0.42f) * steeringGear, 0.42f, 1.45f);
+            float staffed = state.GetRoleCrew(CrewRole.Helm) > 0 ? 1f : 0.82f;
+            return Mathf.Clamp((1.10f - GetLoadRatio(state) * 0.42f) * steeringGear * staffed * CrewManagementModel.GetTurningMultiplier(state), 0.36f, 1.65f);
         }
 
         public static bool CanAddMass(GameState state, float additionalMass)
@@ -136,13 +157,13 @@ namespace Desktopirates
                 inArc++;
                 arcName = GetDefinition(slot).ArcName;
             }
-            return new SalvoSolution(inArc, Mathf.Min(inArc, Mathf.Max(0, state.Crew)), arcName);
+            return new SalvoSolution(inArc, Mathf.Min(inArc, Mathf.Max(0, state.GetRoleCrew(CrewRole.Cannons))), arcName);
         }
 
         public static int GetFiringSlots(GameState state, float relativeBearing, IList<CannonSlot> output)
         {
             output.Clear();
-            int availableCrew = Mathf.Max(0, state.Crew);
+            int availableCrew = Mathf.Max(0, state.GetRoleCrew(CrewRole.Cannons));
             for (int i = 0; i < CannonSlotCount && output.Count < availableCrew; i++)
             {
                 CannonSlot slot = (CannonSlot)i;
@@ -152,7 +173,8 @@ namespace Desktopirates
         }
 
         public static int GetSalvoDamage(GameState state, SalvoSolution salvo)
-            => salvo.CannonsFiring * (1 + Mathf.Clamp(state.CannonLevel, 0, MaxUpgradeLevel));
+            => Mathf.Max(1, Mathf.RoundToInt(salvo.CannonsFiring * (1 + Mathf.Clamp(state.CannonLevel, 0, GetUpgradeCap(state)))
+                * CrewManagementModel.GetCannonDamageMultiplier(state)));
 
         public static string GetBearingName(float relativeBearing)
         {

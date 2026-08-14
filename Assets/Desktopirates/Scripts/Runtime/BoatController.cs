@@ -62,7 +62,8 @@ namespace Desktopirates
         {
             if (boatVisual == null || State == null) return;
             CruiseStep = Mathf.Clamp(CruiseStep, 0, MaxCruiseStep);
-            Speed = CruiseModel.IntegrateForwardSpeed(Speed, TargetSpeed, deltaTime);
+            float brakingTime = TargetSpeed <= 0f ? deltaTime * CrewManagementModel.GetAnchorBrakingMultiplier(State) : deltaTime;
+            Speed = CruiseModel.IntegrateForwardSpeed(Speed, TargetSpeed, brakingTime);
 
             // A rudder needs water flowing over it; a stopped ship cannot spin in place.
             float steerStrength = Speed <= CruiseModel.StopSnapSpeed

@@ -38,6 +38,8 @@ namespace Desktopirates
                 ? new SaveSystem(Path.Combine(Application.temporaryCachePath, "desktopirates-preview.dprs"))
                 : new SaveSystem();
             GameState state = preview ? new GameState() : saves.LoadOrNew();
+            ProvisionController provisions = gameObject.AddComponent<ProvisionController>();
+            provisions.Initialize(state, saves);
             Camera camera = CreateCamera();
             Light sun = CreateSun();
             CreateFillLight();
@@ -50,7 +52,7 @@ namespace Desktopirates
             OceanDisc ocean = oceanObject.GetComponent<OceanDisc>();
             ocean.Initialize();
 
-            Transform boatVisual = ProceduralSceneFactory.CreatePlayerBoat(world);
+            Transform boatVisual = ProceduralSceneFactory.CreatePlayerBoat(world, state.ShipLevel);
             BoatController boat = gameObject.AddComponent<BoatController>();
             boat.Initialize(boatVisual, state);
             ocean.Bind(boat);
@@ -70,14 +72,15 @@ namespace Desktopirates
             dayNight.Initialize(ocean, sun);
 
             RectTransform canvas = CreateCanvas();
-            GameObject compass = CreateCompassArc(canvas);
             InventoryController inventory = gameObject.AddComponent<InventoryController>();
             inventory.Initialize(canvas, state);
             MenuController menu = gameObject.AddComponent<MenuController>();
-            menu.Initialize(canvas, overlay, state, saves, boat, poiSystem, inventory, compass);
+            menu.Initialize(canvas, overlay, state, saves, boat, poiSystem, inventory, null);
             SpeedGaugeController speedGauge = gameObject.AddComponent<SpeedGaugeController>();
             speedGauge.Initialize(canvas, boat, inventory, menu);
             CreateMenuCircle(canvas, dayNight, overlay, menu);
+            RuntimeScreenshotController screenshot = gameObject.AddComponent<RuntimeScreenshotController>();
+            screenshot.TryStartFromCommandLine();
 
             var tagObject = new GameObject("Perimeter Tags", typeof(TagRingController));
             tagObject.transform.SetParent(canvas, false);
@@ -154,19 +157,5 @@ namespace Desktopirates
             orbObject.GetComponent<MenuCircleController>().Initialize(dayNight, overlay, menu);
         }
 
-        private static GameObject CreateCompassArc(RectTransform canvas)
-        {
-            var root = new GameObject("Authored Compass Arc", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
-            root.transform.SetParent(canvas, false);
-            RawImage compass = root.GetComponent<RawImage>();
-            compass.texture = UiTextureFactory.LoadConceptTexture("Chrome", "compass_arc");
-            compass.raycastTarget = false;
-            RectTransform rect = compass.rectTransform;
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(0f, -550f);
-            rect.sizeDelta = new Vector2(260f, 98f);
-            return root;
-        }
     }
 }

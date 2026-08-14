@@ -19,10 +19,22 @@ namespace Desktopirates
         private const string SailTexturePath = "Textures/Materials/SailCanvas_Aged_v01";
         private const string StoneTexturePath = "Textures/Materials/HarborStone_Damp_v01";
 
-        public static Transform CreatePlayerBoat(Transform parent)
+        private static readonly string[] TierTexturePaths =
         {
-            Transform root = CreateShip(parent, false, 1.28f);
+            "Textures/Ships/Tiers/ship_tier_0_raft_v01",
+            "Textures/Ships/Tiers/ship_tier_1_small_v01",
+            "Textures/Ships/Tiers/ship_tier_2_semimedium_v01",
+            "Textures/Ships/Tiers/ship_tier_3_medium_v01",
+            "Textures/Ships/Tiers/ship_tier_4_semilarge_v01",
+            "Textures/Ships/Tiers/ship_tier_5_large_v01"
+        };
+
+        public static Transform CreatePlayerBoat(Transform parent, int shipLevel = 0)
+        {
+            var root = new GameObject("Player Ship — Golden Wake").transform;
+            root.SetParent(parent, false);
             root.name = "Player Ship — Golden Wake";
+            CreatePlayerTierVisual(root, shipLevel);
             CreateWake(root);
             return root;
         }
@@ -30,10 +42,18 @@ namespace Desktopirates
         public static void ApplyPlayerCustomization(Transform root, GameState state)
         {
             if (root == null || state == null) return;
+            Transform currentTier = root.Find($"Ship Tier Visual L{state.ShipLevel + 1}");
+            if (currentTier == null)
+            {
+                for (int i = root.childCount - 1; i >= 0; i--)
+                    if (root.GetChild(i).name.StartsWith("Ship Tier Visual")) DestroyRuntimeObject(root.GetChild(i).gameObject);
+                CreatePlayerTierVisual(root, state.ShipLevel);
+            }
             Transform mounts = root.Find("Custom Cannon Mounts");
             if (mounts != null) DestroyRuntimeObject(mounts.gameObject);
             mounts = new GameObject("Custom Cannon Mounts").transform;
             mounts.SetParent(root, false);
+            mounts.localScale = Vector3.one * ShipProgressionModel.Get(state.ShipLevel).HullScale;
 
             for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++)
             {
@@ -51,6 +71,73 @@ namespace Desktopirates
             Color iron = Color.Lerp(new Color(0.16f, 0.18f, 0.18f), Brass, state.ArmorLevel * 0.035f);
             CreatePart(armor, PrimitiveType.Cube, "Port Armor", new Vector3(-0.435f, 0.29f, -0.08f), new Vector3(thickness, 0.13f, 1.25f), iron);
             CreatePart(armor, PrimitiveType.Cube, "Starboard Armor", new Vector3(0.435f, 0.29f, -0.08f), new Vector3(thickness, 0.13f, 1.25f), iron);
+        }
+
+        private static void CreatePlayerTierVisual(Transform parent, int shipLevel)
+        {
+            int level = Mathf.Clamp(shipLevel, 0, ShipProgressionModel.TierCount - 1);
+            Transform visual;
+            if (level == 0) visual = CreateRaft(parent);
+            else
+            {
+                visual = CreateShip(parent, false, 1f);
+                visual.localPosition = Vector3.zero;
+                visual.localScale = Vector3.one * ShipProgressionModel.Get(level).HullScale;
+                AddTierSilhouette(visual, level);
+            }
+            visual.name = $"Ship Tier Visual L{level + 1}";
+            ApplyTierTexture(visual, level);
+        }
+
+        private static Transform CreateRaft(Transform parent)
+        {
+            var raft = new GameObject("Tutorial Raft Model").transform;
+            raft.SetParent(parent, false);
+            Material material = CreateTexturedMaterial(TierTexturePaths[0], Color.white);
+            for (int i = -2; i <= 2; i++)
+            {
+                Transform log = CreatePart(raft, PrimitiveType.Cylinder, $"Lashed Log {i + 3}", new Vector3(i * 0.17f, 0.03f, 0f), new Vector3(0.11f, 0.72f, 0.11f), Color.white, Quaternion.Euler(90f, 0f, 0f));
+                log.GetComponent<MeshRenderer>().sharedMaterial = material;
+            }
+            CreatePart(raft, PrimitiveType.Cube, "Cross Rope Fore", new Vector3(0f, 0.12f, 0.38f), new Vector3(0.92f, 0.07f, 0.07f), Rope);
+            CreatePart(raft, PrimitiveType.Cube, "Cross Rope Aft", new Vector3(0f, 0.12f, -0.38f), new Vector3(0.92f, 0.07f, 0.07f), Rope);
+            CreatePart(raft, PrimitiveType.Cylinder, "Raft Mast", new Vector3(0f, 0.70f, 0.08f), new Vector3(0.045f, 0.66f, 0.045f), Rope);
+            CreateSail(raft, "Patch Sail", new Vector3(0.02f, 0.82f, 0.06f), 0.58f, 0.68f, SailCanvas, false);
+            raft.localScale = Vector3.one * ShipProgressionModel.Get(0).HullScale;
+            return raft;
+        }
+
+        private static void AddTierSilhouette(Transform root, int level)
+        {
+            if (level >= 2)
+                CreateTexturedPart(root, PrimitiveType.Cube, "Forecastle", new Vector3(0f, 0.55f, 0.60f), new Vector3(0.58f, 0.22f, 0.40f), TierTexturePaths[level], Color.white);
+            if (level >= 3)
+            {
+                CreatePart(root, PrimitiveType.Cylinder, "Mizzen Mast", new Vector3(0f, 1.05f, -0.52f), new Vector3(0.045f, 0.56f, 0.045f), Rope);
+                CreateSail(root, "Mizzen Sail", new Vector3(0f, 1.08f, -0.54f), 0.50f, 0.62f, SailCanvas, false);
+            }
+            if (level >= 4)
+            {
+                CreateTexturedPart(root, PrimitiveType.Cube, "Upper Stern Gallery", new Vector3(0f, 0.96f, -0.60f), new Vector3(0.70f, 0.20f, 0.38f), TierTexturePaths[level], Color.white);
+                CreatePart(root, PrimitiveType.Cube, "Port Brass Belt", new Vector3(-0.45f, 0.24f, -0.05f), new Vector3(0.035f, 0.08f, 1.48f), Brass);
+                CreatePart(root, PrimitiveType.Cube, "Starboard Brass Belt", new Vector3(0.45f, 0.24f, -0.05f), new Vector3(0.035f, 0.08f, 1.48f), Brass);
+            }
+            if (level >= 5)
+            {
+                CreatePart(root, PrimitiveType.Cylinder, "Flagship Crest", new Vector3(0f, 0.72f, 0.96f), new Vector3(0.18f, 0.035f, 0.18f), new Color(0.10f, 0.75f, 0.72f), Quaternion.Euler(90f, 0f, 0f), true);
+                CreatePart(root, PrimitiveType.Cube, "Quarterdeck", new Vector3(0f, 0.78f, -0.30f), new Vector3(0.78f, 0.10f, 0.62f), Brass);
+            }
+        }
+
+        private static void ApplyTierTexture(Transform root, int level)
+        {
+            Material material = CreateTexturedMaterial(TierTexturePaths[level], Color.white);
+            foreach (MeshRenderer renderer in root.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                string part = renderer.gameObject.name;
+                if (part.Contains("Lantern") || part.Contains("Cannon") || part.Contains("Mast") || part.Contains("Rigging") || part.Contains("Yard") || part.Contains("Emblem")) continue;
+                renderer.sharedMaterial = material;
+            }
         }
 
         private static void CreateMountedCannon(Transform parent, CannonSlot slot)
@@ -77,8 +164,9 @@ namespace Desktopirates
             else Object.DestroyImmediate(value);
         }
 
-        public static Transform CreatePoiVisual(PoiKind kind, Transform parent)
+        public static Transform CreatePoiVisual(PoiKind kind, Transform parent, BossKind boss = BossKind.None)
         {
+            if (boss != BossKind.None) return CreateBoss(parent, boss);
             if (kind == PoiKind.Enemy)
             {
                 Transform enemy = CreateShip(parent, true, 0.70f);
@@ -92,6 +180,94 @@ namespace Desktopirates
             else if (kind == PoiKind.Treasure) CreateTreasure(root);
             else CreateHarbor(root);
             return root;
+        }
+
+        private static Transform CreateBoss(Transform parent, BossKind boss)
+        {
+            var wrapper = new GameObject($"Boss — {boss}").transform;
+            wrapper.SetParent(parent, false);
+            Transform model;
+            switch (boss)
+            {
+                case BossKind.GangAdmiral: model = CreateGangAdmiral(wrapper); break;
+                case BossKind.GhostShip: model = CreateGhostShip(wrapper); break;
+                case BossKind.Kraken: model = CreateKraken(wrapper); break;
+                default: model = CreatePoseidon(wrapper); break;
+            }
+            BossMotionController motion = model.gameObject.AddComponent<BossMotionController>();
+            motion.Initialize(boss);
+            return wrapper;
+        }
+
+        private static Transform CreateGangAdmiral(Transform parent)
+        {
+            Transform ship = CreateShip(parent, true, 1.45f);
+            ship.localPosition = Vector3.zero;
+            ship.name = "Gang Admiral Flagship Model";
+            CreateTexturedPart(ship, PrimitiveType.Cube, "Second Gun Deck", new Vector3(0f, 0.67f, -0.08f), new Vector3(0.86f, 0.18f, 1.45f), "Textures/Bosses/boss_gang_admiral_v01", Color.white);
+            CreatePart(ship, PrimitiveType.Cylinder, "Skull Prow", new Vector3(0f, 0.48f, 1.05f), new Vector3(0.20f, 0.08f, 0.20f), Brass, Quaternion.Euler(90f, 0f, 0f), true);
+            ApplyBossTexture(ship, "Textures/Bosses/boss_gang_admiral_v01", new Color(0.78f, 0.56f, 0.45f));
+            return ship;
+        }
+
+        private static Transform CreateGhostShip(Transform parent)
+        {
+            Transform ship = CreateShip(parent, true, 1.32f);
+            ship.localPosition = Vector3.zero;
+            ship.name = "Ghost Ship Model";
+            ApplyBossTexture(ship, "Textures/Bosses/boss_ghost_ship_v01", new Color(0.42f, 0.95f, 0.82f));
+            for (int i = -1; i <= 1; i++)
+                CreatePart(ship, PrimitiveType.Cube, $"Ghost Flame {i}", new Vector3(i * 0.33f, 0.88f, -0.18f), Vector3.one * 0.13f, new Color(0.18f, 1f, 0.72f), Quaternion.Euler(0f, 45f, 0f), true);
+            return ship;
+        }
+
+        private static Transform CreateKraken(Transform parent)
+        {
+            var root = new GameObject("Kraken Model").transform;
+            root.SetParent(parent, false);
+            Material skin = CreateTexturedMaterial("Textures/Bosses/boss_kraken_v01", new Color(0.45f, 0.78f, 0.78f), true);
+            Transform head = CreatePart(root, PrimitiveType.Sphere, "Armored Kraken Head", new Vector3(0f, 0.56f, 0f), new Vector3(0.72f, 0.86f, 0.72f), Color.white);
+            head.GetComponent<MeshRenderer>().sharedMaterial = skin;
+            for (int i = 0; i < 8; i++)
+            {
+                float angle = i * 45f * Mathf.Deg2Rad;
+                Vector3 position = new Vector3(Mathf.Sin(angle) * 0.76f, 0.18f, Mathf.Cos(angle) * 0.76f);
+                Transform tentacle = CreatePart(root, PrimitiveType.Capsule, $"Tentacle {i + 1}", position, new Vector3(0.22f, 0.72f, 0.22f), Color.white, Quaternion.Euler(25f, i * 45f, 42f));
+                tentacle.GetComponent<MeshRenderer>().sharedMaterial = skin;
+                CreatePart(tentacle, PrimitiveType.Cube, $"Sucker Ridge {i + 1}", new Vector3(0f, -0.16f, -0.14f), new Vector3(0.12f, 0.46f, 0.05f), new Color(0.72f, 0.38f, 0.42f));
+            }
+            CreatePart(root, PrimitiveType.Cube, "Kraken Eye L", new Vector3(-0.22f, 0.68f, -0.60f), Vector3.one * 0.13f, new Color(0.12f, 1f, 0.92f), null, true);
+            CreatePart(root, PrimitiveType.Cube, "Kraken Eye R", new Vector3(0.22f, 0.68f, -0.60f), Vector3.one * 0.13f, new Color(0.12f, 1f, 0.92f), null, true);
+            root.localScale = Vector3.one * 1.18f;
+            return root;
+        }
+
+        private static Transform CreatePoseidon(Transform parent)
+        {
+            var root = new GameObject("Poseidon Model").transform;
+            root.SetParent(parent, false);
+            Material stone = CreateTexturedMaterial("Textures/Bosses/boss_poseidon_v01", new Color(0.62f, 0.84f, 0.78f), true);
+            Transform torso = CreatePart(root, PrimitiveType.Capsule, "Poseidon Torso", new Vector3(0f, 0.72f, 0f), new Vector3(0.68f, 0.82f, 0.50f), Color.white);
+            torso.GetComponent<MeshRenderer>().sharedMaterial = stone;
+            Transform head = CreatePart(root, PrimitiveType.Sphere, "Poseidon Head", new Vector3(0f, 1.42f, 0f), new Vector3(0.42f, 0.48f, 0.42f), Color.white);
+            head.GetComponent<MeshRenderer>().sharedMaterial = stone;
+            for (int i = -2; i <= 2; i++)
+                CreatePart(root, PrimitiveType.Cube, $"Aquamarine Beard {i}", new Vector3(i * 0.09f, 1.14f - Mathf.Abs(i) * 0.04f, -0.20f), new Vector3(0.08f, 0.42f, 0.08f), new Color(0.10f, 0.78f, 0.76f), Quaternion.Euler(10f * i, 0f, 4f * i), true);
+            CreatePart(root, PrimitiveType.Cylinder, "Bronze Crown", new Vector3(0f, 1.75f, 0f), new Vector3(0.31f, 0.10f, 0.31f), Brass);
+            Transform trident = new GameObject("Trident Armature").transform;
+            trident.SetParent(root, false); trident.localPosition = new Vector3(-0.65f, 0.90f, 0f);
+            CreatePart(trident, PrimitiveType.Cube, "Trident Shaft", Vector3.zero, new Vector3(0.09f, 1.80f, 0.09f), Brass, Quaternion.Euler(0f, 0f, -12f), true);
+            for (int i = -1; i <= 1; i++) CreatePart(trident, PrimitiveType.Cube, $"Trident Prong {i}", new Vector3(i * 0.18f - 0.20f, 0.84f, 0f), new Vector3(0.07f, 0.46f - Mathf.Abs(i) * 0.10f, 0.07f), Brass, Quaternion.Euler(0f, 0f, i * -15f), true);
+            CreatePart(root, PrimitiveType.Cylinder, "Maelstrom", new Vector3(0f, 0.05f, 0f), new Vector3(1.55f, 0.06f, 1.55f), new Color(0.06f, 0.64f, 0.72f), null, true);
+            root.localScale = Vector3.one * 1.06f;
+            return root;
+        }
+
+        private static void ApplyBossTexture(Transform root, string resourcePath, Color tint)
+        {
+            Material material = CreateTexturedMaterial(resourcePath, tint, true);
+            foreach (MeshRenderer renderer in root.GetComponentsInChildren<MeshRenderer>(true))
+                if (!renderer.gameObject.name.Contains("Lantern") && !renderer.gameObject.name.Contains("Flame")) renderer.sharedMaterial = material;
         }
 
         public static Material CreateMaterial(Color color, bool emissive = false)
