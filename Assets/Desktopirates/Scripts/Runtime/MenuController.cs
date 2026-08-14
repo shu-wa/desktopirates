@@ -98,7 +98,7 @@ namespace Desktopirates
             goldValue.text = $"{state.Gold} G";
             crewValue.text = state.Crew.ToString();
             float loadRatio = ShipCustomizationModel.GetLoadRatio(state);
-            loadValue.text = $"{loadRatio * 100f:0}%";
+            loadValue.text = $"{ShipCustomizationModel.GetMass(state):0}/{ShipCustomizationModel.GetCapacity(state):0}";
             hullBar.fillAmount = state.Hull / (float)Mathf.Max(1, state.MaxHull);
             loadBar.fillAmount = Mathf.Clamp01(loadRatio);
             hullBar.color = state.Hull <= state.MaxHull * 0.3f ? UiTheme.Danger : UiTheme.Mint;
@@ -156,14 +156,14 @@ namespace Desktopirates
         private void BuildHud()
         {
             RectTransform dashboard = CreateUiObject("Ship Dashboard", canvas);
-            dashboard.anchoredPosition = new Vector2(0f, -193f);
-            dashboard.sizeDelta = new Vector2(432f, 64f);
+            dashboard.anchoredPosition = new Vector2(0f, -205f);
+            dashboard.sizeDelta = new Vector2(600f, 92f);
             hudRoot = dashboard.gameObject;
             Image dashboardBack = dashboard.gameObject.AddComponent<Image>(); dashboardBack.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "hud_dashboard_frame"); dashboardBack.color = Color.white; dashboardBack.raycastTarget = false;
-            hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-150f, 0f), UiTheme.Mint, out hullBar);
-            goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-50f, 0f), UiTheme.Brass, out _);
-            crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(50f, 0f), UiTheme.SecondaryText, out _);
-            loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(150f, 0f), UiTheme.Brass, out loadBar);
+            hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-210f, 0f), UiTheme.Mint, out hullBar);
+            goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-70f, 0f), UiTheme.Brass, out _);
+            crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(70f, 0f), UiTheme.SecondaryText, out _);
+            loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(210f, 0f), UiTheme.Brass, out loadBar);
 
             prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -625f), new Vector2(390f, 34f), 17);
             prompt.color = UiTheme.PrimaryText;
@@ -176,14 +176,14 @@ namespace Desktopirates
 
         private Text CreateStatusCard(Transform parent, string label, Vector2 position, Color accent, out Image meter)
         {
-            RectTransform card = CreateUiObject(label + " Status Card", parent); card.anchoredPosition = position; card.sizeDelta = new Vector2(94f, 40f);
-            RectTransform iconRect = CreateUiObject(label + " Authored Icon", card); iconRect.anchoredPosition = new Vector2(-29f, 1f); iconRect.sizeDelta = new Vector2(28f, 28f);
+            RectTransform card = CreateUiObject(label + " Status Card", parent); card.anchoredPosition = position; card.sizeDelta = new Vector2(132f, 66f);
+            RectTransform iconRect = CreateUiObject(label + " Authored Icon", card); iconRect.anchoredPosition = new Vector2(-44f, 0f); iconRect.sizeDelta = new Vector2(38f, 38f);
             RawImage icon = iconRect.gameObject.AddComponent<RawImage>(); icon.texture = UiTextureFactory.LoadConceptTexture("Navigation", $"status_{label.ToLowerInvariant()}"); icon.raycastTarget = false;
-            Text caption = CreateText(card, label, new Vector2(13f, 9f), new Vector2(56f, 15f), 12, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 12);
-            Text value = CreateText(card, label + " Value", new Vector2(13f, -8f), new Vector2(58f, 20f), 15, TextAnchor.MiddleCenter); value.color = UiTheme.PrimaryText; UiTheme.StyleText(value, 15);
-            RectTransform bar = CreateUiObject(label + " Meter", card); bar.anchoredPosition = new Vector2(13f, -18f); bar.sizeDelta = new Vector2(52f, 3f);
-            Image track = bar.gameObject.AddComponent<Image>(); track.color = new Color(0.04f, 0.12f, 0.15f, 1f); track.raycastTarget = false;
-            RectTransform fill = CreateUiObject(label + " Meter Fill", bar); fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.offsetMin = fill.offsetMax = Vector2.zero;
+            Text caption = CreateText(card, label, new Vector2(20f, 18f), new Vector2(82f, 20f), 15, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 15);
+            Text value = CreateText(card, label + " Value", new Vector2(20f, -5f), new Vector2(84f, 26f), 20, TextAnchor.MiddleCenter); value.color = UiTheme.PrimaryText; UiTheme.StyleText(value, 20);
+            RectTransform bar = CreateUiObject(label + " Meter", card); bar.anchoredPosition = new Vector2(20f, -26f); bar.sizeDelta = new Vector2(84f, 9f);
+            Image track = bar.gameObject.AddComponent<Image>(); track.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "slider_rail", 14f); track.type = Image.Type.Sliced; track.color = Color.white; track.raycastTarget = false;
+            RectTransform fill = CreateUiObject(label + " Meter Fill", bar); fill.anchorMin = new Vector2(0f, 0.5f); fill.anchorMax = new Vector2(1f, 0.5f); fill.sizeDelta = new Vector2(-8f, 5f); fill.anchoredPosition = Vector2.zero;
             meter = fill.gameObject.AddComponent<Image>(); meter.type = Image.Type.Filled; meter.fillMethod = Image.FillMethod.Horizontal; meter.color = accent; meter.raycastTarget = false;
             if (label != "HULL" && label != "LOAD") bar.gameObject.SetActive(false);
             return value;

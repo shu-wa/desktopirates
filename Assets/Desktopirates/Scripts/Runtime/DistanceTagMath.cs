@@ -17,5 +17,12 @@ namespace Desktopirates
             float cos = Mathf.Cos(radians);
             return new Vector2(value.x * cos - value.y * sin, value.x * sin + value.y * cos);
         }
+
+        public static Vector2 WorldToScreenDirection(Vector2 worldDirection, float cameraYawDegrees)
+        {
+            // Positive camera yaw moves the camera around the ship toward world-west. From that
+            // viewpoint world-north appears on the left, which is the same positive 2D rotation.
+            return Rotate(worldDirection, cameraYawDegrees);
+        }
     }
 }

@@ -73,9 +73,7 @@ namespace Desktopirates
             if (boat != null && meshRenderer != null)
             {
                 Vector2 position = boat.LogicalPosition;
-                VoyageTextureOffset = new Vector2(
-                    Mathf.Repeat(-position.x * 0.075f, 256f),
-                    Mathf.Repeat(-position.y * 0.075f, 256f));
+                VoyageTextureOffset = OceanMotionMath.TextureOffsetForPosition(position);
                 float radians = boat.HeadingDegrees * Mathf.Deg2Rad;
                 Vector2 direction = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
                 float maxSpeed = CruiseModel.GetMaxSpeed(boat.State != null ? boat.State.EngineLevel : 0);

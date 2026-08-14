@@ -14,6 +14,8 @@ param(
     [string]$PortOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Port.png'),
     [string]$MenuOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Menu.png'),
     [string]$VoyageOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Voyage.png'),
+    [string]$DirectionStartOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Direction-0.png'),
+    [string]$DirectionRotatedOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Direction-90.png'),
     [switch]$ShipyardOnly,
     [switch]$MapOnly,
     [switch]$CombatOnly,
@@ -21,6 +23,7 @@ param(
     [switch]$PortOnly,
     [switch]$MenuOnly,
     [switch]$VoyageOnly,
+    [switch]$DirectionOnly,
     [switch]$InventoryOnly
 )
 
@@ -101,6 +104,7 @@ try {
     elseif ($PortOnly) { $launch.ArgumentList = '--port-preview' }
     elseif ($MenuOnly) { $launch.ArgumentList = '--menu-preview' }
     elseif ($VoyageOnly) { $launch.ArgumentList = '--voyage-preview' }
+    elseif ($DirectionOnly) { $launch.ArgumentList = '--voyage-preview' }
     elseif ($InventoryOnly) { $launch.ArgumentList = '--inventory-preview' }
     $game = Start-Process @launch
     for ($i = 0; $i -lt 60 -and $game.MainWindowHandle -eq 0; $i++) {
@@ -143,6 +147,13 @@ try {
     if ($PortOnly) { Save-WindowCapture $game.MainWindowHandle $PortOutput; return }
     if ($MenuOnly) { Save-WindowCapture $game.MainWindowHandle $MenuOutput; return }
     if ($VoyageOnly) { Save-WindowCapture $game.MainWindowHandle $VoyageOutput; return }
+    if ($DirectionOnly) {
+        Save-WindowCapture $game.MainWindowHandle $DirectionStartOutput
+        1..2 | ForEach-Object { Send-TestKey 0x45 }
+        Start-Sleep -Seconds 1
+        Save-WindowCapture $game.MainWindowHandle $DirectionRotatedOutput
+        return
+    }
     if ($InventoryOnly) { Save-WindowCapture $game.MainWindowHandle $InventoryOutput; return }
 
     # Click the Menu Circle at the top-center of the 720 x 760 overlay.
