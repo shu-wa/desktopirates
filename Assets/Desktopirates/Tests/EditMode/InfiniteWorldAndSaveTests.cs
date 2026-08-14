@@ -101,16 +101,20 @@ namespace Desktopirates.Tests
                 ShipLevel = 3,
                 Food = 47,
                 Water = 39,
-                ProvisionClock = 71.4f,
-                MaxHull = 33,
-                Hull = 29
+                ProvisionClock = 71.4f
             };
+            state.MaxHull = ShipProgressionModel.GetMaxHull(state);
+            state.Hull = state.MaxHull - 91;
             state.SetRoleCrew(CrewRole.Cannons, 3);
             state.SetRoleCrew(CrewRole.Helm, 1);
             state.SetRoleCrew(CrewRole.Sails, 2);
             state.SetRoleCrew(CrewRole.Anchor, 1);
-            state.AddPerk(CrewPerk.FastHands);
-            state.EquipPerk(CrewRole.Cannons, CrewPerk.FastHands);
+            state.SetRoleCrew(CrewRole.Repairer, 1);
+            state.AddPerk(CrewPerk.FastHands, 2);
+            state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.FastHands);
+            state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.FastHands);
+            state.AddPerk(CrewPerk.RapidRepair);
+            state.TryEquipPerkStack(CrewRole.Repairer, CrewPerk.RapidRepair);
             for (int y = -10; y <= 10; y++)
             for (int x = -22; x <= 22; x++) state.ExploredChunks.Add(GameState.PackChunk(x, y));
             for (ulong i = 0; i < 300; i++) state.ResolvedEvents.Add(1000000UL + i * 17UL);
@@ -136,7 +140,10 @@ namespace Desktopirates.Tests
             Assert.That(restored.Water, Is.EqualTo(39));
             Assert.That(restored.ProvisionClock, Is.EqualTo(71.4f).Within(0.11f));
             Assert.That(restored.GetRoleCrew(CrewRole.Cannons), Is.EqualTo(3));
+            Assert.That(restored.GetRoleCrew(CrewRole.Repairer), Is.EqualTo(1));
             Assert.That(restored.GetEquippedPerk(CrewRole.Cannons), Is.EqualTo(CrewPerk.FastHands));
+            Assert.That(restored.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.FastHands), Is.EqualTo(2));
+            Assert.That(restored.GetEquippedPerkCount(CrewRole.Repairer, CrewPerk.RapidRepair), Is.EqualTo(1));
             Assert.That(restored.ExploredChunks.SetEquals(state.ExploredChunks), Is.True);
             Assert.That(restored.ResolvedEvents.SetEquals(state.ResolvedEvents), Is.True);
             for (int i = 0; i < SalvageInventory.PartKindCount; i++)
@@ -428,6 +435,7 @@ namespace Desktopirates.Tests
             Assert.That(ShipProgressionModel.TierCount, Is.EqualTo(6));
             Assert.That(ShipProgressionModel.Get(0).Name, Is.EqualTo("RAFT"));
             Assert.That(ShipProgressionModel.Get(5).Name, Is.EqualTo("LARGE SHIP"));
+            Assert.That(ShipProgressionModel.Get(5).BaseHull, Is.EqualTo(10000));
             for (int i = 1; i < ShipProgressionModel.TierCount; i++)
             {
                 Assert.That(ShipProgressionModel.Get(i).BaseHull, Is.GreaterThan(ShipProgressionModel.Get(i - 1).BaseHull));
@@ -460,7 +468,56 @@ namespace Desktopirates.Tests
             CrewPerk second = BossModel.RollPerk(BossKind.Kraken, 0x12345678UL);
             Assert.That(second, Is.EqualTo(first));
             if (first != CrewPerk.None)
-                Assert.That(CrewManagementModel.IsCompatible(CrewRole.Anchor, first) || CrewManagementModel.IsCompatible(CrewRole.Helm, first), Is.True);
+                Assert.That(CrewManagementModel.IsCompatible(CrewRole.Anchor, first)
+                    || CrewManagementModel.IsCompatible(CrewRole.Helm, first)
+                    || CrewManagementModel.IsCompatible(CrewRole.Cannons, first)
+                    || CrewManagementModel.IsCompatible(CrewRole.Repairer, first), Is.True);
+        }
+
+        [Test]
+        public void CannonDamageUsesCombatScaleAndStackedPerks()
+        {
+            var state = new GameState { Crew = 2, ShipLevel = 3, CannonLevel = 2 };
+            state.SetRoleCrew(CrewRole.Sails, 0);
+            state.SetRoleCrew(CrewRole.Anchor, 0);
+            state.SetRoleCrew(CrewRole.Cannons, 2);
+            state.AddPerk(CrewPerk.PowderExpert, 2);
+            Assert.That(state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.PowderExpert), Is.True);
+            Assert.That(state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.PowderExpert), Is.True);
+
+            var salvo = new SalvoSolution(2, 2, "PORT");
+            Assert.That(ShipCustomizationModel.GetSalvoDamage(state, salvo), Is.EqualTo(225));
+            state.CrewPerformanceMultiplier = 0.5f;
+            Assert.That(ShipCustomizationModel.GetSalvoDamage(state, salvo), Is.EqualTo(188));
+        }
+
+        [Test]
+        public void StatusRuntimeDealsScaledBurningDamageAndCuresDangerFirst()
+        {
+            var statuses = new ShipStatusRuntime();
+            statuses.Apply(ShipStatus.Sticky, 10f);
+            statuses.Apply(ShipStatus.Poisoned, 10f);
+            statuses.Apply(ShipStatus.Burning, 10f);
+
+            Assert.That(statuses.Tick(1f, 10000), Is.EqualTo(60));
+            Assert.That(statuses.CurePriority(), Is.EqualTo(ShipStatus.Burning));
+            Assert.That(statuses.CurePriority(), Is.EqualTo(ShipStatus.Poisoned));
+            Assert.That(statuses.IsActive(ShipStatus.Sticky), Is.True);
+        }
+
+        [Test]
+        public void PerkSlotsFollowAssignedCrewAndAllowDuplicateStacks()
+        {
+            var state = new GameState { Crew = 3 };
+            state.SetRoleCrew(CrewRole.Sails, 0);
+            state.SetRoleCrew(CrewRole.Anchor, 0);
+            state.SetRoleCrew(CrewRole.Repairer, 2);
+            state.AddPerk(CrewPerk.RapidRepair, 3);
+
+            Assert.That(state.TryEquipPerkStack(CrewRole.Repairer, CrewPerk.RapidRepair), Is.True);
+            Assert.That(state.TryEquipPerkStack(CrewRole.Repairer, CrewPerk.RapidRepair), Is.True);
+            Assert.That(state.TryEquipPerkStack(CrewRole.Repairer, CrewPerk.RapidRepair), Is.False);
+            Assert.That(state.GetEquippedPerkCount(CrewRole.Repairer, CrewPerk.RapidRepair), Is.EqualTo(2));
         }
     }
 }

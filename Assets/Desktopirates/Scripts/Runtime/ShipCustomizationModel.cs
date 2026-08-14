@@ -54,6 +54,8 @@ namespace Desktopirates
         public const int BaseCrewHireCost = 28;
         public const float CannonMass = 2.6f;
         public const float CrewMass = 0.65f;
+        public const int BaseCannonDamage = 35;
+        public const int CannonUpgradeDamage = 20;
 
         private static readonly CannonSlotDefinition[] Definitions =
         {
@@ -114,13 +116,14 @@ namespace Desktopirates
 
         public static float GetSpeedMultiplier(GameState state)
             => Mathf.Clamp(1.12f - GetLoadRatio(state) * 0.34f, 0.48f, 1.02f)
-               * CrewManagementModel.GetSailSpeedMultiplier(state);
+               * CrewManagementModel.GetSailSpeedMultiplier(state)
+               * Mathf.Clamp(state.SpeedStatusMultiplier, 0.2f, 1f);
 
         public static float GetTurningMultiplier(GameState state)
         {
             float steeringGear = 1f + Mathf.Clamp(state.TurningLevel, 0, MaxUpgradeLevel) * 0.11f;
             float staffed = state.GetRoleCrew(CrewRole.Helm) > 0 ? 1f : 0.82f;
-            return Mathf.Clamp((1.10f - GetLoadRatio(state) * 0.42f) * steeringGear * staffed * CrewManagementModel.GetTurningMultiplier(state), 0.36f, 1.65f);
+            return Mathf.Clamp((1.10f - GetLoadRatio(state) * 0.42f) * steeringGear * staffed * CrewManagementModel.GetTurningMultiplier(state) * Mathf.Clamp(state.TurnStatusMultiplier, 0.2f, 1f), 0.20f, 1.65f);
         }
 
         public static bool CanAddMass(GameState state, float additionalMass)
@@ -173,7 +176,7 @@ namespace Desktopirates
         }
 
         public static int GetSalvoDamage(GameState state, SalvoSolution salvo)
-            => Mathf.Max(1, Mathf.RoundToInt(salvo.CannonsFiring * (1 + Mathf.Clamp(state.CannonLevel, 0, GetUpgradeCap(state)))
+            => Mathf.Max(1, Mathf.RoundToInt(salvo.CannonsFiring * (BaseCannonDamage + Mathf.Clamp(state.CannonLevel, 0, GetUpgradeCap(state)) * CannonUpgradeDamage)
                 * CrewManagementModel.GetCannonDamageMultiplier(state)));
 
         public static string GetBearingName(float relativeBearing)

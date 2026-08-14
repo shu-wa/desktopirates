@@ -60,6 +60,18 @@ namespace Desktopirates
             StartCoroutine(EnemyShotRoutine(source, target, impact));
         }
 
+        public void PlaySinking(Transform target, Action completed)
+        {
+            if (target == null) { completed?.Invoke(); return; }
+            StartCoroutine(StandaloneSinkRoutine(target, completed));
+        }
+
+        private IEnumerator StandaloneSinkRoutine(Transform target, Action completed)
+        {
+            yield return SinkRoutine(target);
+            completed?.Invoke();
+        }
+
         private IEnumerator SalvoRoutine(Transform ship, IReadOnlyList<CannonSlot> slots, Transform target, bool sinking, Action impact, Action completed)
         {
             Vector3 targetPoint = target.position + Vector3.up * 0.22f;

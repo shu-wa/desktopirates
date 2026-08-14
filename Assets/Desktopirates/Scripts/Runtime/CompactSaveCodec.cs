@@ -10,7 +10,9 @@ namespace Desktopirates
 {
     public static class CompactSaveCodec
     {
-        private const byte Version = 4;
+        private const byte Version = 5;
+        private const int Version4RoleCount = 4;
+        private const int Version4PerkCount = 14;
         private const float PositionScale = 16f;
 
         public static byte[] Serialize(GameState state)
@@ -46,8 +48,9 @@ namespace Desktopirates
                     WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetRoleCrew((CrewRole)i)));
                 for (int i = 1; i < CrewManagementModel.PerkCount; i++)
                     WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetPerkCount((CrewPerk)i)));
-                for (int i = 0; i < CrewManagementModel.RoleCount; i++)
-                    writer.Write((byte)state.GetEquippedPerk((CrewRole)i));
+                for (int role = 0; role < CrewManagementModel.RoleCount; role++)
+                for (int perk = 1; perk < CrewManagementModel.PerkCount; perk++)
+                    WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetEquippedPerkCount((CrewRole)role, (CrewPerk)perk)));
                 WriteExploration(writer, state.ExploredChunks);
                 WriteResolved(writer, state.ResolvedEvents);
             }
@@ -80,6 +83,7 @@ namespace Desktopirates
                 EngineLevel = reader.ReadByte(),
                 CannonLevel = reader.ReadByte()
             };
+            int serializedMaxHull = state.MaxHull;
             if (version >= 2)
             {
                 for (int i = 0; i < SalvageInventory.PartKindCount; i++)
@@ -100,12 +104,25 @@ namespace Desktopirates
                 state.Food = checked((int)ReadUnsigned(reader));
                 state.Water = checked((int)ReadUnsigned(reader));
                 state.ProvisionClock = ReadUnsigned(reader) / 10f;
-                for (int i = 0; i < CrewManagementModel.RoleCount; i++)
-                    state.SetRoleCrew((CrewRole)i, checked((int)ReadUnsigned(reader)));
-                for (int i = 1; i < CrewManagementModel.PerkCount; i++)
-                    state.SetPerkCount((CrewPerk)i, checked((int)ReadUnsigned(reader)));
-                for (int i = 0; i < CrewManagementModel.RoleCount; i++)
-                    state.EquipPerk((CrewRole)i, (CrewPerk)reader.ReadByte());
+                if (version >= 5)
+                {
+                    for (int i = 0; i < CrewManagementModel.RoleCount; i++)
+                        state.SetRoleCrew((CrewRole)i, checked((int)ReadUnsigned(reader)));
+                    for (int i = 1; i < CrewManagementModel.PerkCount; i++)
+                        state.SetPerkCount((CrewPerk)i, checked((int)ReadUnsigned(reader)));
+                    for (int role = 0; role < CrewManagementModel.RoleCount; role++)
+                    for (int perk = 1; perk < CrewManagementModel.PerkCount; perk++)
+                        state.SetEquippedPerkCount((CrewRole)role, (CrewPerk)perk, checked((int)ReadUnsigned(reader)));
+                }
+                else
+                {
+                    for (int i = 0; i < Version4RoleCount; i++)
+                        state.SetRoleCrew((CrewRole)i, checked((int)ReadUnsigned(reader)));
+                    for (int i = 1; i < Version4PerkCount; i++)
+                        state.SetPerkCount((CrewPerk)i, checked((int)ReadUnsigned(reader)));
+                    for (int i = 0; i < Version4RoleCount; i++)
+                        state.EquipPerk((CrewRole)i, (CrewPerk)reader.ReadByte());
+                }
             }
             else
             {
@@ -117,7 +134,12 @@ namespace Desktopirates
                 if (state.Crew > gunCrew) state.SetRoleCrew(CrewRole.Helm, 1);
             }
             state.MaxHull = ShipProgressionModel.GetMaxHull(state);
-            state.Hull = Mathf.Min(state.Hull, state.MaxHull);
+            if (version < 5)
+            {
+                float oldRatio = state.Hull / (float)Mathf.Max(1, serializedMaxHull);
+                state.Hull = Mathf.Clamp(Mathf.CeilToInt(state.MaxHull * oldRatio), 0, state.MaxHull);
+            }
+            else state.Hull = Mathf.Min(state.Hull, state.MaxHull);
             ReadExploration(reader, state.ExploredChunks);
             ReadResolved(reader, state.ResolvedEvents);
             return state;

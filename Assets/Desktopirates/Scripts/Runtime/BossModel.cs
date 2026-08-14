@@ -6,20 +6,29 @@ namespace Desktopirates
     {
         public static int GetHull(BossKind boss) => boss switch
         {
-            BossKind.GangAdmiral => 24,
-            BossKind.GhostShip => 36,
-            BossKind.Kraken => 52,
-            BossKind.Poseidon => 78,
-            _ => 4
+            BossKind.GangAdmiral => 1400,
+            BossKind.GhostShip => 2800,
+            BossKind.Kraken => 5200,
+            BossKind.Poseidon => 10000,
+            _ => 180
         };
 
         public static int GetContactDamage(BossKind boss) => boss switch
         {
-            BossKind.Kraken => 3,
-            BossKind.Poseidon => 4,
-            BossKind.GhostShip => 2,
-            BossKind.GangAdmiral => 2,
-            _ => 1
+            BossKind.Kraken => 120,
+            BossKind.Poseidon => 220,
+            BossKind.GhostShip => 85,
+            BossKind.GangAdmiral => 60,
+            _ => 30
+        };
+
+        public static ShipStatus GetInflictedStatus(BossKind boss) => boss switch
+        {
+            BossKind.GangAdmiral => ShipStatus.Burning,
+            BossKind.GhostShip => ShipStatus.Poisoned,
+            BossKind.Kraken => ShipStatus.Sticky,
+            BossKind.Poseidon => ShipStatus.Frozen,
+            _ => ShipStatus.None
         };
 
         public static CrewPerk RollPerk(BossKind boss, ulong encounterId)
@@ -28,10 +37,10 @@ namespace Desktopirates
             if (roll % 100UL >= 42UL) return CrewPerk.None;
             CrewPerk[] pool = boss switch
             {
-                BossKind.GangAdmiral => new[] { CrewPerk.PowderExpert, CrewPerk.FastHands },
-                BossKind.GhostShip => new[] { CrewPerk.Firebrand },
-                BossKind.Kraken => new[] { CrewPerk.AnchorMaster },
-                BossKind.Poseidon => new[] { CrewPerk.WindWhisperer, CrewPerk.Helmsman },
+                BossKind.GangAdmiral => new[] { CrewPerk.PowderExpert, CrewPerk.FastHands, CrewPerk.RapidRepair },
+                BossKind.GhostShip => new[] { CrewPerk.Firebrand, CrewPerk.VenomShot, CrewPerk.ConditionSpecialist },
+                BossKind.Kraken => new[] { CrewPerk.AnchorMaster, CrewPerk.TarShot, CrewPerk.ReinforcedPatch },
+                BossKind.Poseidon => new[] { CrewPerk.WindWhisperer, CrewPerk.Helmsman, CrewPerk.FrostShot },
                 _ => new[] { CrewPerk.None }
             };
             return pool[(int)((roll >> 8) % (ulong)pool.Length)];

@@ -55,6 +55,8 @@ namespace Desktopirates
             Transform boatVisual = ProceduralSceneFactory.CreatePlayerBoat(world, state.ShipLevel);
             BoatController boat = gameObject.AddComponent<BoatController>();
             boat.Initialize(boatVisual, state);
+            PlayerShipConditionController playerConditions = gameObject.AddComponent<PlayerShipConditionController>();
+            playerConditions.Initialize(boat, state);
             ocean.Bind(boat);
 
             CameraRigController cameraRig = gameObject.AddComponent<CameraRigController>();
@@ -66,7 +68,7 @@ namespace Desktopirates
             var poiObject = new GameObject("Hidden Map POIs", typeof(PoiSystem));
             poiObject.transform.SetParent(world, false);
             PoiSystem poiSystem = poiObject.GetComponent<PoiSystem>();
-            poiSystem.Initialize(boat, state, combatVfx);
+            poiSystem.Initialize(boat, state, combatVfx, playerConditions);
 
             DayNightVisualController dayNight = gameObject.AddComponent<DayNightVisualController>();
             dayNight.Initialize(ocean, sun);

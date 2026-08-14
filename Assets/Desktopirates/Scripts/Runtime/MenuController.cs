@@ -216,7 +216,7 @@ namespace Desktopirates
             CreateText(portRoot.transform, "PORT SERVICES", new Vector2(14f, 180f), new Vector2(300f, 34f), 22, TextAnchor.MiddleCenter).color = Brass;
             provisionText = CreateText(portRoot.transform, "PROVISIONS", new Vector2(14f, 145f), new Vector2(350f, 28f), 15, TextAnchor.MiddleCenter);
             provisionText.color = UiTheme.SecondaryText;
-            CreateWideButton(portRoot.transform, "REPAIR  8G / HULL", new Vector2(12f, 102f), Repair);
+            CreateWideButton(portRoot.transform, "REPAIR  10% HULL", new Vector2(12f, 102f), Repair);
             CreateWideButton(portRoot.transform, "FOOD +10  18G", new Vector2(12f, 50f), () => BuyProvision(true));
             CreateWideButton(portRoot.transform, "WATER +10  14G", new Vector2(12f, -2f), () => BuyProvision(false));
             Button engineButton = CreateWideButton(portRoot.transform, "ENGINE +MAX SPEED", new Vector2(12f, -54f), UpgradeEngine);
@@ -269,8 +269,8 @@ namespace Desktopirates
             shipLevelUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "SHIP LEVEL", new Vector2(0f, -84f), UpgradeShipLevel);
 
             crewManagementPage = CreateUiObject("Crew Management Page", shipyardRoot.transform).gameObject;
-            CreateText(crewManagementPage.transform, "ASSIGN CREW, THEN EQUIP A ROLE PERK", new Vector2(0f, 98f), new Vector2(450f, 24f), 14, TextAnchor.MiddleCenter).color = UiTheme.SecondaryText;
-            for (int i = 0; i < CrewManagementModel.RoleCount; i++) CreateCrewRoleRow((CrewRole)i, 62f - i * 52f);
+            CreateText(crewManagementPage.transform, "1 PERK SLOT PER CREW  •  CLICK TO STACK  •  FULL CLICK RESETS", new Vector2(0f, 98f), new Vector2(470f, 24f), 13, TextAnchor.MiddleCenter).color = UiTheme.SecondaryText;
+            for (int i = 0; i < CrewManagementModel.RoleCount; i++) CreateCrewRoleRow((CrewRole)i, 65f - i * 43f);
 
             CreateCompactButton(shipyardRoot.transform, "BACK TO PORT", new Vector2(-120f, -236f), () => { shipyardRoot.SetActive(false); portRoot.SetActive(true); RefreshPortStatus(); });
             CreateCompactButton(shipyardRoot.transform, "SAIL", new Vector2(120f, -236f), () => DepartPort(shipyardRoot));
@@ -281,10 +281,10 @@ namespace Desktopirates
         private void CreateCrewRoleRow(CrewRole role, float y)
         {
             int index = (int)role;
-            crewRoleTexts[index] = CreateText(crewManagementPage.transform, role.ToString().ToUpperInvariant(), new Vector2(-98f, y), new Vector2(210f, 38f), 15, TextAnchor.MiddleLeft);
-            CreateCrewStepButton(crewManagementPage.transform, "-", new Vector2(42f, y), () => ChangeCrewRole(role, -1));
-            CreateCrewStepButton(crewManagementPage.transform, "+", new Vector2(96f, y), () => ChangeCrewRole(role, 1));
-            crewPerkTexts[index] = CreateSizedButton(crewManagementPage.transform, "PERK", new Vector2(182f, y), new Vector2(116f, 38f), () => CycleRolePerk(role)).GetComponentInChildren<Text>();
+            crewRoleTexts[index] = CreateText(crewManagementPage.transform, role.ToString().ToUpperInvariant(), new Vector2(-105f, y), new Vector2(200f, 36f), 14, TextAnchor.MiddleLeft);
+            CreateCrewStepButton(crewManagementPage.transform, "-", new Vector2(28f, y), () => ChangeCrewRole(role, -1));
+            CreateCrewStepButton(crewManagementPage.transform, "+", new Vector2(78f, y), () => ChangeCrewRole(role, 1));
+            crewPerkTexts[index] = CreateSizedButton(crewManagementPage.transform, "PERKS", new Vector2(172f, y), new Vector2(136f, 36f), () => CycleRolePerk(role)).GetComponentInChildren<Text>();
         }
 
         private void CreateCrewStepButton(Transform parent, string label, Vector2 position, Action action)
@@ -378,8 +378,13 @@ namespace Desktopirates
             int cost = ShipCustomizationModel.GetArmorUpgradeCost(state.ArmorLevel);
             if (!CanBuyUpgrade(state.ArmorLevel, cost, "ARMOR")) return;
             if (!ShipCustomizationModel.CanAddMass(state, 3.4f)) { ShowMessage("CAPACITY EXCEEDED — UPGRADE THE HULL"); return; }
-            state.Gold -= cost; state.ArmorLevel++; state.MaxHull += 3; state.Hull += 3;
-            boat.RefreshCustomizationVisual(); RefreshShipyard(); saves.Save(state); ShowMessage($"ARMOR {state.ArmorLevel}  HULL +3");
+            int oldMax = state.MaxHull;
+            state.Gold -= cost;
+            state.ArmorLevel++;
+            state.MaxHull = ShipProgressionModel.GetMaxHull(state);
+            int gained = state.MaxHull - oldMax;
+            state.Hull = Mathf.Min(state.MaxHull, state.Hull + gained);
+            boat.RefreshCustomizationVisual(); RefreshShipyard(); saves.Save(state); ShowMessage($"ARMOR {state.ArmorLevel}  HULL +{gained}");
         }
 
         private void UpgradeTurning()
@@ -408,18 +413,31 @@ namespace Desktopirates
 
         private void CycleRolePerk(CrewRole role)
         {
-            int current = (int)state.GetEquippedPerk(role);
-            for (int step = 1; step <= CrewManagementModel.PerkCount; step++)
+            int equippedTotal = state.GetEquippedPerkTotal(role);
+            if (equippedTotal >= state.GetRoleCrew(role) && equippedTotal > 0)
             {
-                CrewPerk candidate = (CrewPerk)((current + step) % CrewManagementModel.PerkCount);
-                if (!CrewManagementModel.IsCompatible(role, candidate)) continue;
-                if (candidate != CrewPerk.None && state.GetPerkCount(candidate) <= 0) continue;
-                state.EquipPerk(role, candidate);
+                state.ClearEquippedPerks(role);
                 RefreshShipyard(); saves.Save(state);
-                ShowMessage($"{role.ToString().ToUpperInvariant()} PERK — {CrewManagementModel.GetPerkName(candidate)}");
+                ShowMessage($"{role.ToString().ToUpperInvariant()} PERKS CLEARED");
                 return;
             }
-            ShowMessage("NO COMPATIBLE BOSS PERKS OWNED");
+            for (int i = 1; i < CrewManagementModel.PerkCount; i++)
+            {
+                CrewPerk candidate = (CrewPerk)i;
+                if (!CrewManagementModel.IsCompatible(role, candidate)) continue;
+                if (!state.TryEquipPerkStack(role, candidate)) continue;
+                RefreshShipyard(); saves.Save(state);
+                int stacks = state.GetEquippedPerkCount(role, candidate);
+                ShowMessage($"{role.ToString().ToUpperInvariant()} — {CrewManagementModel.GetPerkName(candidate)} x{stacks}");
+                return;
+            }
+            if (equippedTotal > 0)
+            {
+                state.ClearEquippedPerks(role);
+                RefreshShipyard(); saves.Save(state);
+                ShowMessage($"{role.ToString().ToUpperInvariant()} PERKS CLEARED");
+            }
+            else ShowMessage(state.GetRoleCrew(role) <= 0 ? "ASSIGN CREW BEFORE EQUIPPING PERKS" : "NO COMPATIBLE BOSS PERKS OWNED");
         }
 
         private void UpgradeShipLevel()
@@ -466,7 +484,7 @@ namespace Desktopirates
             {
                 CrewRole role = (CrewRole)i;
                 crewRoleTexts[i].text = $"{role.ToString().ToUpperInvariant()}  {state.GetRoleCrew(role)}";
-                crewPerkTexts[i].text = CrewManagementModel.GetPerkName(state.GetEquippedPerk(role));
+                crewPerkTexts[i].text = $"PERKS {state.GetEquippedPerkTotal(role)}/{Mathf.Max(0, state.GetRoleCrew(role))}";
             }
         }
 
@@ -476,11 +494,15 @@ namespace Desktopirates
         private void Repair()
         {
             int missing = state.MaxHull - state.Hull;
-            int affordable = Mathf.Min(missing, state.Gold / 8);
-            if (affordable <= 0) { ShowMessage(missing == 0 ? "HULL ALREADY FULL" : "NOT ENOUGH GOLD"); return; }
-            state.Gold -= affordable * 8;
-            state.Hull += affordable;
-            ShowMessage($"REPAIRED +{affordable}");
+            if (missing <= 0) { ShowMessage("HULL ALREADY FULL"); return; }
+            int chunk = Mathf.Max(1, Mathf.CeilToInt(state.MaxHull * 0.10f));
+            int amount = Mathf.Min(missing, chunk);
+            int fullCost = 20 + state.ShipLevel * 18;
+            int cost = Mathf.Max(5, Mathf.CeilToInt(fullCost * (amount / (float)chunk)));
+            if (state.Gold < cost) { ShowMessage($"REPAIR NEEDS {cost}G"); return; }
+            state.Gold -= cost;
+            state.Hull += amount;
+            ShowMessage($"REPAIRED +{amount}  -{cost}G");
             saves.Save(state);
         }
 
@@ -534,7 +556,9 @@ namespace Desktopirates
         {
             int cost = ShipCustomizationModel.GetGunUpgradeCost(state.CannonLevel);
             if (!CanBuyUpgrade(state.CannonLevel, cost, "GUN DAMAGE")) return;
-            state.Gold -= cost; state.CannonLevel++; RefreshShipyard(); ShowMessage($"GUN DAMAGE {state.CannonLevel + 1} PER CANNON"); saves.Save(state);
+            state.Gold -= cost; state.CannonLevel++; RefreshShipyard();
+            int perCannon = ShipCustomizationModel.BaseCannonDamage + state.CannonLevel * ShipCustomizationModel.CannonUpgradeDamage;
+            ShowMessage($"GUN DAMAGE {perCannon} PER CANNON"); saves.Save(state);
         }
 
         private void OpenMap()

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Desktopirates
 {
-    public enum CrewRole : byte { Cannons, Helm, Sails, Anchor }
+    public enum CrewRole : byte { Cannons, Helm, Sails, Anchor, Repairer }
     public enum CrewPerk : byte
     {
         None,
@@ -18,13 +18,19 @@ namespace Desktopirates
         FieldSurgeon,
         Lookout,
         Salvager,
-        Stormwise
+        Stormwise,
+        RapidRepair,
+        ReinforcedPatch,
+        ConditionSpecialist,
+        VenomShot,
+        FrostShot,
+        TarShot
     }
 
     public static class CrewManagementModel
     {
-        public const int RoleCount = 4;
-        public const int PerkCount = 14;
+        public const int RoleCount = 5;
+        public const int PerkCount = 20;
 
         public static int GetAssignedTotal(GameState state)
         {
@@ -47,24 +53,43 @@ namespace Desktopirates
             int current = state.GetRoleCrew(role);
             if (current <= 0) return false;
             state.SetRoleCrew(role, current - 1);
+            state.TrimEquippedPerks(role);
             return true;
         }
 
         public static float GetCannonDamageMultiplier(GameState state)
-            => state.GetEquippedPerk(CrewRole.Cannons) == CrewPerk.PowderExpert ? 1.25f : 1f;
+            => 1f + GetEffectiveStacks(state, CrewRole.Cannons, CrewPerk.PowderExpert) * 0.25f;
         public static float GetReloadMultiplier(GameState state)
-            => state.GetEquippedPerk(CrewRole.Cannons) == CrewPerk.FastHands ? 0.78f : 1f;
+            => 1f / (1f + GetEffectiveStacks(state, CrewRole.Cannons, CrewPerk.FastHands) * 0.28f);
         public static bool HasIncendiaryRounds(GameState state)
-            => state.GetEquippedPerk(CrewRole.Cannons) == CrewPerk.Firebrand;
+            => state.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.Firebrand) > 0;
+        public static bool HasVenomRounds(GameState state)
+            => state.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.VenomShot) > 0;
+        public static bool HasFrostRounds(GameState state)
+            => state.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.FrostShot) > 0;
+        public static bool HasTarRounds(GameState state)
+            => state.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.TarShot) > 0;
+        public static float GetStatusDuration(GameState state, CrewPerk perk, float baseDuration)
+            => baseDuration * (1f + Mathf.Max(0f, GetEffectiveStacks(state, CrewRole.Cannons, perk) - 1f) * 0.22f);
         public static float GetTurningMultiplier(GameState state)
-            => state.GetEquippedPerk(CrewRole.Helm) == CrewPerk.Helmsman ? 1.18f : 1f;
+            => 1f + GetEffectiveStacks(state, CrewRole.Helm, CrewPerk.Helmsman) * 0.18f;
         public static float GetSailSpeedMultiplier(GameState state)
-            => state.GetEquippedPerk(CrewRole.Sails) == CrewPerk.WindWhisperer ? 1.15f : 1f;
+            => 1f + GetEffectiveStacks(state, CrewRole.Sails, CrewPerk.WindWhisperer) * 0.15f;
         public static float GetAnchorBrakingMultiplier(GameState state)
         {
             float staffed = state.GetRoleCrew(CrewRole.Anchor) > 0 ? 1.28f : 1f;
-            return state.GetEquippedPerk(CrewRole.Anchor) == CrewPerk.AnchorMaster ? staffed * 1.35f : staffed;
+            return staffed * (1f + GetEffectiveStacks(state, CrewRole.Anchor, CrewPerk.AnchorMaster) * 0.35f);
         }
+
+        public static float GetRepairIntervalMultiplier(GameState state)
+            => 1f / (1f + GetEffectiveStacks(state, CrewRole.Repairer, CrewPerk.RapidRepair) * 0.22f);
+        public static float GetRepairAmountMultiplier(GameState state)
+            => 1f + GetEffectiveStacks(state, CrewRole.Repairer, CrewPerk.ReinforcedPatch) * 0.25f;
+        public static float GetConditionCureIntervalMultiplier(GameState state)
+            => 1f / (1f + GetEffectiveStacks(state, CrewRole.Repairer, CrewPerk.ConditionSpecialist) * 0.30f);
+
+        private static float GetEffectiveStacks(GameState state, CrewRole role, CrewPerk perk)
+            => state.GetEquippedPerkCount(role, perk) * Mathf.Clamp(state.CrewPerformanceMultiplier, 0f, 1f);
 
         public static string GetPerkName(CrewPerk perk) => perk switch
         {
@@ -81,6 +106,12 @@ namespace Desktopirates
             CrewPerk.Lookout => "LOOKOUT",
             CrewPerk.Salvager => "SALVAGER",
             CrewPerk.Stormwise => "STORMWISE",
+            CrewPerk.RapidRepair => "RAPID REPAIR",
+            CrewPerk.ReinforcedPatch => "REINFORCED PATCH",
+            CrewPerk.ConditionSpecialist => "CONDITION SPECIALIST",
+            CrewPerk.VenomShot => "VENOM SHOT",
+            CrewPerk.FrostShot => "FROST SHOT",
+            CrewPerk.TarShot => "TAR SHOT",
             _ => "NO PERK"
         };
 
@@ -89,10 +120,11 @@ namespace Desktopirates
             if (perk == CrewPerk.None) return true;
             return role switch
             {
-                CrewRole.Cannons => perk == CrewPerk.PowderExpert || perk == CrewPerk.FastHands || perk == CrewPerk.Firebrand,
+                CrewRole.Cannons => perk == CrewPerk.PowderExpert || perk == CrewPerk.FastHands || perk == CrewPerk.Firebrand || perk == CrewPerk.VenomShot || perk == CrewPerk.FrostShot || perk == CrewPerk.TarShot,
                 CrewRole.Helm => perk == CrewPerk.Helmsman || perk == CrewPerk.TideReader || perk == CrewPerk.Stormwise,
                 CrewRole.Sails => perk == CrewPerk.WindWhisperer || perk == CrewPerk.ReefingMaster || perk == CrewPerk.Lookout,
                 CrewRole.Anchor => perk == CrewPerk.AnchorMaster || perk == CrewPerk.Quartermaster || perk == CrewPerk.FieldSurgeon || perk == CrewPerk.Salvager,
+                CrewRole.Repairer => perk == CrewPerk.RapidRepair || perk == CrewPerk.ReinforcedPatch || perk == CrewPerk.ConditionSpecialist,
                 _ => false
             };
         }

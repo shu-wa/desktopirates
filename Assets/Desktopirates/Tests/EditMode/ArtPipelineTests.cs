@@ -61,6 +61,20 @@ namespace Desktopirates.Tests
             Assert.That(Mathf.Max(texture.width, texture.height), Is.LessThanOrEqualTo(256));
         }
 
+        [TestCase("Textures/UI/Status/status_burning_v01")]
+        [TestCase("Textures/UI/Status/status_poison_v01")]
+        [TestCase("Textures/UI/Status/status_frozen_v01")]
+        [TestCase("Textures/UI/Status/status_sticky_v01")]
+        public void StatusBadges_AreAuthoredTransparentPixelTextures(string resourcePath)
+        {
+            Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+            Assert.That(texture, Is.Not.Null, resourcePath);
+            Assert.That(texture.width, Is.EqualTo(256));
+            Assert.That(texture.height, Is.EqualTo(256));
+            Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));
+        }
+
         [TestCase("Textures/UI/GeneratedPixel/ui_menu_circle_pixel_v01", 128, 128)]
         [TestCase("Textures/UI/GeneratedPixel/ui_marker_enemy_pixel_v01", 96, 96)]
         [TestCase("Textures/UI/GeneratedPixel/ui_marker_wreck_pixel_v01", 96, 96)]

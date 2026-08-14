@@ -13,12 +13,15 @@ namespace Desktopirates
         public Vector2 SpawnPosition;
         public int Reward;
         public int Health;
+        public int MaxHealth;
         public BossKind Boss;
         public bool Resolved;
         public bool IsUnderFire;
         public bool IsSinking;
         public bool IsPreview;
         public Transform Visual;
+        public readonly ShipStatusRuntime Conditions = new ShipStatusRuntime();
+        public ShipStatusVisualController StatusVisual;
     }
 
     public sealed class PoiSystem : MonoBehaviour
@@ -35,17 +38,25 @@ namespace Desktopirates
         private BoatController player;
         private GameState state;
         private CombatVfxController combatVfx;
+        private PlayerShipConditionController playerConditions;
         private readonly List<CannonSlot> firingSlots = new List<CannonSlot>();
         private int centerChunkX = int.MinValue;
         private int centerChunkY = int.MinValue;
         private float enemyFireCooldown;
         private float cannonCooldown;
 
-        public void Initialize(BoatController boat, GameState gameState, CombatVfxController effects = null)
+        public void Initialize(BoatController boat, GameState gameState, CombatVfxController effects = null, PlayerShipConditionController conditions = null)
         {
             player = boat;
             state = gameState;
             combatVfx = effects;
+            playerConditions = conditions;
+            if (playerConditions != null)
+            {
+                playerConditions.Message += value => Message?.Invoke(value);
+                playerConditions.Changed += () => StateChanged?.Invoke();
+                playerConditions.HullDepleted += RescueTow;
+            }
             RefreshChunks(true);
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--combat-preview")) StartCoroutine(CombatPreviewRoutine());
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--dock-preview")) StartCoroutine(DockPreviewRoutine());
@@ -64,6 +75,16 @@ namespace Desktopirates
             foreach (PoiRecord item in items)
             {
                 if (item.Resolved) continue;
+                if (item.Kind == PoiKind.Enemy && !item.IsSinking)
+                {
+                    int dotDamage = item.Conditions.Tick(Time.deltaTime, item.MaxHealth);
+                    if (dotDamage > 0) item.Health = Mathf.Max(0, item.Health - dotDamage);
+                    if (item.Health <= 0)
+                    {
+                        BeginStatusSinking(item);
+                        continue;
+                    }
+                }
                 if (item.Kind == PoiKind.Enemy && !item.IsSinking && !item.IsPreview) UpdateEnemy(item);
                 Vector2 relative = item.LogicalPosition - player.LogicalPosition;
                 float distance = relative.magnitude;
@@ -108,17 +129,21 @@ namespace Desktopirates
                     if (state.ResolvedEvents.Contains(data.Id)) continue;
                     Transform visual = ProceduralSceneFactory.CreatePoiVisual(data.Kind, transform, data.Boss);
                     visual.gameObject.SetActive(false);
-                    items.Add(new PoiRecord
+                    int health = data.Boss != BossKind.None ? BossModel.GetHull(data.Boss) : data.Kind == PoiKind.Enemy ? 140 + data.Reward * 8 : 1;
+                    var record = new PoiRecord
                     {
                         Id = data.Id,
                         Kind = data.Kind,
                         LogicalPosition = data.Position,
                         SpawnPosition = data.Position,
                         Reward = data.Reward,
-                        Health = data.Boss != BossKind.None ? BossModel.GetHull(data.Boss) : data.Kind == PoiKind.Enemy ? 3 + data.Reward % 3 : 1,
+                        Health = health,
+                        MaxHealth = health,
                         Boss = data.Boss,
                         Visual = visual
-                    });
+                    };
+                    AttachStatusVisual(record);
+                    items.Add(record);
                 }
             }
         }
@@ -128,16 +153,22 @@ namespace Desktopirates
             Vector2 toPlayer = player.LogicalPosition - enemy.LogicalPosition;
             float distance = toPlayer.magnitude;
             bool harborSafe = PlayerInSafeHarbor();
+            float frozenSpeed = enemy.Conditions.IsActive(ShipStatus.Frozen) ? 0.55f : 1f;
+            float stickyTurn = enemy.Conditions.IsActive(ShipStatus.Sticky) ? 0.55f : 1f;
             if (!harborSafe && distance < 7.2f && distance > 1.45f)
-                enemy.LogicalPosition += toPlayer.normalized * Time.deltaTime * 1.15f;
+                enemy.LogicalPosition += toPlayer.normalized * Time.deltaTime * 1.15f * frozenSpeed;
             else if (distance >= 7.2f)
             {
                 float phase = (float)(enemy.Id & 1023UL) * 0.015f + Time.time * 0.18f;
                 Vector2 patrolTarget = enemy.SpawnPosition + new Vector2(Mathf.Sin(phase), Mathf.Cos(phase)) * 1.2f;
-                enemy.LogicalPosition = Vector2.MoveTowards(enemy.LogicalPosition, patrolTarget, Time.deltaTime * 0.55f);
+                enemy.LogicalPosition = Vector2.MoveTowards(enemy.LogicalPosition, patrolTarget, Time.deltaTime * 0.55f * frozenSpeed);
             }
             Vector2 heading = player.LogicalPosition - enemy.LogicalPosition;
-            if (heading.sqrMagnitude > 0.01f) enemy.Visual.localRotation = Quaternion.Euler(0f, Mathf.Atan2(heading.x, heading.y) * Mathf.Rad2Deg, 0f);
+            if (heading.sqrMagnitude > 0.01f)
+            {
+                Quaternion targetRotation = Quaternion.Euler(0f, Mathf.Atan2(heading.x, heading.y) * Mathf.Rad2Deg, 0f);
+                enemy.Visual.localRotation = Quaternion.RotateTowards(enemy.Visual.localRotation, targetRotation, Time.deltaTime * 105f * stickyTurn);
+            }
 
             if (!harborSafe && distance < 2.35f && enemyFireCooldown <= 0f)
             {
@@ -150,8 +181,14 @@ namespace Desktopirates
         private void ApplyEnemyHit(PoiRecord attacker)
         {
             int damage = attacker != null ? BossModel.GetContactDamage(attacker.Boss) : 1;
+            if (attacker != null && attacker.Conditions.IsActive(ShipStatus.Poisoned)) damage = Mathf.Max(1, Mathf.CeilToInt(damage * 0.5f));
             state.Hull = Mathf.Max(0, state.Hull - damage);
-            Message?.Invoke("敵弾着弾！ 船体 -1");
+            ShipStatus inflicted = attacker != null ? BossModel.GetInflictedStatus(attacker.Boss) : ShipStatus.None;
+            if (inflicted != ShipStatus.None && playerConditions != null)
+                playerConditions.ApplyStatus(inflicted, 12f, attacker.Boss == BossKind.Poseidon ? 1.25f : 1f);
+            Message?.Invoke(inflicted == ShipStatus.None
+                ? $"ENEMY HIT  -{damage} HULL"
+                : $"ENEMY HIT  -{damage}  {ShipStatusRuntime.GetName(inflicted)}");
             StateChanged?.Invoke();
             if (state.Hull == 0) RescueTow();
         }
@@ -245,41 +282,54 @@ namespace Desktopirates
             ShipCustomizationModel.GetFiringSlots(state, bearing, firingSlots);
             cannonCooldown = Mathf.Max(0.48f, (1.25f - state.CannonLevel * 0.08f) * CrewManagementModel.GetReloadMultiplier(state));
             int damage = ShipCustomizationModel.GetSalvoDamage(state, salvo);
-            int fireDamage = CrewManagementModel.HasIncendiaryRounds(state) ? 3 : 0;
             target.Health -= damage;
-            bool willSink = target.Health - fireDamage <= 0;
+            bool willSink = target.Health <= 0;
             target.IsUnderFire = true;
             target.IsSinking = willSink;
             Message?.Invoke($"{salvo.ArcName}斉射 {salvo.CannonsFiring}門 — FIRE!");
 
             Action impact = () =>
             {
-                if (fireDamage > 0) StartCoroutine(IncendiaryRoutine(target, fireDamage));
-                Message?.Invoke(willSink ? "直撃 — 敵船炎上！" : fireDamage > 0 ? $"直撃 — {damage} + FIRE DOT" : $"直撃 — {damage} DAMAGE");
+                string statuses = ApplyPlayerRoundStatuses(target);
+                Message?.Invoke(willSink
+                    ? $"DIRECT HIT — {damage}  SINKING!"
+                    : string.IsNullOrEmpty(statuses) ? $"DIRECT HIT — {damage} DAMAGE" : $"DIRECT HIT — {damage}  {statuses}");
             };
             Action completed = () =>
             {
                 target.IsUnderFire = false;
                 if (!willSink) return;
-                state.Gold += target.Reward;
-                CrewPerk perk = BossModel.RollPerk(target.Boss, target.Id);
-                if (perk != CrewPerk.None) state.AddPerk(perk);
-                Resolve(target);
-                Message?.Invoke(perk == CrewPerk.None
-                    ? $"敵船沈没 — {target.Reward}G SALVAGED"
-                    : $"BOSS DEFEATED — {target.Reward}G  PERK: {CrewManagementModel.GetPerkName(perk)}");
+                CompleteDefeat(target);
             };
             if (combatVfx != null) combatVfx.PlayPlayerSalvo(player.Visual, firingSlots.ToArray(), target.Visual, willSink, impact, completed);
             else { impact(); completed(); }
         }
 
-        private IEnumerator IncendiaryRoutine(PoiRecord target, int ticks)
+        private string ApplyPlayerRoundStatuses(PoiRecord target)
         {
-            for (int i = 0; i < ticks && target != null && !target.Resolved; i++)
+            if (target == null || target.Resolved) return string.Empty;
+            var labels = new List<string>();
+            if (CrewManagementModel.HasIncendiaryRounds(state))
             {
-                yield return new WaitForSeconds(1f);
-                target.Health--;
+                target.Conditions.Apply(ShipStatus.Burning, CrewManagementModel.GetStatusDuration(state, CrewPerk.Firebrand, 8f));
+                labels.Add("BURNING");
             }
+            if (CrewManagementModel.HasVenomRounds(state))
+            {
+                target.Conditions.Apply(ShipStatus.Poisoned, CrewManagementModel.GetStatusDuration(state, CrewPerk.VenomShot, 10f));
+                labels.Add("POISON");
+            }
+            if (CrewManagementModel.HasFrostRounds(state))
+            {
+                target.Conditions.Apply(ShipStatus.Frozen, CrewManagementModel.GetStatusDuration(state, CrewPerk.FrostShot, 8f));
+                labels.Add("FROZEN");
+            }
+            if (CrewManagementModel.HasTarRounds(state))
+            {
+                target.Conditions.Apply(ShipStatus.Sticky, CrewManagementModel.GetStatusDuration(state, CrewPerk.TarShot, 8f));
+                labels.Add("STICKY");
+            }
+            return string.Join(" + ", labels);
         }
 
         private PoiRecord FindCombatTarget(out float bestDistance)
@@ -295,6 +345,36 @@ namespace Desktopirates
             return target;
         }
 
+        private void BeginStatusSinking(PoiRecord target)
+        {
+            if (target == null || target.Resolved || target.IsSinking) return;
+            target.IsSinking = true;
+            target.IsUnderFire = true;
+            Message?.Invoke("STATUS DAMAGE — ENEMY SHIP SINKING!");
+            if (combatVfx != null) combatVfx.PlaySinking(target.Visual, () => CompleteDefeat(target));
+            else CompleteDefeat(target);
+        }
+
+        private void CompleteDefeat(PoiRecord target)
+        {
+            if (target == null || target.Resolved) return;
+            target.IsUnderFire = false;
+            state.Gold += target.Reward;
+            CrewPerk perk = BossModel.RollPerk(target.Boss, target.Id);
+            if (perk != CrewPerk.None) state.AddPerk(perk);
+            Resolve(target);
+            Message?.Invoke(perk == CrewPerk.None
+                ? $"ENEMY SUNK — {target.Reward}G SALVAGED"
+                : $"BOSS DEFEATED — {target.Reward}G  PERK: {CrewManagementModel.GetPerkName(perk)}");
+        }
+
+        private static void AttachStatusVisual(PoiRecord record)
+        {
+            if (record == null || record.Kind != PoiKind.Enemy || record.Visual == null) return;
+            record.StatusVisual = record.Visual.gameObject.AddComponent<ShipStatusVisualController>();
+            record.StatusVisual.Initialize(record.Conditions);
+        }
+
         private void Resolve(PoiRecord item)
         {
             item.Resolved = true;
@@ -308,6 +388,7 @@ namespace Desktopirates
             int lost = Mathf.Min(state.Gold, Mathf.Max(10, state.Gold / 5));
             state.Gold -= lost;
             state.Hull = state.MaxHull;
+            playerConditions?.ClearAll();
             player.TowTo(new Vector2(3.1f, 3.2f));
             Message?.Invoke($"救助船が最寄りの港へ曳航しました（-{lost}G）");
             StateChanged?.Invoke();
@@ -368,6 +449,7 @@ namespace Desktopirates
             {
                 PoiRecord boss = AddPreviewPoi(0xB0550000UL + (ulong)i, PoiKind.Enemy, lineup[i].position, 0, lineup[i].boss);
                 boss.IsPreview = true;
+                boss.Conditions.Apply((ShipStatus)i, 999f);
             }
         }
 
@@ -377,6 +459,7 @@ namespace Desktopirates
             visual.gameObject.SetActive(true);
             Vector2 relative = position - player.LogicalPosition;
             visual.localPosition = new Vector3(relative.x, 0.30f, relative.y);
+            int health = boss != BossKind.None ? BossModel.GetHull(boss) : kind == PoiKind.Enemy ? 180 : 1;
             var record = new PoiRecord
             {
                 Id = id,
@@ -384,10 +467,12 @@ namespace Desktopirates
                 LogicalPosition = position,
                 SpawnPosition = position,
                 Reward = reward,
-                Health = boss != BossKind.None ? BossModel.GetHull(boss) : kind == PoiKind.Enemy ? 3 : 1,
+                Health = health,
+                MaxHealth = health,
                 Boss = boss,
                 Visual = visual
             };
+            AttachStatusVisual(record);
             items.Add(record);
             return record;
         }

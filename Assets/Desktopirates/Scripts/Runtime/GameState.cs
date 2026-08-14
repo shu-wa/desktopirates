@@ -11,8 +11,8 @@ namespace Desktopirates
         public Vector2 PlayerPosition;
         public float HeadingDegrees;
         public int Gold = 120;
-        public int Hull = 6;
-        public int MaxHull = 6;
+        public int Hull = 100;
+        public int MaxHull = 100;
         public int Supplies = 8;
         public int Food = 20;
         public int Water = 20;
@@ -31,7 +31,10 @@ namespace Desktopirates
         private readonly int[] salvageParts = new int[SalvageInventory.PartKindCount];
         private readonly int[] crewByRole = new int[CrewManagementModel.RoleCount];
         private readonly int[] perkInventory = new int[CrewManagementModel.PerkCount];
-        private readonly CrewPerk[] equippedPerks = new CrewPerk[CrewManagementModel.RoleCount];
+        private readonly int[] equippedPerkStacks = new int[CrewManagementModel.RoleCount * CrewManagementModel.PerkCount];
+        public float CrewPerformanceMultiplier { get; set; } = 1f;
+        public float SpeedStatusMultiplier { get; set; } = 1f;
+        public float TurnStatusMultiplier { get; set; } = 1f;
 
         public GameState()
         {
@@ -71,11 +74,62 @@ namespace Desktopirates
             if (perk == CrewPerk.None || amount <= 0) return;
             perkInventory[(int)perk] += amount;
         }
-        public CrewPerk GetEquippedPerk(CrewRole role) => equippedPerks[(int)role];
+        public CrewPerk GetEquippedPerk(CrewRole role)
+        {
+            for (int i = 1; i < CrewManagementModel.PerkCount; i++)
+                if (GetEquippedPerkCount(role, (CrewPerk)i) > 0) return (CrewPerk)i;
+            return CrewPerk.None;
+        }
+
+        public int GetEquippedPerkCount(CrewRole role, CrewPerk perk)
+            => equippedPerkStacks[(int)role * CrewManagementModel.PerkCount + (int)perk];
+
+        public int GetEquippedPerkTotal(CrewRole role)
+        {
+            int total = 0;
+            for (int i = 1; i < CrewManagementModel.PerkCount; i++) total += GetEquippedPerkCount(role, (CrewPerk)i);
+            return total;
+        }
+
+        public void SetEquippedPerkCount(CrewRole role, CrewPerk perk, int amount)
+        {
+            if (perk == CrewPerk.None) return;
+            int owned = GetPerkCount(perk);
+            equippedPerkStacks[(int)role * CrewManagementModel.PerkCount + (int)perk] = Mathf.Clamp(amount, 0, owned);
+        }
+
+        public bool TryEquipPerkStack(CrewRole role, CrewPerk perk)
+        {
+            if (perk == CrewPerk.None || GetEquippedPerkTotal(role) >= GetRoleCrew(role)) return false;
+            int equipped = GetEquippedPerkCount(role, perk);
+            if (equipped >= GetPerkCount(perk)) return false;
+            SetEquippedPerkCount(role, perk, equipped + 1);
+            return true;
+        }
+
+        public void ClearEquippedPerks(CrewRole role)
+        {
+            for (int i = 1; i < CrewManagementModel.PerkCount; i++)
+                equippedPerkStacks[(int)role * CrewManagementModel.PerkCount + i] = 0;
+        }
+
+        public void TrimEquippedPerks(CrewRole role)
+        {
+            int excess = GetEquippedPerkTotal(role) - GetRoleCrew(role);
+            for (int i = CrewManagementModel.PerkCount - 1; i >= 1 && excess > 0; i--)
+            {
+                int index = (int)role * CrewManagementModel.PerkCount + i;
+                int remove = Mathf.Min(excess, equippedPerkStacks[index]);
+                equippedPerkStacks[index] -= remove;
+                excess -= remove;
+            }
+        }
+
         public bool EquipPerk(CrewRole role, CrewPerk perk)
         {
             if (perk != CrewPerk.None && GetPerkCount(perk) <= 0) return false;
-            equippedPerks[(int)role] = perk;
+            ClearEquippedPerks(role);
+            if (perk != CrewPerk.None) SetEquippedPerkCount(role, perk, 1);
             return true;
         }
 
