@@ -119,16 +119,27 @@ namespace Desktopirates
         public static Texture2D LoadConceptTexture(string folder, string name)
             => Resources.Load<Texture2D>($"{ConceptRoot}/{folder}/{name}_v02");
 
-        public static Sprite LoadConceptSprite(string folder, string name, float border = 0f)
+        public static Sprite LoadConceptSprite(string folder, string name, float border = 0f, bool trimTransparentPadding = false)
         {
-            string key = $"{folder}/{name}:{border:0.##}";
+            string key = $"{folder}/{name}:{border:0.##}:{trimTransparentPadding}";
             if (ConceptSprites.TryGetValue(key, out Sprite sprite)) return sprite;
             Texture2D texture = LoadConceptTexture(folder, name);
             if (texture == null) return null;
             Vector4 borders = border > 0f ? Vector4.one * border : Vector4.zero;
-            sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), Vector2.one * 0.5f, texture.width, 0, SpriteMeshType.FullRect, borders);
+            Rect spriteRect = trimTransparentPadding ? GetTrimmedConceptRect(texture, name) : new Rect(0f, 0f, texture.width, texture.height);
+            sprite = Sprite.Create(texture, spriteRect, Vector2.one * 0.5f, spriteRect.width, 0, SpriteMeshType.FullRect, borders);
             ConceptSprites[key] = sprite;
             return sprite;
+        }
+
+        private static Rect GetTrimmedConceptRect(Texture2D texture, string name)
+        {
+            // Authored chrome keeps presentation padding around the visible frame. These measured
+            // opaque bounds make sliced frames occupy their RectTransform while preserving the PNGs.
+            if (name == "service_button" && texture.width == 512 && texture.height == 112) return new Rect(121f, 4f, 270f, 104f);
+            if (name == "tooltip_card" && texture.width == 384 && texture.height == 256) return new Rect(50f, 4f, 284f, 248f);
+            if (name == "tab_frame" && texture.width == 320 && texture.height == 80) return new Rect(92f, 4f, 136f, 72f);
+            return new Rect(0f, 0f, texture.width, texture.height);
         }
 
         public static Texture2D LoadPortIcon(string name) => LoadConceptTexture("Port", name);

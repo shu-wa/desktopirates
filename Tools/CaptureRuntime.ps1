@@ -14,6 +14,8 @@ param(
     [string]$PortOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Port.png'),
     [string]$MenuOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Menu.png'),
     [string]$VoyageOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Voyage.png'),
+    [string]$HudOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Hud.png'),
+    [string]$HudMaxOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Hud-Max.png'),
     [string]$DirectionStartOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Direction-0.png'),
     [string]$DirectionRotatedOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Direction-90.png'),
     [switch]$ShipyardOnly,
@@ -23,6 +25,8 @@ param(
     [switch]$PortOnly,
     [switch]$MenuOnly,
     [switch]$VoyageOnly,
+    [switch]$HudOnly,
+    [switch]$HudMaxOnly,
     [switch]$DirectionOnly,
     [switch]$InventoryOnly
 )
@@ -100,6 +104,7 @@ try {
     elseif ($PortOnly) { $launch.ArgumentList = '--port-preview' }
     elseif ($MenuOnly) { $launch.ArgumentList = '--menu-preview' }
     elseif ($VoyageOnly) { $launch.ArgumentList = '--voyage-preview' }
+    elseif ($HudMaxOnly) { $launch.ArgumentList = '--hud-max-preview' }
     elseif ($DirectionOnly) { $launch.ArgumentList = '--voyage-preview' }
     elseif ($InventoryOnly) { $launch.ArgumentList = '--inventory-preview' }
     $game = Start-Process @launch
@@ -143,6 +148,8 @@ try {
     if ($PortOnly) { Save-WindowCapture $game.MainWindowHandle $PortOutput; return }
     if ($MenuOnly) { Save-WindowCapture $game.MainWindowHandle $MenuOutput; return }
     if ($VoyageOnly) { Save-WindowCapture $game.MainWindowHandle $VoyageOutput; return }
+    if ($HudOnly) { Save-WindowCapture $game.MainWindowHandle $HudOutput; return }
+    if ($HudMaxOnly) { Save-WindowCapture $game.MainWindowHandle $HudMaxOutput; return }
     if ($DirectionOnly) {
         Save-WindowCapture $game.MainWindowHandle $DirectionStartOutput
         1..2 | ForEach-Object { Send-TestKey 0x45 }

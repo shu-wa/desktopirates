@@ -63,6 +63,9 @@ namespace Desktopirates
         private Text crewHireText;
         private Text shipLevelUpgradeText;
         private Text provisionText;
+        private Text portFoodStockText;
+        private Text portWaterStockText;
+        private Text portCrewStockText;
         private Text portRepairText;
         private Text portFoodText;
         private Text portWaterText;
@@ -272,7 +275,7 @@ namespace Desktopirates
         {
             RectTransform dashboard = CreateUiObject("Ship Dashboard", canvas);
             dashboard.anchoredPosition = new Vector2(0f, -190f);
-            dashboard.sizeDelta = new Vector2(720f, 88f);
+            dashboard.sizeDelta = new Vector2(UiLayoutMetrics.HudDashboardWidth, 88f);
             hudRoot = dashboard.gameObject;
             float spacing = UiLayoutMetrics.HudCardSpacing;
             hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-spacing * 1.5f, 0f), UiTheme.Mint, out hullBar);
@@ -294,13 +297,14 @@ namespace Desktopirates
             RectTransform card = CreateUiObject(label + " Status Card", parent); card.anchoredPosition = position; card.sizeDelta = new Vector2(UiLayoutMetrics.HudCardWidth, UiLayoutMetrics.HudCardHeight);
             Image cardFill = card.gameObject.AddComponent<Image>(); cardFill.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill"); cardFill.color = Color.white; cardFill.raycastTarget = false;
             RectTransform cardFrame = CreateUiObject(label + " Status Frame", card); cardFrame.sizeDelta = card.sizeDelta;
-            Image frameImage = cardFrame.gameObject.AddComponent<Image>(); frameImage.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tooltip_card", 18f); frameImage.type = Image.Type.Sliced; frameImage.color = Color.white; frameImage.raycastTarget = false;
-            RectTransform iconRect = CreateUiObject(label + " Authored Icon", card); iconRect.anchoredPosition = new Vector2(-58f, 0f); iconRect.sizeDelta = Vector2.one * UiLayoutMetrics.PrimaryIcon;
+            Image frameImage = cardFrame.gameObject.AddComponent<Image>(); frameImage.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f, true); frameImage.type = Image.Type.Sliced; frameImage.color = Color.white; frameImage.raycastTarget = false;
+            RectTransform iconRect = CreateUiObject(label + " Authored Icon", card); iconRect.anchoredPosition = new Vector2(-62f, 0f); iconRect.sizeDelta = Vector2.one * 38f;
             RawImage icon = iconRect.gameObject.AddComponent<RawImage>(); icon.texture = UiTextureFactory.LoadConceptTexture("Navigation", $"status_{label.ToLowerInvariant()}"); icon.raycastTarget = false;
-            Text caption = CreateText(card, label, new Vector2(20f, 18f), new Vector2(104f, 18f), 13, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 13);
-            Text value = CreateText(card, label + " Value", new Vector2(20f, -5f), new Vector2(104f, 26f), 20, TextAnchor.MiddleCenter); value.color = UiTheme.PrimaryText; UiTheme.StyleText(value, 20);
-            value.resizeTextForBestFit = true; value.resizeTextMinSize = 12; value.resizeTextMaxSize = 20;
-            RectTransform bar = CreateUiObject(label + " Meter", card); bar.anchoredPosition = new Vector2(20f, -27f); bar.sizeDelta = new Vector2(104f, 9f);
+            RectTransform content = CreateUiObject(label + " Safe Content", card); content.anchoredPosition = new Vector2(22f, 0f); content.sizeDelta = new Vector2(UiLayoutMetrics.HudCardSafeWidth, 62f);
+            Text caption = CreateText(content, label, new Vector2(0f, 18f), new Vector2(UiLayoutMetrics.HudCardSafeWidth, 17f), 12, TextAnchor.MiddleCenter); caption.color = accent; UiTheme.StyleText(caption, 12);
+            Text value = CreateText(content, label + " Value", new Vector2(0f, -4f), new Vector2(UiLayoutMetrics.HudCardSafeWidth, 25f), 18, TextAnchor.MiddleCenter); value.color = UiTheme.PrimaryText; UiTheme.StyleText(value, 18);
+            value.resizeTextForBestFit = true; value.resizeTextMinSize = 11; value.resizeTextMaxSize = 18;
+            RectTransform bar = CreateUiObject(label + " Meter", content); bar.anchoredPosition = new Vector2(0f, -26f); bar.sizeDelta = new Vector2(UiLayoutMetrics.HudCardSafeWidth - 4f, 8f);
             Image track = bar.gameObject.AddComponent<Image>(); track.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "slider_rail", 14f); track.type = Image.Type.Sliced; track.color = Color.white; track.raycastTarget = false;
             RectTransform fill = CreateUiObject(label + " Meter Fill", bar); fill.anchorMin = new Vector2(0f, 0.5f); fill.anchorMax = new Vector2(1f, 0.5f); fill.sizeDelta = new Vector2(-8f, 5f); fill.anchoredPosition = Vector2.zero;
             meter = fill.gameObject.AddComponent<Image>(); meter.type = Image.Type.Filled; meter.fillMethod = Image.FillMethod.Horizontal; meter.color = accent; meter.raycastTarget = false;
@@ -316,19 +320,32 @@ namespace Desktopirates
             back.color = Color.white;
             RectTransform rect = (RectTransform)portRoot.transform;
             rect.anchoredPosition = new Vector2(0f, -398f);
-            rect.sizeDelta = new Vector2(490f, 540f);
-            AddAuthoredPanelFill(portRoot.transform, new Vector2(420f, 462f));
+            rect.sizeDelta = Vector2.one * UiLayoutMetrics.PortFrameSize;
+            AddAuthoredPanelFill(portRoot.transform, new Vector2(458f, 458f));
             AddPanelFrameOverlay(portRoot.transform, "port_panel_frame", rect.sizeDelta);
-            CreateText(portRoot.transform, "HARBOR", new Vector2(0f, 190f), new Vector2(280f, 34f), 22, TextAnchor.MiddleCenter).color = Brass;
-            provisionText = CreateText(portRoot.transform, "FOOD 20   WATER 20   CREW 2", new Vector2(0f, 154f), new Vector2(420f, 28f), 14, TextAnchor.MiddleCenter);
-            provisionText.color = UiTheme.SecondaryText;
-            portRepairText = CreateWideButton(portRoot.transform, "REPAIR  +10%  20G", new Vector2(0f, 108f), Repair, "repair").GetComponentInChildren<Text>();
-            portFoodText = CreateWideButton(portRoot.transform, "FOOD  +10  18G", new Vector2(0f, 54f), () => BuyProvision(true), "food").GetComponentInChildren<Text>();
-            portWaterText = CreateWideButton(portRoot.transform, "WATER  +10  14G", new Vector2(0f, 0f), () => BuyProvision(false), "water").GetComponentInChildren<Text>();
-            Button engineButton = CreateWideButton(portRoot.transform, "ENGINE  L0 > L1", new Vector2(0f, -54f), UpgradeEngine, "propulsion");
+
+            RectTransform board = CreateUiObject("Harbor Readable Service Board", portRoot.transform);
+            board.anchoredPosition = new Vector2(28f, -2f);
+            board.sizeDelta = new Vector2(UiLayoutMetrics.PortServiceBoardWidth, 452f);
+            Image boardFill = board.gameObject.AddComponent<Image>(); boardFill.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill"); boardFill.color = new Color(0.80f, 0.88f, 0.92f, 0.97f); boardFill.raycastTarget = false;
+            RectTransform boardFrame = CreateUiObject("Harbor Service Board Frame", board); boardFrame.sizeDelta = board.sizeDelta;
+            Image boardFrameImage = boardFrame.gameObject.AddComponent<Image>(); boardFrameImage.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tooltip_card", 24f, true); boardFrameImage.type = Image.Type.Sliced; boardFrameImage.color = Color.white; boardFrameImage.raycastTarget = false;
+
+            CreateMapStrip(board, "Harbor Title Plaque", new Vector2(0f, 190f), new Vector2(260f, 34f));
+            Text title = CreateText(board, "HARBOR SERVICES", new Vector2(0f, 190f), new Vector2(250f, 30f), 21, TextAnchor.MiddleCenter); title.color = Brass; UiTheme.StyleText(title, 21);
+            portFoodStockText = CreatePortStockChip(board, "FOOD", "food", new Vector2(-118f, 150f));
+            portWaterStockText = CreatePortStockChip(board, "WATER", "water", new Vector2(0f, 150f));
+            portCrewStockText = CreatePortStockChip(board, "CREW", "hire_crew", new Vector2(118f, 150f));
+            provisionText = CreateText(board, "CREW CONSUMPTION", new Vector2(0f, 116f), new Vector2(334f, 22f), 12, TextAnchor.MiddleCenter);
+            provisionText.color = UiTheme.SecondaryText; UiTheme.StyleText(provisionText, 12);
+
+            portRepairText = CreatePortServiceButton(board, "REPAIR  +10%  20G", new Vector2(0f, 76f), Repair, "repair").GetComponentInChildren<Text>();
+            portFoodText = CreatePortServiceButton(board, "BUY FOOD  +10  18G", new Vector2(0f, 28f), () => BuyProvision(true), "food").GetComponentInChildren<Text>();
+            portWaterText = CreatePortServiceButton(board, "BUY WATER  +10  14G", new Vector2(0f, -20f), () => BuyProvision(false), "water").GetComponentInChildren<Text>();
+            Button engineButton = CreatePortServiceButton(board, "ENGINE  L0 > L1", new Vector2(0f, -68f), UpgradeEngine, "propulsion");
             engineUpgradeText = engineButton.GetComponentInChildren<Text>();
-            CreateWideButton(portRoot.transform, "SHIPYARD  OPEN", new Vector2(0f, -108f), OpenShipyard, "shipyard");
-            CreateButton(portRoot.transform, "SAIL", new Vector2(0f, -196f), () => DepartPort(portRoot));
+            CreatePortServiceButton(board, "SHIPYARD  CUSTOMIZE", new Vector2(0f, -116f), OpenShipyard, "shipyard");
+            CreatePortServiceButton(board, "DEPART HARBOR", new Vector2(0f, -178f), () => DepartPort(portRoot), "sail", 220f);
             portRoot.SetActive(false);
         }
 
@@ -639,12 +656,15 @@ namespace Desktopirates
 
         private void RefreshPortStatus()
         {
+            if (portFoodStockText != null) portFoodStockText.text = $"FOOD  {state.Food}";
+            if (portWaterStockText != null) portWaterStockText.text = $"WATER  {state.Water}";
+            if (portCrewStockText != null) portCrewStockText.text = $"CREW  {state.Crew}";
             if (provisionText != null)
-                provisionText.text = $"FOOD {state.Food}   WATER {state.Water}   CREW {state.Crew}   USE {ProvisionModel.GetUnitsPerInterval(state.Crew)}/2m";
+                provisionText.text = $"CREW USE  {ProvisionModel.GetUnitsPerInterval(state.Crew)} FOOD + WATER / 2 MIN";
             GetPortRepairQuote(out int repairAmount, out int repairCost);
             if (portRepairText != null) portRepairText.text = repairAmount <= 0 ? "REPAIR  FULL" : $"REPAIR  +{repairAmount}  {repairCost}G";
-            if (portFoodText != null) portFoodText.text = "FOOD  +10  18G";
-            if (portWaterText != null) portWaterText.text = "WATER  +10  14G";
+            if (portFoodText != null) portFoodText.text = "BUY FOOD  +10  18G";
+            if (portWaterText != null) portWaterText.text = "BUY WATER  +10  14G";
         }
 
         private void UpgradeEngine()
@@ -897,6 +917,28 @@ namespace Desktopirates
             text.resizeTextForBestFit = true; text.resizeTextMinSize = 13; text.resizeTextMaxSize = 16;
             Texture2D icon = string.IsNullOrEmpty(iconName) ? GetActionIcon(label) : UiTextureFactory.LoadPortIcon(iconName);
             if (icon != null) AddButtonIcon(rect, icon, new Vector2(-126f, 0f), UiLayoutMetrics.PrimaryIcon);
+            return button;
+        }
+
+        private Text CreatePortStockChip(Transform parent, string label, string iconName, Vector2 position)
+        {
+            RectTransform chip = CreateUiObject(label + " Stock Chip", parent); chip.anchoredPosition = position; chip.sizeDelta = new Vector2(112f, 38f);
+            Image frame = chip.gameObject.AddComponent<Image>(); frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tab_frame", 18f, true); frame.type = Image.Type.Sliced; frame.color = Color.white; frame.raycastTarget = false;
+            AddButtonIcon(chip, UiTextureFactory.LoadPortIcon(iconName), new Vector2(-37f, 0f), 26f);
+            Text text = CreateText(chip, label, new Vector2(15f, 0f), new Vector2(72f, 30f), 12, TextAnchor.MiddleCenter);
+            text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 12); text.resizeTextForBestFit = true; text.resizeTextMinSize = 10; text.resizeTextMaxSize = 12;
+            return text;
+        }
+
+        private Button CreatePortServiceButton(Transform parent, string label, Vector2 position, Action action, string iconName, float width = UiLayoutMetrics.PortServiceButtonWidth)
+        {
+            RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(width, 43f);
+            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f, true); image.type = Image.Type.Sliced; image.color = Color.white;
+            Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
+            float iconX = -width * 0.5f + 27f;
+            AddButtonIcon(rect, UiTextureFactory.LoadPortIcon(iconName), new Vector2(iconX, 0f), 34f);
+            Text text = CreateText(rect, label, new Vector2(18f, 0f), new Vector2(width - 72f, 37f), 15, TextAnchor.MiddleCenter);
+            text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 15); text.resizeTextForBestFit = true; text.resizeTextMinSize = 12; text.resizeTextMaxSize = 15;
             return button;
         }
 

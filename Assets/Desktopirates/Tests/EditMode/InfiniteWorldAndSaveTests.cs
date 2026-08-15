@@ -566,6 +566,9 @@ namespace Desktopirates.Tests
             Assert.That(UiLayoutMetrics.PrimaryIcon, Is.EqualTo(40f));
             Assert.That(UiLayoutMetrics.HudCardWidth, Is.GreaterThan(160f));
             Assert.That(UiLayoutMetrics.HudCardSpacing, Is.GreaterThan(UiLayoutMetrics.HudCardWidth));
+            Assert.That(UiLayoutMetrics.HudCardSpacing * 3f + UiLayoutMetrics.HudCardWidth, Is.LessThanOrEqualTo(UiLayoutMetrics.HudDashboardWidth));
+            Assert.That(UiLayoutMetrics.HudCardSafeWidth, Is.LessThan(UiLayoutMetrics.HudCardWidth - UiLayoutMetrics.PrimaryIcon));
+            Assert.That(UiLayoutMetrics.PortServiceButtonWidth, Is.LessThan(UiLayoutMetrics.PortServiceBoardWidth));
         }
 
         [Test]

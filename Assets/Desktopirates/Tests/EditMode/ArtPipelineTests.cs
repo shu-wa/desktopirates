@@ -107,6 +107,18 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void TrimmedServiceChromeUsesVisibleArtworkBounds()
+        {
+            Sprite service = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f, true);
+            Sprite tooltip = UiTextureFactory.LoadConceptSprite("Chrome", "tooltip_card", 24f, true);
+            Sprite tab = UiTextureFactory.LoadConceptSprite("Chrome", "tab_frame", 18f, true);
+
+            Assert.That(service.rect.width, Is.EqualTo(270f));
+            Assert.That(tooltip.rect.width, Is.EqualTo(284f));
+            Assert.That(tab.rect.width, Is.EqualTo(136f));
+        }
+
+        [Test]
         public void CompleteConceptUiSetIsPresentAndPixelFiltered()
         {
             Texture2D[] textures = Resources.LoadAll<Texture2D>("Textures/UI/ConceptV02");
