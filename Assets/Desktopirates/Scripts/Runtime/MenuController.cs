@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -18,6 +19,11 @@ namespace Desktopirates
         private GameObject compassRoot;
         private GameObject menuRoot;
         private GameObject mapRoot;
+        private GameObject captainLogRoot;
+        private Text captainSummary;
+        private Text enemyCatalog;
+        private Text bossCatalog;
+        private Text regionCatalog;
         private GameObject mapMarkersRoot;
         private RawImage mapImage;
         private Text mapStatus;
@@ -67,7 +73,7 @@ namespace Desktopirates
         private Sprite panelSprite;
         private Sprite pillSprite;
         private Sprite diamondSprite;
-        public bool IsModalOpen => (menuRoot != null && menuRoot.activeSelf) || (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf) || mapRoot != null;
+        public bool IsModalOpen => (menuRoot != null && menuRoot.activeSelf) || (captainLogRoot != null && captainLogRoot.activeSelf) || (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf) || mapRoot != null;
 
         public void Initialize(RectTransform canvasRoot, WindowsOverlayController windowOverlay, GameState gameState, SaveSystem saveSystem, BoatController player, PoiSystem poiSystem, InventoryController cargoInventory, GameObject compassDisplay)
         {
@@ -86,6 +92,7 @@ namespace Desktopirates
             AudioListener.volume = PlayerPrefs.GetFloat("master_volume", 0.65f);
             BuildMenu();
             BuildHud();
+            BuildCaptainLog();
             BuildPortPanel();
             BuildShipyardPanel();
             pois.Message += ShowMessage;
@@ -107,6 +114,7 @@ namespace Desktopirates
                 OpenMap();
                 boat.IncreaseCruiseStep();
             }
+            else if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--log-preview")) OpenCaptainLog();
             else if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--port-preview")) OpenPort();
             else if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--menu-preview")) menuRoot.SetActive(true);
         }
@@ -130,6 +138,7 @@ namespace Desktopirates
             prompt.transform.parent.gameObject.SetActive(normalHud && !string.IsNullOrEmpty(prompt.text));
             toast.transform.parent.gameObject.SetActive((inventory == null || !inventory.IsOpen) && Time.unscaledTime < toastUntil);
             if (mapRoot != null && Time.unscaledTime >= nextMapLiveUpdate) UpdateLiveMap();
+            if (captainLogRoot != null && captainLogRoot.activeSelf) RefreshCaptainLog();
             if (Input.GetKeyDown(KeyCode.M))
             {
                 if (mapRoot != null) CloseMap();
@@ -153,6 +162,7 @@ namespace Desktopirates
             menuRoot = CreateUiObject("Menu Circle Radial Controls", canvas).gameObject;
             CreateButton(menuRoot.transform, "MAP", new Vector2(122f, -126f), () => { menuRoot.SetActive(false); OpenMap(); });
             CreateButton(menuRoot.transform, "BAG", new Vector2(196f, -160f), () => { menuRoot.SetActive(false); inventory.Toggle(); });
+            CreateButton(menuRoot.transform, "LOG", new Vector2(196f, -234f), () => { menuRoot.SetActive(false); OpenCaptainLog(); });
             CreateButton(menuRoot.transform, "SAVE", new Vector2(122f, -197f), () => { int bytes = saves.Save(state); ShowMessage($"VOYAGE SAVED  {bytes} bytes"); });
             CreateButton(menuRoot.transform, "EXIT", new Vector2(0f, -205f), () => { saves.Save(state); Application.Quit(); });
             CreateSlider(menuRoot.transform, "VOL", new Vector2(-132f, -126f), 0f, 1f, AudioListener.volume, value =>
@@ -170,6 +180,92 @@ namespace Desktopirates
                 value => overlay.SetWindowScale(value),
                 true);
             menuRoot.SetActive(false);
+        }
+
+        private void BuildCaptainLog()
+        {
+            captainLogRoot = CreateUiObject("Captain Log", canvas).gameObject;
+            RectTransform root = (RectTransform)captainLogRoot.transform;
+            root.anchoredPosition = new Vector2(0f, -394f);
+            root.sizeDelta = new Vector2(620f, 590f);
+            Image background = captainLogRoot.AddComponent<Image>();
+            background.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "shipyard_panel_frame");
+            background.color = Color.white;
+            AddAuthoredPanelFill(root, new Vector2(542f, 512f));
+            AddPanelFrameOverlay(root, "shipyard_panel_frame", root.sizeDelta);
+
+            CreateMapStrip(root, "Captain Log Title Plaque", new Vector2(0f, 238f), new Vector2(300f, 36f));
+            Text logTitle = CreateText(root, "CAPTAIN'S LOG", new Vector2(0f, 238f), new Vector2(286f, 32f), 22, TextAnchor.MiddleCenter);
+            logTitle.color = Brass; UiTheme.StyleText(logTitle, 22);
+            CreateButton(root, "BACK", new Vector2(-264f, 238f), CloseCaptainLog);
+            CreateMapStrip(root, "Voyage Summary Header", new Vector2(-145f, 193f), new Vector2(260f, 28f));
+            CreateMapStrip(root, "Enemy Ledger Header", new Vector2(145f, 193f), new Vector2(260f, 28f));
+            Text voyageHeader = CreateText(root, "VOYAGE", new Vector2(-145f, 193f), new Vector2(250f, 24f), 15, TextAnchor.MiddleCenter);
+            Text enemyHeader = CreateText(root, "ENEMY LEDGER", new Vector2(145f, 193f), new Vector2(250f, 24f), 15, TextAnchor.MiddleCenter);
+            voyageHeader.color = enemyHeader.color = UiTheme.Brass;
+
+            captainSummary = CreateText(root, "Captain Summary", new Vector2(-145f, 75f), new Vector2(250f, 206f), 14, TextAnchor.UpperLeft);
+            enemyCatalog = CreateText(root, "Enemy Catalog", new Vector2(145f, 75f), new Vector2(250f, 206f), 13, TextAnchor.UpperLeft);
+            CreateMapStrip(root, "Boss Ledger Header", new Vector2(-145f, -72f), new Vector2(260f, 28f));
+            CreateMapStrip(root, "Region Atlas Header", new Vector2(145f, -72f), new Vector2(260f, 28f));
+            Text bossHeader = CreateText(root, "BOSS MUTATIONS", new Vector2(-145f, -72f), new Vector2(250f, 24f), 15, TextAnchor.MiddleCenter);
+            Text regionHeader = CreateText(root, "SEA ATLAS", new Vector2(145f, -72f), new Vector2(250f, 24f), 15, TextAnchor.MiddleCenter);
+            bossHeader.color = regionHeader.color = UiTheme.Brass;
+            bossCatalog = CreateText(root, "Boss Catalog", new Vector2(-145f, -180f), new Vector2(250f, 180f), 13, TextAnchor.UpperLeft);
+            regionCatalog = CreateText(root, "Region Catalog", new Vector2(145f, -180f), new Vector2(250f, 180f), 13, TextAnchor.UpperLeft);
+            foreach (Text text in new[] { captainSummary, enemyCatalog, bossCatalog, regionCatalog })
+            {
+                text.color = UiTheme.PrimaryText;
+                text.lineSpacing = 1.15f;
+                UiTheme.StyleText(text, text.fontSize);
+            }
+            captainLogRoot.SetActive(false);
+        }
+
+        private void OpenCaptainLog()
+        {
+            CloseAll();
+            captainLogRoot.SetActive(true);
+            RefreshCaptainLog();
+        }
+
+        private void CloseCaptainLog() => captainLogRoot.SetActive(false);
+
+        private void RefreshCaptainLog()
+        {
+            CaptainRecord record = state.Captain;
+            captainSummary.text = $"SAILED        {record.DistanceSailed:0.0} nm\nCHARTED       {state.ExploredChunks.Count} sectors\nENEMIES SUNK  {record.TotalEnemiesSunk}\nBOSSES DOWN   {record.TotalBossesDefeated}\nDAMAGE DEALT  {record.DamageDealt}\nGOLD EARNED   {record.GoldEarned} G\nWRECKS        {record.WrecksSalvaged}\nTREASURES     {record.TreasuresFound}\nPORT CALLS    {record.PortCalls}";
+
+            var enemies = new StringBuilder();
+            for (int i = 0; i < EnemyArchetypeModel.Count; i++)
+            {
+                EnemyArchetype kind = (EnemyArchetype)i;
+                enemies.Append(EnemyArchetypeModel.Get(kind).ClassName.PadRight(15)).Append(" x").Append(record.GetEnemyCount(kind)).AppendLine();
+            }
+            enemyCatalog.text = enemies.ToString();
+
+            var bosses = new StringBuilder();
+            for (int i = 1; i < BossMutationModel.BossCount; i++)
+            {
+                BossKind boss = (BossKind)i;
+                bosses.Append(EnemyIdentityModel.GetName(0, boss).PadRight(14)).Append(" x").Append(record.GetBossCount(boss)).AppendLine();
+            }
+            bosses.AppendLine("-- MUTATIONS --");
+            for (int i = 1; i < BossMutationModel.MutationCount; i++)
+            {
+                BossMutation mutation = (BossMutation)i;
+                bosses.Append(BossMutationModel.GetLabel(mutation).PadRight(14)).Append(" x").Append(record.GetMutationCount(mutation)).AppendLine();
+            }
+            bossCatalog.text = bosses.ToString();
+
+            var regions = new StringBuilder();
+            for (int i = 0; i < SeaRegionModel.Count; i++)
+            {
+                SeaRegionKind kind = (SeaRegionKind)i;
+                SeaRegionProfile profile = SeaRegionModel.Get(kind);
+                regions.Append(record.HasDiscoveredRegion(kind) ? "[CHARTED] " : "[   ?   ] ").Append(profile.Name).AppendLine();
+            }
+            regionCatalog.text = regions.ToString();
         }
 
         private void BuildHud()
@@ -665,7 +761,11 @@ namespace Desktopirates
             if (mapStatus == null) return;
             int chunkX = Mathf.FloorToInt(boat.LogicalPosition.x / WorldGenerator.ChunkSize);
             int chunkY = Mathf.FloorToInt(boat.LogicalPosition.y / WorldGenerator.ChunkSize);
-            mapStatus.text = $"LIVE  {(mapZoom == MapZoom.Local ? "LOCAL 4.5" : "WIDE 9.5")}   POS {chunkX:+0;-0;0},{chunkY:+0;-0;0}   HDG {boat.HeadingDegrees:000}°   {SpeedGaugeModel.GetMotionLabel(boat.CruiseStep, boat.MaxCruiseStep, boat.Speed, boat.TargetSpeed)}";
+            string region = SeaRegionModel.At(state.WorldSeed, boat.LogicalPosition).Name;
+            mapStatus.text = $"{region}  |  {(mapZoom == MapZoom.Local ? "LOCAL" : "WIDE")}  |  POS {chunkX:+0;-0;0},{chunkY:+0;-0;0}  |  HDG {boat.HeadingDegrees:000}°  |  {SpeedGaugeModel.GetMotionLabel(boat.CruiseStep, boat.MaxCruiseStep, boat.Speed, boat.TargetSpeed)}";
+            mapStatus.resizeTextForBestFit = true;
+            mapStatus.resizeTextMinSize = 11;
+            mapStatus.resizeTextMaxSize = 15;
         }
 
         private void RebuildMapMarkers()
@@ -761,6 +861,7 @@ namespace Desktopirates
         private void CloseAll()
         {
             menuRoot.SetActive(false);
+            captainLogRoot.SetActive(false);
             portRoot.SetActive(false);
             shipyardRoot.SetActive(false);
             inventory?.Close();
@@ -776,11 +877,14 @@ namespace Desktopirates
             rect.anchoredPosition = position; rect.sizeDelta = new Vector2(80f, 80f);
             MenuGlyph glyph = label == "SAVE" ? MenuGlyph.Save
                 : label == "BAG" ? MenuGlyph.Inventory
+                : label == "LOG" ? MenuGlyph.Log
                 : label == "BACK" ? MenuGlyph.Back
                 : label == "EXIT" || label == "SAIL" ? MenuGlyph.Exit
                 : MenuGlyph.Map;
             RawImage image = rect.gameObject.AddComponent<RawImage>(); image.texture = label == "SAIL" ? UiTextureFactory.LoadPortIcon("sail") : UiTextureFactory.LoadMenuButton(glyph, 128); image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
+            Text caption = CreateText(rect, label + " Label", new Vector2(0f, -28f), new Vector2(56f, 16f), 10, TextAnchor.MiddleCenter);
+            caption.text = label; caption.color = UiTheme.PrimaryText; UiTheme.StyleText(caption, 10);
             return button;
         }
 

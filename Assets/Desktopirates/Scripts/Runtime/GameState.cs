@@ -33,9 +33,12 @@ namespace Desktopirates
         private readonly int[] crewByRole = new int[CrewManagementModel.RoleCount];
         private readonly int[] perkInventory = new int[CrewManagementModel.PerkCount * PerkRankModel.RankCount];
         private readonly int[] equippedPerkStacks = new int[CrewManagementModel.RoleCount * CrewManagementModel.PerkCount * PerkRankModel.RankCount];
+        public readonly CaptainRecord Captain = new CaptainRecord();
         public float CrewPerformanceMultiplier { get; set; } = 1f;
         public float SpeedStatusMultiplier { get; set; } = 1f;
         public float TurnStatusMultiplier { get; set; } = 1f;
+        public float RegionSpeedMultiplier { get; set; } = 1f;
+        public float RegionTurnMultiplier { get; set; } = 1f;
 
         public GameState()
         {

@@ -628,5 +628,90 @@ namespace Desktopirates.Tests
             Assert.That(state.TryEquipPerkStack(CrewRole.Repairer, CrewPerk.RapidRepair), Is.False);
             Assert.That(state.GetEquippedPerkCount(CrewRole.Repairer, CrewPerk.RapidRepair), Is.EqualTo(2));
         }
+
+        [Test]
+        public void CaptainRecordRoundTripsInVersionSevenSave()
+        {
+            var state = new GameState();
+            state.Captain.AddDistance(123.456f);
+            state.Captain.DamageDealt = 98765;
+            state.Captain.GoldEarned = 4321;
+            state.Captain.WrecksSalvaged = 12;
+            state.Captain.TreasuresFound = 7;
+            state.Captain.PortCalls = 9;
+            state.Captain.RecordEnemy(EnemyArchetype.Ironclad);
+            state.Captain.RecordBoss(BossKind.Kraken, BossMutation.Corrupted);
+            state.Captain.DiscoverRegion(SeaRegionKind.Frostwake);
+
+            GameState restored = CompactSaveCodec.Deserialize(CompactSaveCodec.Serialize(state));
+            Assert.That(restored.Captain.DistanceSailed, Is.EqualTo(123.45f).Within(0.02f));
+            Assert.That(restored.Captain.DamageDealt, Is.EqualTo(98765));
+            Assert.That(restored.Captain.GoldEarned, Is.EqualTo(4321));
+            Assert.That(restored.Captain.WrecksSalvaged, Is.EqualTo(12));
+            Assert.That(restored.Captain.GetEnemyCount(EnemyArchetype.Ironclad), Is.EqualTo(1));
+            Assert.That(restored.Captain.GetBossCount(BossKind.Kraken), Is.EqualTo(1));
+            Assert.That(restored.Captain.GetMutationCount(BossMutation.Corrupted), Is.EqualTo(1));
+            Assert.That(restored.Captain.HasDiscoveredRegion(SeaRegionKind.Frostwake), Is.True);
+        }
+
+        [Test]
+        public void InfiniteWorldProducesSeveralEnemyArchetypesDeterministically()
+        {
+            var events = new List<GeneratedEventData>();
+            var found = new HashSet<EnemyArchetype>();
+            for (int y = -18; y <= 18; y++)
+            for (int x = -18; x <= 18; x++)
+            {
+                WorldGenerator.GenerateChunk(GameState.DefaultWorldSeed, x, y, events);
+                foreach (GeneratedEventData item in events)
+                    if (item.Kind == PoiKind.Enemy && item.Boss == BossKind.None) found.Add(item.EnemyArchetype);
+            }
+            Assert.That(found.Count, Is.EqualTo(EnemyArchetypeModel.Count));
+
+            ulong entropy = 0x123456789ABCDEF0UL;
+            Vector2 position = new Vector2(900f, -450f);
+            Assert.That(EnemyArchetypeModel.Roll(entropy, position), Is.EqualTo(EnemyArchetypeModel.Roll(entropy, position)));
+            Assert.That(EnemyArchetypeModel.Get(EnemyArchetype.Skirmisher).SpeedMultiplier,
+                Is.GreaterThan(EnemyArchetypeModel.Get(EnemyArchetype.Ironclad).SpeedMultiplier));
+            Assert.That(EnemyArchetypeModel.GetHull(EnemyArchetype.Ironclad, 40, 10),
+                Is.GreaterThan(EnemyArchetypeModel.GetHull(EnemyArchetype.Skirmisher, 40, 10)));
+        }
+
+        [Test]
+        public void SeaRegionsAreStableAndChangeNavigationRules()
+        {
+            Assert.That(SeaRegionModel.At(GameState.DefaultWorldSeed, Vector2.zero).Kind, Is.EqualTo(SeaRegionKind.Calm));
+            var found = new HashSet<SeaRegionKind>();
+            for (int y = -12; y <= 12; y++)
+            for (int x = -12; x <= 12; x++)
+            {
+                Vector2 position = new Vector2(x, y) * WorldGenerator.ChunkSize * SeaRegionModel.RegionChunkSpan;
+                SeaRegionProfile first = SeaRegionModel.At(GameState.DefaultWorldSeed, position);
+                SeaRegionProfile second = SeaRegionModel.At(GameState.DefaultWorldSeed, position);
+                Assert.That(second.Kind, Is.EqualTo(first.Kind));
+                found.Add(first.Kind);
+            }
+            Assert.That(found.Count, Is.EqualTo(SeaRegionModel.Count));
+            Assert.That(SeaRegionModel.Get(SeaRegionKind.TarSea).TurnMultiplier, Is.LessThan(1f));
+            Assert.That(SeaRegionModel.Get(SeaRegionKind.EmberCurrent).SpeedMultiplier, Is.GreaterThan(1f));
+        }
+
+        [Test]
+        public void EveryBossReceivesAVisibleGameplayMutation()
+        {
+            for (int bossValue = 1; bossValue < BossMutationModel.BossCount; bossValue++)
+            {
+                BossKind boss = (BossKind)bossValue;
+                BossMutation first = BossMutationModel.Roll((ulong)(1000 + bossValue), boss, new Vector2(200f, 100f));
+                BossMutation second = BossMutationModel.Roll((ulong)(1000 + bossValue), boss, new Vector2(200f, 100f));
+                Assert.That(first, Is.Not.EqualTo(BossMutation.None));
+                Assert.That(second, Is.EqualTo(first));
+                Assert.That(BossMutationModel.GetLabel(first), Is.Not.Empty);
+            }
+            Assert.That(BossMutationModel.ApplyHull(1000, BossMutation.Armored), Is.GreaterThan(1000));
+            Assert.That(BossMutationModel.DamageMultiplier(BossMutation.Frenzied), Is.GreaterThan(1f));
+            Assert.That(BossMutationModel.SpeedMultiplier(BossMutation.Swift), Is.GreaterThan(1f));
+            Assert.That(BossMutationModel.StatusPotency(BossMutation.Corrupted), Is.GreaterThan(1f));
+        }
     }
 }

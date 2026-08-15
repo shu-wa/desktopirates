@@ -38,6 +38,21 @@ namespace Desktopirates
                 ? new SaveSystem(Path.Combine(Application.temporaryCachePath, "desktopirates-preview.dprs"))
                 : new SaveSystem();
             GameState state = preview ? new GameState() : saves.LoadOrNew();
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--log-preview"))
+            {
+                state.Captain.SetDistanceHundredths(184235);
+                state.Captain.DamageDealt = 987654;
+                state.Captain.GoldEarned = 543210;
+                state.Captain.WrecksSalvaged = 128;
+                state.Captain.TreasuresFound = 47;
+                state.Captain.PortCalls = 63;
+                for (int i = 0; i < EnemyArchetypeModel.Count; i++) state.Captain.SetEnemyCount((EnemyArchetype)i, (i + 1) * 7);
+                for (int i = 1; i < BossMutationModel.BossCount; i++) state.Captain.SetBossCount((BossKind)i, i * 3);
+                for (int i = 1; i < BossMutationModel.MutationCount; i++) state.Captain.SetMutationCount((BossMutation)i, i * 4);
+                for (int i = 0; i < SeaRegionModel.Count; i++) state.Captain.DiscoverRegion((SeaRegionKind)i);
+                for (int y = -4; y <= 4; y++)
+                for (int x = -4; x <= 4; x++) state.ExploredChunks.Add(GameState.PackChunk(x, y));
+            }
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--hud-max-preview"))
             {
                 state.ShipLevel = ShipProgressionModel.TierCount - 1;
@@ -98,6 +113,8 @@ namespace Desktopirates
             inventory.Initialize(canvas, state);
             MenuController menu = gameObject.AddComponent<MenuController>();
             menu.Initialize(canvas, overlay, state, saves, boat, poiSystem, inventory, null);
+            SeaRegionController seaRegions = gameObject.AddComponent<SeaRegionController>();
+            seaRegions.Initialize(canvas, state, boat, ocean, inventory, menu);
             SpeedGaugeController speedGauge = gameObject.AddComponent<SpeedGaugeController>();
             speedGauge.Initialize(canvas, boat, inventory, menu);
             CreateMenuCircle(canvas, dayNight, overlay, menu);

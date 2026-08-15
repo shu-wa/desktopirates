@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Desktopirates
 {
-    public enum MenuGlyph { Volume, Size, Map, Inventory, Save, Back, Exit }
+    public enum MenuGlyph { Volume, Size, Map, Inventory, Save, Log, Back, Exit }
 
     public static class UiTextureFactory
     {
@@ -421,6 +421,14 @@ namespace Desktopirates
                 FillRect(pixels, size, c - 4 * unit, c + 1 * unit, 8 * unit, 6 * unit, Navy);
                 FillRect(pixels, size, c - 5 * unit, c - 6 * unit, 10 * unit, 5 * unit, Navy);
                 FillRect(pixels, size, c + 3 * unit, c + 2 * unit, 2 * unit, 4 * unit, BrassDark);
+            }
+            else if (glyph == MenuGlyph.Log)
+            {
+                FillRect(pixels, size, c - 9 * unit, c - 8 * unit, 8 * unit, 16 * unit, color);
+                FillRect(pixels, size, c + 1 * unit, c - 8 * unit, 8 * unit, 16 * unit, color);
+                FillRect(pixels, size, c - 7 * unit, c - 5 * unit, 5 * unit, 1 * unit, Navy);
+                FillRect(pixels, size, c + 2 * unit, c - 5 * unit, 5 * unit, 1 * unit, Navy);
+                DrawLine(pixels, size, c, c - 8 * unit, c, c + 8 * unit, BrassDark, unit);
             }
             else if (glyph == MenuGlyph.Back)
             {

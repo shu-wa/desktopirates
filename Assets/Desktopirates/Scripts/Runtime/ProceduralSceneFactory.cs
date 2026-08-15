@@ -162,13 +162,23 @@ namespace Desktopirates
             else Object.DestroyImmediate(value);
         }
 
-        public static Transform CreatePoiVisual(PoiKind kind, Transform parent, BossKind boss = BossKind.None)
+        public static Transform CreatePoiVisual(PoiKind kind, Transform parent, BossKind boss = BossKind.None, EnemyArchetype archetype = EnemyArchetype.Corsair, BossMutation mutation = BossMutation.None)
         {
-            if (boss != BossKind.None) return CreateBoss(parent, boss);
+            if (boss != BossKind.None) return CreateBoss(parent, boss, mutation);
             if (kind == PoiKind.Enemy)
             {
-                Transform enemy = CreateShip(parent, true, 0.70f);
-                enemy.name = "Enemy Corsair";
+                float scale = archetype switch
+                {
+                    EnemyArchetype.Skirmisher => 0.56f,
+                    EnemyArchetype.Gunboat => 0.78f,
+                    EnemyArchetype.FrostCutter => 0.66f,
+                    EnemyArchetype.Ironclad => 0.88f,
+                    EnemyArchetype.Hunter => 0.76f,
+                    _ => 0.70f
+                };
+                Transform enemy = CreateShip(parent, true, scale);
+                enemy.name = $"Enemy {EnemyArchetypeModel.Get(archetype).ClassName}";
+                AddEnemyArchetypeDetails(enemy, archetype);
                 return enemy;
             }
 
@@ -180,7 +190,7 @@ namespace Desktopirates
             return root;
         }
 
-        private static Transform CreateBoss(Transform parent, BossKind boss)
+        private static Transform CreateBoss(Transform parent, BossKind boss, BossMutation mutation)
         {
             var wrapper = new GameObject($"Boss — {boss}").transform;
             wrapper.SetParent(parent, false);
@@ -194,7 +204,68 @@ namespace Desktopirates
             }
             BossMotionController motion = model.gameObject.AddComponent<BossMotionController>();
             motion.Initialize(boss);
+            AddBossMutationDetails(wrapper, mutation);
             return wrapper;
+        }
+
+        private static void AddEnemyArchetypeDetails(Transform ship, EnemyArchetype archetype)
+        {
+            Color sailColor = archetype switch
+            {
+                EnemyArchetype.Skirmisher => new Color(0.88f, 0.63f, 0.12f),
+                EnemyArchetype.Gunboat => new Color(0.27f, 0.31f, 0.34f),
+                EnemyArchetype.FireRaider => new Color(0.86f, 0.16f, 0.035f),
+                EnemyArchetype.PlagueRaider => new Color(0.28f, 0.56f, 0.12f),
+                EnemyArchetype.FrostCutter => new Color(0.36f, 0.82f, 0.92f),
+                EnemyArchetype.Ironclad => new Color(0.42f, 0.47f, 0.50f),
+                EnemyArchetype.Hunter => new Color(0.42f, 0.12f, 0.55f),
+                _ => new Color(0.13f, 0.035f, 0.045f)
+            };
+            Material sailMaterial = CreateMaterial(sailColor, archetype == EnemyArchetype.FireRaider || archetype == EnemyArchetype.FrostCutter);
+            foreach (MeshRenderer renderer in ship.GetComponentsInChildren<MeshRenderer>(true))
+                if (renderer.name.Contains("Sail") || renderer.name.Contains("Flag")) renderer.sharedMaterial = sailMaterial;
+
+            switch (archetype)
+            {
+                case EnemyArchetype.Skirmisher:
+                    CreatePart(ship, PrimitiveType.Cube, "Skirmisher Pennant", new Vector3(0f, 1.95f, 0.10f), new Vector3(0.34f, 0.05f, 0.08f), new Color(0.95f, 0.76f, 0.18f), Quaternion.Euler(0f, 18f, 0f), true);
+                    break;
+                case EnemyArchetype.Gunboat:
+                    for (int side = -1; side <= 1; side += 2)
+                    for (int row = -1; row <= 1; row += 2)
+                        CreatePart(ship, PrimitiveType.Cylinder, $"Heavy Gun {side} {row}", new Vector3(side * 0.49f, 0.48f, row * 0.34f), new Vector3(0.075f, 0.24f, 0.075f), new Color(0.10f, 0.10f, 0.09f), Quaternion.Euler(0f, 0f, 90f));
+                    break;
+                case EnemyArchetype.FireRaider:
+                    for (int i = -1; i <= 1; i++)
+                        CreatePart(ship, PrimitiveType.Cube, $"Fire Pot {i}", new Vector3(i * 0.25f, 0.78f, 0.22f), Vector3.one * 0.13f, new Color(1f, 0.24f, 0.03f), Quaternion.Euler(0f, 45f, 0f), true);
+                    break;
+                case EnemyArchetype.PlagueRaider:
+                    for (int i = -1; i <= 1; i += 2)
+                        CreatePart(ship, PrimitiveType.Sphere, $"Plague Cask {i}", new Vector3(i * 0.28f, 0.62f, 0.18f), Vector3.one * 0.18f, new Color(0.42f, 0.82f, 0.12f), null, true);
+                    break;
+                case EnemyArchetype.FrostCutter:
+                    for (int i = -1; i <= 1; i++)
+                        CreatePart(ship, PrimitiveType.Cube, $"Frost Crystal {i}", new Vector3(i * 0.25f, 0.78f, -0.08f), new Vector3(0.10f, 0.34f, 0.10f), new Color(0.32f, 0.88f, 1f), Quaternion.Euler(14f, 45f, 14f), true);
+                    break;
+                case EnemyArchetype.Ironclad:
+                    CreatePart(ship, PrimitiveType.Cube, "Port Iron Belt", new Vector3(-0.44f, 0.34f, -0.05f), new Vector3(0.08f, 0.30f, 1.42f), new Color(0.34f, 0.39f, 0.42f));
+                    CreatePart(ship, PrimitiveType.Cube, "Starboard Iron Belt", new Vector3(0.44f, 0.34f, -0.05f), new Vector3(0.08f, 0.30f, 1.42f), new Color(0.34f, 0.39f, 0.42f));
+                    break;
+                case EnemyArchetype.Hunter:
+                    CreatePart(ship, PrimitiveType.Cylinder, "Hunter Lantern", new Vector3(0f, 1.87f, 0.10f), new Vector3(0.14f, 0.08f, 0.14f), new Color(0.72f, 0.12f, 0.92f), null, true);
+                    break;
+            }
+        }
+
+        private static void AddBossMutationDetails(Transform root, BossMutation mutation)
+        {
+            if (mutation == BossMutation.None) return;
+            Color color = BossMutationModel.GetColor(mutation);
+            for (int i = 0; i < 4; i++)
+            {
+                float angle = i * Mathf.PI * 0.5f;
+                CreatePart(root, PrimitiveType.Cube, $"{mutation} Mutation Seal {i + 1}", new Vector3(Mathf.Sin(angle) * 0.92f, 0.28f, Mathf.Cos(angle) * 0.92f), new Vector3(0.14f, 0.14f, 0.14f), color, Quaternion.Euler(0f, i * 45f, 0f), true);
+            }
         }
 
         private static Transform CreateGangAdmiral(Transform parent)

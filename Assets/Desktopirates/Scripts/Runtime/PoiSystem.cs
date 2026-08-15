@@ -17,6 +17,9 @@ namespace Desktopirates
         public int Level;
         public string DisplayName;
         public BossKind Boss;
+        public BossMutation BossMutation;
+        public EnemyArchetype EnemyArchetype;
+        public float NextFireTime;
         public bool Resolved;
         public bool IsUnderFire;
         public bool IsSinking;
@@ -44,9 +47,9 @@ namespace Desktopirates
         private readonly List<CannonSlot> firingSlots = new List<CannonSlot>();
         private int centerChunkX = int.MinValue;
         private int centerChunkY = int.MinValue;
-        private float enemyFireCooldown;
         private float cannonCooldown;
         private ulong cannonSalvoSerial;
+        private ulong enemyShotSerial;
 
         public void Initialize(BoatController boat, GameState gameState, CombatVfxController effects = null, PlayerShipConditionController conditions = null)
         {
@@ -64,13 +67,15 @@ namespace Desktopirates
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--combat-preview")) StartCoroutine(CombatPreviewRoutine());
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--dock-preview")) StartCoroutine(DockPreviewRoutine());
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--boss-preview")) StartCoroutine(BossPreviewRoutine());
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--enemy-types-preview-a")) StartCoroutine(EnemyTypesPreviewRoutine(0));
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--enemy-types-preview-b")) StartCoroutine(EnemyTypesPreviewRoutine(4));
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--tag-scale-preview")) StartCoroutine(TagScalePreviewRoutine());
         }
 
         private void Update()
         {
             if (player == null) return;
             RefreshChunks(false);
-            enemyFireCooldown = Mathf.Max(0f, enemyFireCooldown - Time.deltaTime);
             cannonCooldown = Mathf.Max(0f, cannonCooldown - Time.deltaTime);
 
             PoiRecord closest = null;
@@ -130,9 +135,14 @@ namespace Desktopirates
                 foreach (GeneratedEventData data in generated)
                 {
                     if (state.ResolvedEvents.Contains(data.Id)) continue;
-                    Transform visual = ProceduralSceneFactory.CreatePoiVisual(data.Kind, transform, data.Boss);
+                    int level = EnemyIdentityModel.GetLevel(data.Boss, data.Reward, data.Position);
+                    BossMutation mutation = BossMutationModel.Roll(data.Id, data.Boss, data.Position);
+                    Transform visual = ProceduralSceneFactory.CreatePoiVisual(data.Kind, transform, data.Boss, data.EnemyArchetype, mutation);
                     visual.gameObject.SetActive(false);
-                    int health = data.Boss != BossKind.None ? BossModel.GetHull(data.Boss) : data.Kind == PoiKind.Enemy ? 140 + data.Reward * 8 : 1;
+                    int health = data.Boss != BossKind.None
+                        ? BossMutationModel.ApplyHull(BossModel.GetHull(data.Boss), mutation)
+                        : data.Kind == PoiKind.Enemy ? EnemyArchetypeModel.GetHull(data.EnemyArchetype, data.Reward, level) : 1;
+                    string baseName = EnemyIdentityModel.GetName(data.Id, data.Boss, data.EnemyArchetype);
                     var record = new PoiRecord
                     {
                         Id = data.Id,
@@ -142,9 +152,12 @@ namespace Desktopirates
                         Reward = data.Reward,
                         Health = health,
                         MaxHealth = health,
-                        Level = EnemyIdentityModel.GetLevel(data.Boss, data.Reward, data.Position),
-                        DisplayName = EnemyIdentityModel.GetName(data.Id, data.Boss),
+                        Level = level,
+                        DisplayName = mutation == BossMutation.None ? baseName : $"{BossMutationModel.GetLabel(mutation)} {baseName}",
                         Boss = data.Boss,
+                        BossMutation = mutation,
+                        EnemyArchetype = data.EnemyArchetype,
+                        NextFireTime = Time.time + 0.8f + (data.Id & 255UL) / 255f * 1.5f,
                         Visual = visual
                     };
                     AttachStatusVisual(record);
@@ -158,26 +171,34 @@ namespace Desktopirates
             Vector2 toPlayer = player.LogicalPosition - enemy.LogicalPosition;
             float distance = toPlayer.magnitude;
             bool harborSafe = PlayerInSafeHarbor();
+            EnemyProfile profile = EnemyArchetypeModel.Get(enemy.EnemyArchetype);
+            SeaRegionProfile region = SeaRegionModel.At(state.WorldSeed, enemy.LogicalPosition);
             float frozenSpeed = enemy.Conditions.IsActive(ShipStatus.Frozen) ? 0.55f : 1f;
             float stickyTurn = enemy.Conditions.IsActive(ShipStatus.Sticky) ? 0.55f : 1f;
-            if (!harborSafe && distance < 7.2f && distance > 1.45f)
-                enemy.LogicalPosition += toPlayer.normalized * Time.deltaTime * 1.15f * frozenSpeed;
-            else if (distance >= 7.2f)
+            float desiredRange = enemy.Boss != BossKind.None ? 1.65f : profile.PreferredRange;
+            float pursuitSpeed = 1.15f * profile.SpeedMultiplier * BossMutationModel.SpeedMultiplier(enemy.BossMutation) * region.EnemySpeedMultiplier;
+            float aggressionRange = enemy.Boss != BossKind.None ? 8.8f : 7.2f;
+            if (!harborSafe && distance < aggressionRange && distance > desiredRange)
+                enemy.LogicalPosition += toPlayer.normalized * Time.deltaTime * pursuitSpeed * frozenSpeed;
+            else if (distance >= aggressionRange)
             {
                 float phase = (float)(enemy.Id & 1023UL) * 0.015f + Time.time * 0.18f;
                 Vector2 patrolTarget = enemy.SpawnPosition + new Vector2(Mathf.Sin(phase), Mathf.Cos(phase)) * 1.2f;
-                enemy.LogicalPosition = Vector2.MoveTowards(enemy.LogicalPosition, patrolTarget, Time.deltaTime * 0.55f * frozenSpeed);
+                enemy.LogicalPosition = Vector2.MoveTowards(enemy.LogicalPosition, patrolTarget, Time.deltaTime * 0.55f * profile.SpeedMultiplier * frozenSpeed);
             }
             Vector2 heading = player.LogicalPosition - enemy.LogicalPosition;
             if (heading.sqrMagnitude > 0.01f)
             {
                 Quaternion targetRotation = Quaternion.Euler(0f, Mathf.Atan2(heading.x, heading.y) * Mathf.Rad2Deg, 0f);
-                enemy.Visual.localRotation = Quaternion.RotateTowards(enemy.Visual.localRotation, targetRotation, Time.deltaTime * 105f * stickyTurn);
+                enemy.Visual.localRotation = Quaternion.RotateTowards(enemy.Visual.localRotation, targetRotation, Time.deltaTime * 105f * stickyTurn * profile.SpeedMultiplier);
             }
 
-            if (!harborSafe && distance < 2.35f && enemyFireCooldown <= 0f)
+            float fireRange = enemy.Boss != BossKind.None ? 2.85f : profile.FireRange;
+            if (!harborSafe && distance < fireRange && Time.time >= enemy.NextFireTime)
             {
-                enemyFireCooldown = 2.7f;
+                float reload = (enemy.Boss != BossKind.None ? 2.70f : profile.ReloadSeconds)
+                    * BossMutationModel.ReloadMultiplier(enemy.BossMutation) * region.EnemyReloadMultiplier;
+                enemy.NextFireTime = Time.time + reload;
                 if (combatVfx != null) combatVfx.PlayEnemyShot(enemy.Visual, player.Visual, () => ApplyEnemyHit(enemy));
                 else ApplyEnemyHit(enemy);
             }
@@ -185,17 +206,35 @@ namespace Desktopirates
 
         private void ApplyEnemyHit(PoiRecord attacker)
         {
-            int damage = attacker != null ? BossModel.GetContactDamage(attacker.Boss) : 1;
+            int damage = attacker == null ? 1 : attacker.Boss != BossKind.None
+                ? Mathf.RoundToInt(BossModel.GetContactDamage(attacker.Boss) * BossMutationModel.DamageMultiplier(attacker.BossMutation))
+                : EnemyArchetypeModel.GetDamage(attacker.EnemyArchetype, attacker.Level);
             if (attacker != null && attacker.Conditions.IsActive(ShipStatus.Poisoned)) damage = Mathf.Max(1, Mathf.CeilToInt(damage * 0.5f));
             state.Hull = Mathf.Max(0, state.Hull - damage);
-            ShipStatus inflicted = attacker != null ? BossModel.GetInflictedStatus(attacker.Boss) : ShipStatus.None;
+            ShipStatus inflicted = RollEnemyStatus(attacker);
             if (inflicted != ShipStatus.None && playerConditions != null)
-                playerConditions.ApplyStatus(inflicted, 12f, attacker.Boss == BossKind.Poseidon ? 1.25f : 1f);
+                playerConditions.ApplyStatus(inflicted, 12f, attacker.Boss == BossKind.Poseidon ? 1.25f * BossMutationModel.StatusPotency(attacker.BossMutation) : BossMutationModel.StatusPotency(attacker.BossMutation));
             Message?.Invoke(inflicted == ShipStatus.None
                 ? $"ENEMY HIT  -{damage} HULL"
                 : $"ENEMY HIT  -{damage}  {ShipStatusRuntime.GetName(inflicted)}");
             StateChanged?.Invoke();
             if (state.Hull == 0) RescueTow();
+        }
+
+        private ShipStatus RollEnemyStatus(PoiRecord attacker)
+        {
+            if (attacker == null) return ShipStatus.None;
+            if (attacker.Boss != BossKind.None) return BossModel.GetInflictedStatus(attacker.Boss);
+            EnemyProfile profile = EnemyArchetypeModel.Get(attacker.EnemyArchetype);
+            if (profile.Status == ShipStatus.None) return ShipStatus.None;
+            float chance = profile.StatusChance;
+            SeaRegionKind region = SeaRegionModel.At(state.WorldSeed, attacker.LogicalPosition).Kind;
+            if ((region == SeaRegionKind.EmberCurrent && profile.Status == ShipStatus.Burning)
+                || (region == SeaRegionKind.Miasma && profile.Status == ShipStatus.Poisoned)
+                || (region == SeaRegionKind.Frostwake && profile.Status == ShipStatus.Frozen)
+                || (region == SeaRegionKind.TarSea && profile.Status == ShipStatus.Sticky)) chance += 0.16f;
+            ulong entropy = WorldGenerator.Hash(state.WorldSeed, unchecked((int)attacker.Id), unchecked((int)++enemyShotSerial), 9143);
+            return (entropy & 0xFFFFUL) / 65535f < chance ? profile.Status : ShipStatus.None;
         }
 
         private string BuildPrompt(PoiRecord item, float distance)
@@ -230,6 +269,7 @@ namespace Desktopirates
                 }
                 player.BeginDocking(item.LogicalPosition, () =>
                 {
+                    state.Captain.PortCalls++;
                     Message?.Invoke("係留完了 — 港内は安全です");
                     PortRequested?.Invoke();
                     StateChanged?.Invoke();
@@ -240,9 +280,11 @@ namespace Desktopirates
             if (distance > 1.35f || Mathf.Abs(player.Speed) > 1.15f || item.Kind == PoiKind.Enemy) return;
             int gold = item.Reward + (item.Kind == PoiKind.Treasure ? 18 : 0);
             state.Gold += gold;
+            state.Captain.GoldEarned += gold;
             string cargo = string.Empty;
             if (item.Kind == PoiKind.Wreck)
             {
+                state.Captain.WrecksSalvaged++;
                 state.Supplies += 1 + item.Reward % 3;
                 RevealLocalChart(item.LogicalPosition);
                 SalvageDrop[] drops = SalvageInventory.RollWreck(item.Id, item.Reward);
@@ -251,6 +293,7 @@ namespace Desktopirates
             }
             else if (item.Kind == PoiKind.Treasure)
             {
+                state.Captain.TreasuresFound++;
                 SalvageDrop drop = SalvageInventory.RollTreasure(item.Id);
                 state.AddPart(drop.Kind, drop.Amount);
                 cargo = $"  {SalvageInventory.GetDisplayName(drop.Kind)} +{drop.Amount}";
@@ -288,6 +331,7 @@ namespace Desktopirates
             cannonCooldown = Mathf.Max(0.48f, (1.25f - state.CannonLevel * 0.08f) * CrewManagementModel.GetReloadMultiplier(state));
             int damage = ShipCustomizationModel.GetSalvoDamage(state, salvo);
             ulong salvoEntropy = WorldGenerator.Hash(state.WorldSeed, unchecked((int)target.Id), unchecked((int)(target.Id >> 32)), unchecked((int)++cannonSalvoSerial));
+            state.Captain.DamageDealt += Mathf.Min(target.Health, damage);
             target.Health -= damage;
             bool willSink = target.Health <= 0;
             target.IsUnderFire = true;
@@ -372,13 +416,19 @@ namespace Desktopirates
         {
             if (target == null || target.Resolved) return;
             target.IsUnderFire = false;
-            state.Gold += target.Reward;
+            int reward = target.Boss == BossKind.None
+                ? target.Reward
+                : Mathf.RoundToInt(target.Reward * BossMutationModel.RewardMultiplier(target.BossMutation));
+            state.Gold += reward;
+            state.Captain.GoldEarned += reward;
+            if (target.Boss == BossKind.None) state.Captain.RecordEnemy(target.EnemyArchetype);
+            else state.Captain.RecordBoss(target.Boss, target.BossMutation);
             PerkDrop drop = BossModel.RollPerkDrop(target.Boss, target.Id);
             if (!drop.IsEmpty) state.AddPerk(drop.Perk, drop.Rank);
             Resolve(target);
             Message?.Invoke(drop.IsEmpty
-                ? $"ENEMY SUNK — {target.Reward}G SALVAGED"
-                : $"BOSS DEFEATED — {target.Reward}G  {CrewManagementModel.GetPerkName(drop.Perk)} {PerkRankModel.GetLabel(drop.Rank)}");
+                ? $"ENEMY SUNK — {reward}G SALVAGED"
+                : $"BOSS DEFEATED — {reward}G  {CrewManagementModel.GetPerkName(drop.Perk)} {PerkRankModel.GetLabel(drop.Rank)}");
         }
 
         private static void AttachStatusVisual(PoiRecord record)
@@ -427,7 +477,7 @@ namespace Desktopirates
             PoiRecord enemy = AddPreviewPoi(0xD35C70A1UL, PoiKind.Enemy, player.LogicalPosition + direction * 2.35f, 42);
             enemy.Visual.localScale *= 1.3f;
             enemy.Health = 99;
-            enemyFireCooldown = 999f;
+            enemy.NextFireTime = float.PositiveInfinity;
             yield return null;
             FireCannon();
             yield return new WaitForSeconds(1.4f);
@@ -466,13 +516,50 @@ namespace Desktopirates
             }
         }
 
-        private PoiRecord AddPreviewPoi(ulong id, PoiKind kind, Vector2 position, int reward, BossKind boss = BossKind.None)
+        private IEnumerator EnemyTypesPreviewRoutine(int startIndex)
         {
-            Transform visual = ProceduralSceneFactory.CreatePoiVisual(kind, transform, boss);
+            yield return new WaitForSeconds(0.3f);
+            player.TowTo(Vector2.zero);
+            RefreshChunks(true);
+            foreach (PoiRecord item in items) { item.Resolved = true; item.Visual.gameObject.SetActive(false); }
+            Vector2[] positions =
+            {
+                new Vector2(-2.9f, 2.0f), new Vector2(2.9f, 2.0f),
+                new Vector2(-2.9f, -2.0f), new Vector2(2.9f, -2.0f)
+            };
+            for (int i = 0; i < positions.Length; i++)
+            {
+                EnemyArchetype archetype = (EnemyArchetype)(startIndex + i);
+                PoiRecord enemy = AddPreviewPoi(0xE1100000UL + (ulong)(startIndex + i), PoiKind.Enemy, positions[i], 35 + i * 5, BossKind.None, archetype);
+                enemy.IsPreview = true;
+                enemy.NextFireTime = float.PositiveInfinity;
+            }
+        }
+
+        private IEnumerator TagScalePreviewRoutine()
+        {
+            yield return new WaitForSeconds(0.3f);
+            player.TowTo(Vector2.zero);
+            RefreshChunks(true);
+            foreach (PoiRecord item in items) { item.Resolved = true; item.Visual.gameObject.SetActive(false); }
+            AddPreviewPoi(0x7A600001UL, PoiKind.Wreck, new Vector2(-8f, 8f), 20);
+            AddPreviewPoi(0x7A600002UL, PoiKind.Enemy, new Vector2(22f, 22f), 30, BossKind.None, EnemyArchetype.Gunboat);
+            AddPreviewPoi(0x7A600003UL, PoiKind.Treasure, new Vector2(42f, -42f), 40);
+            AddPreviewPoi(0x7A600004UL, PoiKind.Port, new Vector2(-62f, -62f), 0);
+        }
+
+        private PoiRecord AddPreviewPoi(ulong id, PoiKind kind, Vector2 position, int reward, BossKind boss = BossKind.None, EnemyArchetype? previewArchetype = null)
+        {
+            EnemyArchetype archetype = previewArchetype ?? EnemyArchetypeModel.Roll(id, position);
+            BossMutation mutation = BossMutationModel.Roll(id, boss, position);
+            Transform visual = ProceduralSceneFactory.CreatePoiVisual(kind, transform, boss, archetype, mutation);
             visual.gameObject.SetActive(true);
             Vector2 relative = position - player.LogicalPosition;
             visual.localPosition = new Vector3(relative.x, 0.30f, relative.y);
-            int health = boss != BossKind.None ? BossModel.GetHull(boss) : kind == PoiKind.Enemy ? 180 : 1;
+            int level = EnemyIdentityModel.GetLevel(boss, reward, position);
+            int health = boss != BossKind.None ? BossMutationModel.ApplyHull(BossModel.GetHull(boss), mutation)
+                : kind == PoiKind.Enemy ? EnemyArchetypeModel.GetHull(archetype, reward, level) : 1;
+            string baseName = EnemyIdentityModel.GetName(id, boss, archetype);
             var record = new PoiRecord
             {
                 Id = id,
@@ -482,9 +569,11 @@ namespace Desktopirates
                 Reward = reward,
                 Health = health,
                 MaxHealth = health,
-                Level = EnemyIdentityModel.GetLevel(boss, reward, position),
-                DisplayName = EnemyIdentityModel.GetName(id, boss),
+                Level = level,
+                DisplayName = mutation == BossMutation.None ? baseName : $"{BossMutationModel.GetLabel(mutation)} {baseName}",
                 Boss = boss,
+                BossMutation = mutation,
+                EnemyArchetype = archetype,
                 Visual = visual
             };
             AttachStatusVisual(record);

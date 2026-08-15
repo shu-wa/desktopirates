@@ -21,14 +21,16 @@ namespace Desktopirates
         public readonly Vector2 Position;
         public readonly int Reward;
         public readonly BossKind Boss;
+        public readonly EnemyArchetype EnemyArchetype;
 
-        public GeneratedEventData(ulong id, PoiKind kind, Vector2 position, int reward, BossKind boss = BossKind.None)
+        public GeneratedEventData(ulong id, PoiKind kind, Vector2 position, int reward, BossKind boss = BossKind.None, EnemyArchetype enemyArchetype = EnemyArchetype.Corsair)
         {
             Id = id;
             Kind = kind;
             Position = position;
             Reward = reward;
             Boss = boss;
+            EnemyArchetype = enemyArchetype;
         }
     }
 
@@ -57,7 +59,18 @@ namespace Desktopirates
                 int roll = (int)((h >> 34) % 100UL);
                 PoiKind kind = roll < 33 ? PoiKind.Enemy : roll < 59 ? PoiKind.Wreck : roll < 83 ? PoiKind.Treasure : PoiKind.Port;
                 int reward = 18 + (int)((h >> 45) % 48UL);
-                output.Add(new GeneratedEventData(Hash(seed, chunkX, chunkY, i + 11), kind, position, reward));
+                EnemyArchetype archetype = EnemyArchetypeModel.Roll(h, position);
+                if (kind == PoiKind.Enemy)
+                {
+                    SeaRegionKind region = SeaRegionModel.At(seed, position).Kind;
+                    int regionalRoll = (int)((h >> 22) % 100UL);
+                    if (region == SeaRegionKind.Miasma && regionalRoll < 52) archetype = EnemyArchetype.PlagueRaider;
+                    else if (region == SeaRegionKind.Frostwake && regionalRoll < 52) archetype = EnemyArchetype.FrostCutter;
+                    else if (region == SeaRegionKind.EmberCurrent && regionalRoll < 52) archetype = EnemyArchetype.FireRaider;
+                    else if (region == SeaRegionKind.TarSea && regionalRoll < 45) archetype = EnemyArchetype.Ironclad;
+                    else if (region == SeaRegionKind.Tempest && regionalRoll < 45) archetype = EnemyArchetype.Skirmisher;
+                }
+                output.Add(new GeneratedEventData(Hash(seed, chunkX, chunkY, i + 11), kind, position, reward, BossKind.None, archetype));
             }
 
             bool hasBoss = false;

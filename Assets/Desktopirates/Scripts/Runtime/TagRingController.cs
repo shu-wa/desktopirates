@@ -84,10 +84,9 @@ namespace Desktopirates
                 rimPosition.y = Mathf.Min(rimPosition.y, HudSafeTop);
                 marker.rectTransform.anchoredPosition = rimPosition;
 
-                float scale = DistanceTagMath.ScaleForDistance(distance);
-                float pixels = Mathf.Clamp(76f * scale, 62f, 98f);
+                float pixels = DistanceTagMath.PixelSizeForDistance(distance);
                 marker.rectTransform.sizeDelta = new Vector2(pixels, pixels);
-                marker.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0.72f, Mathf.InverseLerp(8f, 70f, distance)));
+                marker.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0.58f, Mathf.InverseLerp(8f, 60f, distance)));
             }
         }
 

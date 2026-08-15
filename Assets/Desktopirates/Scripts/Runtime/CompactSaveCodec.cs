@@ -10,7 +10,7 @@ namespace Desktopirates
 {
     public static class CompactSaveCodec
     {
-        private const byte Version = 6;
+        private const byte Version = 7;
         private const int Version4RoleCount = 4;
         private const int Version4PerkCount = 14;
         private const int Version5RoleCount = 5;
@@ -57,6 +57,7 @@ namespace Desktopirates
                     WriteUnsigned(writer, (ulong)Mathf.Max(0, state.GetEquippedPerkCount((CrewRole)role, (CrewPerk)perk, (PerkRank)rank)));
                 WriteExploration(writer, state.ExploredChunks);
                 WriteResolved(writer, state.ResolvedEvents);
+                WriteCaptainRecord(writer, state.Captain);
             }
 
             raw.Position = 0;
@@ -158,7 +159,42 @@ namespace Desktopirates
             else state.Hull = Mathf.Min(state.Hull, state.MaxHull);
             ReadExploration(reader, state.ExploredChunks);
             ReadResolved(reader, state.ResolvedEvents);
+            if (version >= 7) ReadCaptainRecord(reader, state.Captain);
             return state;
+        }
+
+        private static void WriteCaptainRecord(BinaryWriter writer, CaptainRecord record)
+        {
+            WriteUnsigned(writer, (ulong)record.DistanceHundredths);
+            WriteUnsigned(writer, (ulong)record.DamageDealt);
+            WriteUnsigned(writer, (ulong)record.GoldEarned);
+            WriteUnsigned(writer, (ulong)record.WrecksSalvaged);
+            WriteUnsigned(writer, (ulong)record.TreasuresFound);
+            WriteUnsigned(writer, (ulong)record.PortCalls);
+            WriteUnsigned(writer, record.DiscoveredRegionMask);
+            for (int i = 0; i < EnemyArchetypeModel.Count; i++)
+                WriteUnsigned(writer, (ulong)record.GetEnemyCount((EnemyArchetype)i));
+            for (int i = 1; i < BossMutationModel.BossCount; i++)
+                WriteUnsigned(writer, (ulong)record.GetBossCount((BossKind)i));
+            for (int i = 1; i < BossMutationModel.MutationCount; i++)
+                WriteUnsigned(writer, (ulong)record.GetMutationCount((BossMutation)i));
+        }
+
+        private static void ReadCaptainRecord(BinaryReader reader, CaptainRecord record)
+        {
+            record.SetDistanceHundredths(checked((long)ReadUnsigned(reader)));
+            record.DamageDealt = checked((long)ReadUnsigned(reader));
+            record.GoldEarned = checked((long)ReadUnsigned(reader));
+            record.WrecksSalvaged = checked((int)ReadUnsigned(reader));
+            record.TreasuresFound = checked((int)ReadUnsigned(reader));
+            record.PortCalls = checked((int)ReadUnsigned(reader));
+            record.SetDiscoveredRegionMask(checked((uint)ReadUnsigned(reader)));
+            for (int i = 0; i < EnemyArchetypeModel.Count; i++)
+                record.SetEnemyCount((EnemyArchetype)i, checked((int)ReadUnsigned(reader)));
+            for (int i = 1; i < BossMutationModel.BossCount; i++)
+                record.SetBossCount((BossKind)i, checked((int)ReadUnsigned(reader)));
+            for (int i = 1; i < BossMutationModel.MutationCount; i++)
+                record.SetMutationCount((BossMutation)i, checked((int)ReadUnsigned(reader)));
         }
 
         private static void WriteExploration(BinaryWriter writer, IEnumerable<long> chunks)

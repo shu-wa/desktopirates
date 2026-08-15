@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Desktopirates
@@ -42,6 +43,7 @@ namespace Desktopirates
             Color32 grid = new Color32(47, 130, 135, 255);
             Color32 rangeRing = new Color32(117, 124, 101, 180);
             Color32 axes = new Color32(191, 133, 45, 210);
+            var regionColors = new Dictionary<long, Color32>();
 
             for (int y = 0; y < textureSize; y++)
             for (int x = 0; x < textureSize; x++)
@@ -58,6 +60,17 @@ namespace Desktopirates
                 bool known = state.ExploredChunks.Contains(GameState.PackChunk(chunkX, chunkY));
                 bool checker = ((chunkX + chunkY) & 1) == 0;
                 Color32 color = known ? (checker ? knownA : knownB) : (checker ? unknownA : unknownB);
+                if (known)
+                {
+                    long packed = GameState.PackChunk(chunkX, chunkY);
+                    if (!regionColors.TryGetValue(packed, out Color32 regionColor))
+                    {
+                        Vector2 chunkCenter = new Vector2((chunkX + 0.5f) * WorldGenerator.ChunkSize, (chunkY + 0.5f) * WorldGenerator.ChunkSize);
+                        regionColor = SeaRegionModel.At(state.WorldSeed, chunkCenter).OceanTint;
+                        regionColors.Add(packed, regionColor);
+                    }
+                    color = Color32.Lerp(color, regionColor, 0.38f);
+                }
 
                 float localX = Mathf.Repeat(world.x, WorldGenerator.ChunkSize);
                 float localY = Mathf.Repeat(world.y, WorldGenerator.ChunkSize);

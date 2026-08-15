@@ -117,13 +117,15 @@ namespace Desktopirates
         public static float GetSpeedMultiplier(GameState state)
             => Mathf.Clamp(1.12f - GetLoadRatio(state) * 0.34f, 0.48f, 1.02f)
                * CrewManagementModel.GetSailSpeedMultiplier(state)
-               * Mathf.Clamp(state.SpeedStatusMultiplier, 0.2f, 1f);
+               * Mathf.Clamp(state.SpeedStatusMultiplier, 0.2f, 1f)
+               * Mathf.Clamp(state.RegionSpeedMultiplier, 0.55f, 1.25f);
 
         public static float GetTurningMultiplier(GameState state)
         {
             float steeringGear = 1f + Mathf.Clamp(state.TurningLevel, 0, MaxUpgradeLevel) * 0.11f;
             float staffed = state.GetRoleCrew(CrewRole.Helm) > 0 ? 1f : 0.82f;
-            return Mathf.Clamp((1.10f - GetLoadRatio(state) * 0.42f) * steeringGear * staffed * CrewManagementModel.GetTurningMultiplier(state) * Mathf.Clamp(state.TurnStatusMultiplier, 0.2f, 1f), 0.20f, 1.65f);
+            return Mathf.Clamp((1.10f - GetLoadRatio(state) * 0.42f) * steeringGear * staffed * CrewManagementModel.GetTurningMultiplier(state)
+                * Mathf.Clamp(state.TurnStatusMultiplier, 0.2f, 1f) * Mathf.Clamp(state.RegionTurnMultiplier, 0.45f, 1.20f), 0.20f, 1.65f);
         }
 
         public static bool CanAddMass(GameState state, float additionalMass)

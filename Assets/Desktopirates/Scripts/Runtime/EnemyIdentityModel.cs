@@ -9,11 +9,6 @@ namespace Desktopirates
             "ASHEN", "BLACKTIDE", "BRINE", "CINDER", "IRON", "MOONLIT", "RED", "STORM"
         };
 
-        private static readonly string[] Classes =
-        {
-            "CORSAIR", "CUTTER", "MARAUDER", "PRIVATEER", "RAIDER", "REAVER"
-        };
-
         public static int GetLevel(BossKind boss, int reward, Vector2 position)
         {
             if (boss != BossKind.None) return boss switch
@@ -31,7 +26,7 @@ namespace Desktopirates
             return Mathf.Clamp(1 + distanceTier + rewardTier, 1, 99);
         }
 
-        public static string GetName(ulong id, BossKind boss)
+        public static string GetName(ulong id, BossKind boss, EnemyArchetype archetype = EnemyArchetype.Corsair)
         {
             if (boss != BossKind.None) return boss switch
             {
@@ -44,7 +39,7 @@ namespace Desktopirates
 
             ulong hash = WorldGenerator.Hash(unchecked((int)id), unchecked((int)(id >> 32)), 0, 4103);
             string adjective = Adjectives[(int)(hash % (ulong)Adjectives.Length)];
-            string vesselClass = Classes[(int)((hash >> 11) % (ulong)Classes.Length)];
+            string vesselClass = EnemyArchetypeModel.Get(archetype).ClassName;
             return $"{adjective} {vesselClass}";
         }
     }

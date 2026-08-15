@@ -61,6 +61,7 @@ namespace Desktopirates
         public void Advance(float deltaTime, float steering)
         {
             if (boatVisual == null || State == null) return;
+            Vector2 previousPosition = LogicalPosition;
             CruiseStep = Mathf.Clamp(CruiseStep, 0, MaxCruiseStep);
             float brakingTime = TargetSpeed <= 0f ? deltaTime * CrewManagementModel.GetAnchorBrakingMultiplier(State) : deltaTime;
             Speed = CruiseModel.IntegrateForwardSpeed(Speed, TargetSpeed, brakingTime);
@@ -73,6 +74,7 @@ namespace Desktopirates
             float radians = HeadingDegrees * Mathf.Deg2Rad;
             Vector2 forward = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
             LogicalPosition += forward * Speed * deltaTime;
+            State.Captain.AddDistance(Vector2.Distance(previousPosition, LogicalPosition));
             State.PlayerPosition = LogicalPosition;
             State.HeadingDegrees = HeadingDegrees;
 
@@ -100,6 +102,7 @@ namespace Desktopirates
 
         private void AdvanceDocking(float deltaTime)
         {
+            Vector2 previousPosition = LogicalPosition;
             Vector2 target = dockingLeg == 0 ? dockApproach : dockBerth;
             float distance = Vector2.Distance(LogicalPosition, target);
             bool finalLeg = dockingLeg == 1;
@@ -110,6 +113,7 @@ namespace Desktopirates
                 : DockingModel.FinalHeading;
             HeadingDegrees = Mathf.MoveTowardsAngle(HeadingDegrees, desiredHeading, deltaTime * (finalLeg ? 95f : 125f));
             LogicalPosition = Vector2.MoveTowards(LogicalPosition, target, Speed * deltaTime);
+            State.Captain.AddDistance(Vector2.Distance(previousPosition, LogicalPosition));
 
             if (distance <= DockingModel.ArrivalDistance)
             {

@@ -4,11 +4,17 @@ namespace Desktopirates
 {
     public static class DistanceTagMath
     {
-        public static float ScaleForDistance(float distance, float nearDistance = 7f, float farDistance = 70f)
+        public static float ScaleForDistance(float distance, float nearDistance = 7f, float farDistance = 60f)
         {
             float t = Mathf.InverseLerp(nearDistance, farDistance, Mathf.Max(0f, distance));
-            return Mathf.Lerp(1.45f, 0.62f, t);
+            // Smooth easing keeps nearby discoveries legible while making genuinely
+            // distant hints recede instead of competing with the ship and HUD.
+            t = t * t * (3f - 2f * t);
+            return Mathf.Lerp(1.22f, 0.38f, t);
         }
+
+        public static float PixelSizeForDistance(float distance)
+            => Mathf.Clamp(76f * ScaleForDistance(distance), 30f, 94f);
 
         public static Vector2 Rotate(Vector2 value, float degrees)
         {
