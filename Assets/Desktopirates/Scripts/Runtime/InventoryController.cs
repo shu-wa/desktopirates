@@ -8,6 +8,9 @@ namespace Desktopirates
     {
         private static readonly Color Brass = new Color(0.92f, 0.64f, 0.22f, 1f);
         private static readonly Color Mint = new Color(0.23f, 0.88f, 0.78f, 1f);
+        private static readonly Color RowNormal = new Color(0.025f, 0.080f, 0.105f, 1f);
+        private static readonly Color RowAlternate = new Color(0.030f, 0.095f, 0.120f, 1f);
+        private static readonly Color RowSelected = new Color(0.035f, 0.155f, 0.165f, 1f);
         private GameState state;
         private GameObject root;
         private GameObject launcherButton;
@@ -15,6 +18,7 @@ namespace Desktopirates
         private Text totalText;
         private readonly Text[] counts = new Text[SalvageInventory.PartKindCount];
         private readonly Image[] slotFrames = new Image[SalvageInventory.PartKindCount];
+        private readonly GameObject[] selectionMarkers = new GameObject[SalvageInventory.PartKindCount];
         private SalvagePartKind selected;
         private Font font;
         private bool launcherVisible;
@@ -95,9 +99,8 @@ namespace Desktopirates
             RectTransform panel = CreateRect("Scrollable Cargo Manifest", canvas, new Vector2(0f, -398f), new Vector2(500f, 520f));
             root = panel.gameObject;
             Image background = root.AddComponent<Image>();
-            background.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "cargo_panel_frame", 34f);
-            background.type = Image.Type.Sliced;
-            background.color = new Color(1f, 1f, 1f, 0.985f);
+            background.sprite = null;
+            background.color = Color.clear;
             AddAuthoredPanelFill(panel, new Vector2(450f, 468f));
             AddPanelFrameOverlay(panel, new Vector2(500f, 520f));
 
@@ -109,7 +112,7 @@ namespace Desktopirates
             // The mask must be fully rectangular. Decorative sprites have transparent
             // corners and would clip the first/last manifest row.
             viewportImage.sprite = null;
-            viewportImage.color = new Color(0.015f, 0.045f, 0.070f, 0.96f);
+            viewportImage.color = new Color(0.015f, 0.045f, 0.070f, 1f);
             Mask mask = viewport.gameObject.AddComponent<Mask>();
             mask.showMaskGraphic = true;
 
@@ -135,9 +138,16 @@ namespace Desktopirates
             scroll.scrollSensitivity = 32f;
             scroll.inertia = true;
             scroll.decelerationRate = 0.12f;
-
-            Text scrollHint = CreateText("Cargo Scroll Hint", panel, "SCROLL  /  DRAG", 12, new Vector2(0f, -218f), new Vector2(200f, 22f));
-            scrollHint.color = new Color(0.72f, 0.76f, 0.70f, 0.9f);
+            RectTransform scrollbarRect = CreateRect("Cargo Scrollbar", panel, new Vector2(214f, -18f), new Vector2(4f, 384f));
+            Image scrollbarTrack = scrollbarRect.gameObject.AddComponent<Image>(); scrollbarTrack.color = new Color(0.04f, 0.13f, 0.16f, 1f); scrollbarTrack.raycastTarget = true;
+            Scrollbar scrollbar = scrollbarRect.gameObject.AddComponent<Scrollbar>();
+            RectTransform slidingArea = CreateRect("Cargo Scrollbar Sliding Area", scrollbarRect, Vector2.zero, Vector2.zero);
+            slidingArea.anchorMin = Vector2.zero; slidingArea.anchorMax = Vector2.one; slidingArea.offsetMin = new Vector2(1f, 2f); slidingArea.offsetMax = new Vector2(-1f, -2f);
+            RectTransform handle = CreateRect("Cargo Scrollbar Handle", slidingArea, Vector2.zero, Vector2.zero);
+            handle.anchorMin = Vector2.zero; handle.anchorMax = Vector2.one; handle.offsetMin = Vector2.zero; handle.offsetMax = Vector2.zero;
+            Image handleImage = handle.gameObject.AddComponent<Image>(); handleImage.color = new Color(0.18f, 0.50f, 0.50f, 1f);
+            scrollbar.handleRect = handle; scrollbar.targetGraphic = handleImage; scrollbar.direction = Scrollbar.Direction.BottomToTop;
+            scroll.verticalScrollbar = scrollbar; scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
             RectTransform backRect = CreateRect("Close Cargo", panel, new Vector2(-205f, -220f), new Vector2(58f, 58f));
             RawImage backImage = backRect.gameObject.AddComponent<RawImage>();
@@ -156,44 +166,52 @@ namespace Desktopirates
             slot.anchorMax = new Vector2(0.5f, 1f);
             slot.pivot = new Vector2(0.5f, 0.5f);
             Image frame = slot.gameObject.AddComponent<Image>();
-            frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f);
-            frame.type = Image.Type.Sliced;
-            frame.color = Color.white;
+            frame.sprite = null;
+            frame.color = (index & 1) == 0 ? RowNormal : RowAlternate;
             slotFrames[index] = frame;
             Button button = slot.gameObject.AddComponent<Button>();
             button.targetGraphic = frame;
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1.10f, 1.10f, 1.10f, 1f);
+            colors.pressedColor = new Color(0.78f, 0.90f, 0.90f, 1f);
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
             button.onClick.AddListener(() => Select(kind));
 
-            RectTransform iconFrame = CreateRect($"{kind} Icon Frame", slot, new Vector2(-156f, 0f), new Vector2(56f, 56f));
-            Image roundFrame = iconFrame.gameObject.AddComponent<Image>();
-            roundFrame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "item_slot_frame");
-            roundFrame.raycastTarget = false;
-            RectTransform iconRect = CreateRect($"{kind} Icon", iconFrame, Vector2.zero, Vector2.one * UiLayoutMetrics.PrimaryIcon);
+            RectTransform selectedBar = CreateRect($"{kind} Selection Marker", slot, new Vector2(-191f, 0f), new Vector2(4f, 56f));
+            Image selectedBarImage = selectedBar.gameObject.AddComponent<Image>(); selectedBarImage.color = Mint; selectedBarImage.raycastTarget = false;
+            selectionMarkers[index] = selectedBar.gameObject;
+            RectTransform divider = CreateRect($"{kind} Row Divider", slot, new Vector2(0f, -33.5f), new Vector2(366f, 1f));
+            Image dividerImage = divider.gameObject.AddComponent<Image>(); dividerImage.color = new Color(0.28f, 0.58f, 0.61f, 0.34f); dividerImage.raycastTarget = false;
+
+            RectTransform iconRect = CreateRect($"{kind} Icon", slot, new Vector2(-158f, 0f), Vector2.one * 44f);
             RawImage icon = iconRect.gameObject.AddComponent<RawImage>();
             icon.texture = UiTextureFactory.LoadInventoryIcon(kind);
             icon.raycastTarget = false;
 
-            // The authored service frame reserves its left notch for the round icon.
-            // Keep every glyph to the right of that notch and the quantity inside
-            // the brass end-cap so rows remain aligned at every window scale.
-            Text name = CreateText($"{kind} Name", slot, SalvageInventory.GetDisplayName(kind), 16, new Vector2(15f, 13f), new Vector2(190f, 24f));
+            Text name = CreateText($"{kind} Name", slot, SalvageInventory.GetDisplayName(kind), 16, new Vector2(4f, 13f), new Vector2(214f, 24f));
             name.alignment = TextAnchor.MiddleLeft;
-            name.color = new Color(1f, 0.78f, 0.34f, 1f);
-            Text description = CreateText($"{kind} Description", slot, SalvageInventory.GetDescription(kind), 12, new Vector2(15f, -14f), new Vector2(190f, 28f));
+            name.color = new Color(0.94f, 0.98f, 0.96f, 1f);
+            Text description = CreateText($"{kind} Description", slot, SalvageInventory.GetDescription(kind), 12, new Vector2(4f, -14f), new Vector2(214f, 28f));
             description.alignment = TextAnchor.MiddleLeft;
             description.color = new Color(0.80f, 0.85f, 0.80f, 1f);
             description.resizeTextForBestFit = true;
             description.resizeTextMinSize = 10;
             description.resizeTextMaxSize = 12;
-            counts[index] = CreateText($"{kind} Count", slot, "0", 20, new Vector2(140f, 0f), new Vector2(42f, 30f));
-            counts[index].color = Color.white;
+            counts[index] = CreateText($"{kind} Count", slot, "0", 20, new Vector2(158f, 0f), new Vector2(48f, 30f));
+            counts[index].color = Mint;
         }
 
         private void Select(SalvagePartKind kind)
         {
             selected = kind;
             for (int i = 0; i < slotFrames.Length; i++)
-                if (slotFrames[i] != null) slotFrames[i].color = i == (int)kind ? Mint : Color.white;
+            {
+                bool isSelected = i == (int)kind;
+                if (slotFrames[i] != null) slotFrames[i].color = isSelected ? RowSelected : (i & 1) == 0 ? RowNormal : RowAlternate;
+                if (selectionMarkers[i] != null) selectionMarkers[i].SetActive(isSelected);
+            }
         }
 
         private Text CreateText(string name, Transform parent, string value, int size, Vector2 position, Vector2 dimensions)

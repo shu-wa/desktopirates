@@ -327,12 +327,10 @@ namespace Desktopirates
             RectTransform board = CreateUiObject("Harbor Readable Service Board", portRoot.transform);
             board.anchoredPosition = new Vector2(28f, -2f);
             board.sizeDelta = new Vector2(UiLayoutMetrics.PortServiceBoardWidth, 452f);
-            Image boardFill = board.gameObject.AddComponent<Image>(); boardFill.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill"); boardFill.color = new Color(0.80f, 0.88f, 0.92f, 0.97f); boardFill.raycastTarget = false;
-            RectTransform boardFrame = CreateUiObject("Harbor Service Board Frame", board); boardFrame.sizeDelta = board.sizeDelta;
-            Image boardFrameImage = boardFrame.gameObject.AddComponent<Image>(); boardFrameImage.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tooltip_card", 24f, true); boardFrameImage.type = Image.Type.Sliced; boardFrameImage.color = Color.white; boardFrameImage.raycastTarget = false;
+            Image boardFill = board.gameObject.AddComponent<Image>(); boardFill.sprite = null; boardFill.color = Color.clear; boardFill.raycastTarget = false;
 
-            CreateMapStrip(board, "Harbor Title Plaque", new Vector2(0f, 190f), new Vector2(260f, 34f));
             Text title = CreateText(board, "HARBOR SERVICES", new Vector2(0f, 190f), new Vector2(250f, 30f), 21, TextAnchor.MiddleCenter); title.color = Brass; UiTheme.StyleText(title, 21);
+            AddFlatDivider(board, "Harbor Title Divider", new Vector2(0f, 171f), 270f, new Color(0.31f, 0.76f, 0.74f, 0.55f));
             portFoodStockText = CreatePortStockChip(board, "FOOD", "food", new Vector2(-118f, 150f));
             portWaterStockText = CreatePortStockChip(board, "WATER", "water", new Vector2(0f, 150f));
             portCrewStockText = CreatePortStockChip(board, "CREW", "hire_crew", new Vector2(118f, 150f));
@@ -345,7 +343,7 @@ namespace Desktopirates
             Button engineButton = CreatePortServiceButton(board, "ENGINE  L0 > L1", new Vector2(0f, -68f), UpgradeEngine, "propulsion");
             engineUpgradeText = engineButton.GetComponentInChildren<Text>();
             CreatePortServiceButton(board, "SHIPYARD  CUSTOMIZE", new Vector2(0f, -116f), OpenShipyard, "shipyard");
-            CreatePortServiceButton(board, "DEPART HARBOR", new Vector2(0f, -178f), () => DepartPort(portRoot), "sail", 220f);
+            CreatePortServiceButton(board, "DEPART HARBOR", new Vector2(0f, -178f), () => DepartPort(portRoot), "sail", 220f, true);
             portRoot.SetActive(false);
         }
 
@@ -923,23 +921,39 @@ namespace Desktopirates
         private Text CreatePortStockChip(Transform parent, string label, string iconName, Vector2 position)
         {
             RectTransform chip = CreateUiObject(label + " Stock Chip", parent); chip.anchoredPosition = position; chip.sizeDelta = new Vector2(112f, 38f);
-            Image frame = chip.gameObject.AddComponent<Image>(); frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tab_frame", 18f, true); frame.type = Image.Type.Sliced; frame.color = Color.white; frame.raycastTarget = false;
+            Image frame = chip.gameObject.AddComponent<Image>(); frame.sprite = null; frame.color = new Color(0.025f, 0.100f, 0.125f, 1f); frame.raycastTarget = false;
             AddButtonIcon(chip, UiTextureFactory.LoadPortIcon(iconName), new Vector2(-37f, 0f), 26f);
             Text text = CreateText(chip, label, new Vector2(15f, 0f), new Vector2(72f, 30f), 12, TextAnchor.MiddleCenter);
             text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 12); text.resizeTextForBestFit = true; text.resizeTextMinSize = 10; text.resizeTextMaxSize = 12;
             return text;
         }
 
-        private Button CreatePortServiceButton(Transform parent, string label, Vector2 position, Action action, string iconName, float width = UiLayoutMetrics.PortServiceButtonWidth)
+        private Button CreatePortServiceButton(Transform parent, string label, Vector2 position, Action action, string iconName, float width = UiLayoutMetrics.PortServiceButtonWidth, bool emphasized = false)
         {
             RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(width, 43f);
-            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f, true); image.type = Image.Type.Sliced; image.color = Color.white;
+            Image image = rect.gameObject.AddComponent<Image>();
+            image.sprite = emphasized ? UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f, true) : null;
+            image.type = emphasized ? Image.Type.Sliced : Image.Type.Simple;
+            image.color = emphasized ? Color.white : new Color(0.025f, 0.095f, 0.125f, 1f);
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = emphasized ? new Color(1.08f, 1.03f, 0.90f, 1f) : new Color(1.15f, 1.15f, 1.15f, 1f);
+            colors.pressedColor = new Color(0.76f, 0.90f, 0.88f, 1f);
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
             float iconX = -width * 0.5f + 27f;
             AddButtonIcon(rect, UiTextureFactory.LoadPortIcon(iconName), new Vector2(iconX, 0f), 34f);
             Text text = CreateText(rect, label, new Vector2(18f, 0f), new Vector2(width - 72f, 37f), 15, TextAnchor.MiddleCenter);
             text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 15); text.resizeTextForBestFit = true; text.resizeTextMinSize = 12; text.resizeTextMaxSize = 15;
+            if (!emphasized) AddFlatDivider(rect, label + " Divider", new Vector2(8f, -21f), width - 58f, new Color(0.31f, 0.76f, 0.74f, 0.30f));
             return button;
+        }
+
+        private static void AddFlatDivider(Transform parent, string name, Vector2 position, float width, Color color)
+        {
+            RectTransform divider = CreateUiObject(name, parent); divider.anchoredPosition = position; divider.sizeDelta = new Vector2(width, 1f);
+            Image image = divider.gameObject.AddComponent<Image>(); image.sprite = null; image.color = color; image.raycastTarget = false;
         }
 
         private Button CreateSizedButton(Transform parent, string label, Vector2 position, Vector2 size, Action action)
