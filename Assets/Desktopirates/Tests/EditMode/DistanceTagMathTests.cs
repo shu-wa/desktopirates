@@ -55,5 +55,12 @@ namespace Desktopirates.Tests
                 (position.y - center.y) / radii.y);
             Assert.That(normalized.sqrMagnitude, Is.EqualTo(1f).Within(0.001f));
         }
+
+        [Test]
+        public void LargestTopTagKeepsClearOfTheDashboard()
+        {
+            const float largestMarkerRadius = 49f;
+            Assert.That(TagRingController.HudSafeTop + largestMarkerRadius, Is.LessThan(160f));
+        }
     }
 }

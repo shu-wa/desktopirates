@@ -14,6 +14,8 @@ namespace Desktopirates
         public int Reward;
         public int Health;
         public int MaxHealth;
+        public int Level;
+        public string DisplayName;
         public BossKind Boss;
         public bool Resolved;
         public bool IsUnderFire;
@@ -140,6 +142,8 @@ namespace Desktopirates
                         Reward = data.Reward,
                         Health = health,
                         MaxHealth = health,
+                        Level = EnemyIdentityModel.GetLevel(data.Boss, data.Reward, data.Position),
+                        DisplayName = EnemyIdentityModel.GetName(data.Id, data.Boss),
                         Boss = data.Boss,
                         Visual = visual
                     };
@@ -478,6 +482,8 @@ namespace Desktopirates
                 Reward = reward,
                 Health = health,
                 MaxHealth = health,
+                Level = EnemyIdentityModel.GetLevel(boss, reward, position),
+                DisplayName = EnemyIdentityModel.GetName(id, boss),
                 Boss = boss,
                 Visual = visual
             };

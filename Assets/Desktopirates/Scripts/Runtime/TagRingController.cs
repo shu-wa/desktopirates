@@ -6,6 +6,7 @@ namespace Desktopirates
 {
     public sealed class TagRingController : MonoBehaviour
     {
+        public const float HudSafeTop = 105f;
         private readonly List<RawImage> markers = new List<RawImage>();
         private readonly List<ulong> markerIds = new List<ulong>();
         private RectTransform canvas;
@@ -73,10 +74,15 @@ namespace Desktopirates
                 Vector2 direction = relative.sqrMagnitude > 0.001f ? relative.normalized : Vector2.up;
                 Vector2 screenDirection = DistanceTagMath.WorldToScreenDirection(direction, cameraRig.CurrentYaw);
                 Vector2 discCenter = new Vector2(0f, -63f);
-                marker.rectTransform.anchoredPosition = DistanceTagMath.PositionOnEllipse(
+                Vector2 rimPosition = DistanceTagMath.PositionOnEllipse(
                     screenDirection,
                     discCenter,
                     new Vector2(312f, 218f));
+                // The physical top rim sits behind the dashboard. Preserve horizontal
+                // bearing but move that short arc below the HUD, accounting for the
+                // largest 98 px marker so no artwork can cover HULL/GOLD/CREW/LOAD.
+                rimPosition.y = Mathf.Min(rimPosition.y, HudSafeTop);
+                marker.rectTransform.anchoredPosition = rimPosition;
 
                 float scale = DistanceTagMath.ScaleForDistance(distance);
                 float pixels = Mathf.Clamp(76f * scale, 62f, 98f);

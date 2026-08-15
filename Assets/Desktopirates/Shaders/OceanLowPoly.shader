@@ -54,18 +54,13 @@ Shader "Desktopirates/Ocean"
             float foam = smoothstep(0.44, 0.74, max(max(a.r, a.g), a.b));
             float2 local = IN.uv_MainTex - 0.5;
             float2 forward = normalize(_VoyageDirection.xy + float2(0.0001, 0.0001));
-            float2 right = float2(forward.y, -forward.x);
-            float behind = dot(local, -forward);
-            float sideways = abs(dot(local, right));
-            float wakeTracks = 1.0 - smoothstep(0.010, 0.024, abs(sideways - 0.038));
-            float wakeLength = smoothstep(0.015, 0.055, behind) * (1.0 - smoothstep(0.08, 0.46, behind));
-            float wakeBreak = step(0.34, frac(behind * 31.0 - _Time.y * (1.1 + _VoyageSpeed * 4.2) + a.g * 3.0));
-            float sternWake = wakeTracks * wakeLength * lerp(0.42, 1.0, wakeBreak) * _VoyageSpeed;
             float bow = (1.0 - smoothstep(0.025, 0.060, length(local - forward * 0.045))) * _VoyageSpeed;
             float2 pixel = floor((IN.screenPos.xy / IN.screenPos.w) * _ScreenParams.xy);
             float dither = fmod(pixel.x + pixel.y * 2.0, 4.0) < 1.0 ? 0.022 : -0.006;
             o.Albedo = saturate((water + dither) * IN.color.rgb);
-            o.Emission = water * 0.30 + _FoamColor.rgb * (foam * 0.52 + sternWake * 1.25 + bow * 0.58);
+            // Persistent wake belongs to ShipWakeTrailController, which records actual
+            // sailed coordinates. The ocean shader keeps only the local bow disturbance.
+            o.Emission = water * 0.30 + _FoamColor.rgb * (foam * 0.52 + bow * 0.58);
             o.Specular = 0.18;
             o.Gloss = 0.22;
             o.Alpha = 1;

@@ -40,6 +40,8 @@ namespace Desktopirates.Editor
             Texture2D surface = AssetDatabase.LoadAssetAtPath<Texture2D>(oceanTexturePath);
             if (surface != null) ocean.SetTexture("_MainTex", surface);
             CreateOrUpdateMaterial(ResourceRoot + "/StandardMaterial.mat", Shader.Find("Standard"));
+            Material wake = CreateOrUpdateMaterial(ResourceRoot + "/WakeTrailMaterial.mat", Shader.Find("Desktopirates/WakeTrail"));
+            wake.SetColor("_Color", new Color(0.60f, 0.93f, 0.95f, 0.35f));
 
             QualitySettings.vSyncCount = 0;
             QualitySettings.antiAliasing = 0;

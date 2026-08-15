@@ -168,7 +168,7 @@ namespace Desktopirates
             Image roundFrame = iconFrame.gameObject.AddComponent<Image>();
             roundFrame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "item_slot_frame");
             roundFrame.raycastTarget = false;
-            RectTransform iconRect = CreateRect($"{kind} Icon", iconFrame, Vector2.zero, new Vector2(42f, 42f));
+            RectTransform iconRect = CreateRect($"{kind} Icon", iconFrame, Vector2.zero, Vector2.one * UiLayoutMetrics.PrimaryIcon);
             RawImage icon = iconRect.gameObject.AddComponent<RawImage>();
             icon.texture = UiTextureFactory.LoadInventoryIcon(kind);
             icon.raycastTarget = false;

@@ -38,6 +38,15 @@ namespace Desktopirates
                 ? new SaveSystem(Path.Combine(Application.temporaryCachePath, "desktopirates-preview.dprs"))
                 : new SaveSystem();
             GameState state = preview ? new GameState() : saves.LoadOrNew();
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--hud-max-preview"))
+            {
+                state.ShipLevel = ShipProgressionModel.TierCount - 1;
+                state.MaxHull = ShipProgressionModel.GetMaxHull(state);
+                state.Hull = state.MaxHull;
+                state.Gold = 999999;
+                state.Crew = ShipProgressionModel.Get(state.ShipLevel).MaxCrew;
+                state.CapacityLevel = ShipCustomizationModel.GetUpgradeCap(state);
+            }
             ProvisionController provisions = gameObject.AddComponent<ProvisionController>();
             provisions.Initialize(state, saves);
             Camera camera = CreateCamera();
@@ -55,6 +64,15 @@ namespace Desktopirates
             Transform boatVisual = ProceduralSceneFactory.CreatePlayerBoat(world, state.ShipLevel);
             BoatController boat = gameObject.AddComponent<BoatController>();
             boat.Initialize(boatVisual, state);
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--wake-preview"))
+            {
+                boat.IncreaseCruiseStep();
+                boat.IncreaseCruiseStep();
+                boat.IncreaseCruiseStep();
+            }
+            var wakeObject = new GameObject("Recorded Ship Wake", typeof(ShipWakeTrailController));
+            wakeObject.transform.SetParent(world, false);
+            wakeObject.GetComponent<ShipWakeTrailController>().Initialize(boat);
             PlayerShipConditionController playerConditions = gameObject.AddComponent<PlayerShipConditionController>();
             playerConditions.Initialize(boat, state);
             ocean.Bind(boat);
@@ -74,6 +92,8 @@ namespace Desktopirates
             dayNight.Initialize(ocean, sun);
 
             RectTransform canvas = CreateCanvas();
+            EnemyHudController enemyHud = gameObject.AddComponent<EnemyHudController>();
+            enemyHud.Initialize(canvas, camera, poiSystem);
             InventoryController inventory = gameObject.AddComponent<InventoryController>();
             inventory.Initialize(canvas, state);
             MenuController menu = gameObject.AddComponent<MenuController>();
@@ -87,6 +107,9 @@ namespace Desktopirates
             var tagObject = new GameObject("Perimeter Tags", typeof(TagRingController));
             tagObject.transform.SetParent(canvas, false);
             tagObject.GetComponent<TagRingController>().Initialize(canvas, boat, cameraRig, poiSystem, inventory, menu);
+            // Tags may occupy the same rim sector as the top dashboard. Render them
+            // beneath authored HUD frames so landmark art never obscures vital values.
+            tagObject.transform.SetAsFirstSibling();
         }
 
         private static Camera CreateCamera()

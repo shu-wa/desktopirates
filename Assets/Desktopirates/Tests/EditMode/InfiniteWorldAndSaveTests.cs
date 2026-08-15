@@ -548,6 +548,42 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void EnemyIdentityIsStableAndBossesKeepClearNamesAndLevels()
+        {
+            const ulong id = 0xA123B456C789D012UL;
+            string first = EnemyIdentityModel.GetName(id, BossKind.None);
+            string second = EnemyIdentityModel.GetName(id, BossKind.None);
+            Assert.That(second, Is.EqualTo(first));
+            Assert.That(first, Is.Not.Empty);
+            Assert.That(EnemyIdentityModel.GetLevel(BossKind.None, 42, new Vector2(180f, -90f)), Is.GreaterThan(1));
+            Assert.That(EnemyIdentityModel.GetName(id, BossKind.Kraken), Is.EqualTo("KRAKEN"));
+            Assert.That(EnemyIdentityModel.GetLevel(BossKind.Poseidon, 0, Vector2.zero), Is.EqualTo(80));
+        }
+
+        [Test]
+        public void RepeatedUiPicturesUseOnePrimaryPixelSize()
+        {
+            Assert.That(UiLayoutMetrics.PrimaryIcon, Is.EqualTo(40f));
+            Assert.That(UiLayoutMetrics.HudCardWidth, Is.GreaterThan(160f));
+            Assert.That(UiLayoutMetrics.HudCardSpacing, Is.GreaterThan(UiLayoutMetrics.HudCardWidth));
+        }
+
+        [Test]
+        public void WakeRecordsSailedCoordinatesAndFadesInsteadOfFollowingTheShip()
+        {
+            Vector2 stern = WakeTrailMath.GetSternPosition(Vector2.zero, 0f, 1);
+            Assert.That(stern.y, Is.LessThan(0f));
+            Assert.That(WakeTrailMath.ShouldEmit(Vector2.zero, Vector2.up * WakeTrailMath.SegmentSpacing, 1f), Is.True);
+            Assert.That(WakeTrailMath.ShouldEmit(Vector2.zero, Vector2.up, 0f), Is.False);
+            Assert.That(WakeTrailMath.IsTeleport(Vector2.zero, Vector2.right * 10f), Is.True);
+
+            Vector2 recorded = new Vector2(2f, 4f);
+            Assert.That(WakeTrailMath.ToCameraRelative(recorded, new Vector2(1f, 1f)), Is.EqualTo(new Vector2(1f, 3f)));
+            Assert.That(WakeTrailMath.GetOpacity(0.5f, WakeTrailMath.Lifetime), Is.GreaterThan(0.5f));
+            Assert.That(WakeTrailMath.GetOpacity(WakeTrailMath.Lifetime, WakeTrailMath.Lifetime), Is.Zero);
+        }
+
+        [Test]
         public void CannonDamageUsesCombatScaleAndStackedPerks()
         {
             var state = new GameState { Crew = 2, ShipLevel = 3, CannonLevel = 2 };
