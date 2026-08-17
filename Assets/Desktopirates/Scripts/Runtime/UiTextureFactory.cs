@@ -144,6 +144,12 @@ namespace Desktopirates
 
         public static Texture2D LoadPortIcon(string name) => LoadConceptTexture("Port", name);
 
+        public static Texture2D LoadFramelessPortIcon(string name)
+        {
+            Texture2D texture = LoadConceptTexture("PortFrameless", name);
+            return texture != null ? texture : LoadPortIcon(name);
+        }
+
         public static Texture2D CreateMenuButton(MenuGlyph glyph, int size = 80)
         {
             var pixels = NewPixels(size, size);

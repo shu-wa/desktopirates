@@ -367,6 +367,33 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void LeavingMooringRestoresAheadOrders()
+        {
+            var controllerObject = new GameObject("Mooring Input Test Controller");
+            var visualObject = new GameObject("Mooring Input Test Visual");
+            try
+            {
+                BoatController controller = controllerObject.AddComponent<BoatController>();
+                controller.Initialize(visualObject.transform, new GameState());
+                controller.HoldAtMooring();
+                Assert.That(controller.IsMoored, Is.True);
+
+                controller.ReleaseMooring();
+                controller.IncreaseCruiseStep();
+                controller.Advance(1f, 0f);
+
+                Assert.That(controller.IsMoored, Is.False);
+                Assert.That(controller.CruiseStep, Is.EqualTo(1));
+                Assert.That(controller.Speed, Is.GreaterThan(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(controllerObject);
+                Object.DestroyImmediate(visualObject);
+            }
+        }
+
+        [Test]
         public void WreckSalvageIsDeterministicAndAlwaysIncludesTimber()
         {
             SalvageDrop[] first = SalvageInventory.RollWreck(0xABCDEFUL, 37);

@@ -103,6 +103,9 @@ namespace Desktopirates.Tests
             Assert.That(UiTextureFactory.LoadPortIcon("repair").width, Is.EqualTo(128));
             Assert.That(UiTextureFactory.LoadPortIcon("food").width, Is.EqualTo(128));
             Assert.That(UiTextureFactory.LoadPortIcon("water").width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadFramelessPortIcon("repair").width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadFramelessPortIcon("food").width, Is.EqualTo(128));
+            Assert.That(UiTextureFactory.LoadFramelessPortIcon("water").width, Is.EqualTo(128));
             Assert.That(UiTextureFactory.LoadConceptTexture("Chrome", "port_panel_frame").width, Is.EqualTo(384));
         }
 

@@ -124,6 +124,10 @@ namespace Desktopirates
 
         private void Update()
         {
+            // Esc or another panel can close the harbor UI. Never leave the boat invisibly
+            // moored with W/S disabled after its docking controls are no longer visible.
+            if (boat != null && boat.IsMoored && portRoot != null && !portRoot.activeSelf && shipyardRoot != null && !shipyardRoot.activeSelf)
+                boat.ReleaseMooring();
             hullValue.text = $"{state.Hull}/{state.MaxHull}";
             goldValue.text = $"{state.Gold} G";
             crewValue.text = state.Crew.ToString();
@@ -922,7 +926,7 @@ namespace Desktopirates
         {
             RectTransform chip = CreateUiObject(label + " Stock Chip", parent); chip.anchoredPosition = position; chip.sizeDelta = new Vector2(112f, 38f);
             Image frame = chip.gameObject.AddComponent<Image>(); frame.sprite = null; frame.color = new Color(0.025f, 0.100f, 0.125f, 1f); frame.raycastTarget = false;
-            AddButtonIcon(chip, UiTextureFactory.LoadPortIcon(iconName), new Vector2(-37f, 0f), 26f);
+            AddButtonIcon(chip, UiTextureFactory.LoadFramelessPortIcon(iconName), new Vector2(-37f, 0f), 26f);
             Text text = CreateText(chip, label, new Vector2(15f, 0f), new Vector2(72f, 30f), 12, TextAnchor.MiddleCenter);
             text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 12); text.resizeTextForBestFit = true; text.resizeTextMinSize = 10; text.resizeTextMaxSize = 12;
             return text;
@@ -932,9 +936,9 @@ namespace Desktopirates
         {
             RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(width, 43f);
             Image image = rect.gameObject.AddComponent<Image>();
-            image.sprite = emphasized ? UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f, true) : null;
-            image.type = emphasized ? Image.Type.Sliced : Image.Type.Simple;
-            image.color = emphasized ? Color.white : new Color(0.025f, 0.095f, 0.125f, 1f);
+            image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f, true);
+            image.type = Image.Type.Sliced;
+            image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
             ColorBlock colors = button.colors;
             colors.normalColor = Color.white;
@@ -943,10 +947,9 @@ namespace Desktopirates
             colors.fadeDuration = 0.08f;
             button.colors = colors;
             float iconX = -width * 0.5f + 27f;
-            AddButtonIcon(rect, UiTextureFactory.LoadPortIcon(iconName), new Vector2(iconX, 0f), 34f);
+            AddButtonIcon(rect, UiTextureFactory.LoadFramelessPortIcon(iconName), new Vector2(iconX, 0f), 34f);
             Text text = CreateText(rect, label, new Vector2(18f, 0f), new Vector2(width - 72f, 37f), 15, TextAnchor.MiddleCenter);
             text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 15); text.resizeTextForBestFit = true; text.resizeTextMinSize = 12; text.resizeTextMaxSize = 15;
-            if (!emphasized) AddFlatDivider(rect, label + " Divider", new Vector2(8f, -21f), width - 58f, new Color(0.31f, 0.76f, 0.74f, 0.30f));
             return button;
         }
 
