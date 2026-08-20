@@ -30,6 +30,34 @@ namespace Desktopirates.Tests
             Assert.That(events.Exists(item => item.Kind == PoiKind.Port), Is.True);
         }
 
+        [TestCase(0f, 0f, 0, 0)]
+        [TestCase(18f, 18f, 1, 1)]
+        [TestCase(-0.01f, -0.01f, -1, -1)]
+        [TestCase(18018f, -18000.01f, 1001, -1001)]
+        public void InfiniteWorldStreamingFindsTheCorrectChunkAtLongDistance(float x, float y, int expectedX, int expectedY)
+        {
+            Assert.That(WorldStreamingModel.GetCenterChunk(new Vector2(x, y)), Is.EqualTo(new Vector2Int(expectedX, expectedY)));
+        }
+
+        [Test]
+        public void RuntimeWindowContainsCurrentAndAdjacentLandmarkChunks()
+        {
+            Vector2Int center = WorldStreamingModel.GetCenterChunk(new Vector2(18018f, -18000.01f));
+            Assert.That(WorldStreamingModel.Contains(center, center.x, center.y), Is.True);
+            Assert.That(WorldStreamingModel.Contains(center, center.x + WorldStreamingModel.LoadRadius, center.y - WorldStreamingModel.LoadRadius), Is.True);
+            Assert.That(WorldStreamingModel.Contains(center, center.x + WorldStreamingModel.LoadRadius + 1, center.y), Is.False);
+
+            var events = new List<GeneratedEventData>();
+            int generatedCount = 0;
+            for (int chunkY = center.y - WorldStreamingModel.LoadRadius; chunkY <= center.y + WorldStreamingModel.LoadRadius; chunkY++)
+            for (int chunkX = center.x - WorldStreamingModel.LoadRadius; chunkX <= center.x + WorldStreamingModel.LoadRadius; chunkX++)
+            {
+                WorldGenerator.GenerateChunk(173, chunkX, chunkY, events);
+                generatedCount += events.Count;
+            }
+            Assert.That(generatedCount, Is.GreaterThan(0), "A far-away runtime window must still contain deterministic sea landmarks.");
+        }
+
         [Test]
         public void ExplorationChartKeepsPlayerCenteredAndNorthUp()
         {

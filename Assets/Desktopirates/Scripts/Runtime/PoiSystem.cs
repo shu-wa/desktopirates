@@ -11,6 +11,8 @@ namespace Desktopirates
         public PoiKind Kind;
         public Vector2 LogicalPosition;
         public Vector2 SpawnPosition;
+        public int SourceChunkX;
+        public int SourceChunkY;
         public int Reward;
         public int Health;
         public int MaxHealth;
@@ -40,6 +42,7 @@ namespace Desktopirates
 
         private readonly List<PoiRecord> items = new List<PoiRecord>();
         private readonly List<GeneratedEventData> generated = new List<GeneratedEventData>();
+        private readonly HashSet<long> loadedChunks = new HashSet<long>();
         private BoatController player;
         private GameState state;
         private CombatVfxController combatVfx;
@@ -118,23 +121,46 @@ namespace Desktopirates
 
         private void RefreshChunks(bool force)
         {
-            int chunkX = Mathf.FloorToInt(player.LogicalPosition.x / WorldGenerator.ChunkSize);
-            int chunkY = Mathf.FloorToInt(player.LogicalPosition.y / WorldGenerator.ChunkSize);
+            Vector2Int centerChunk = WorldStreamingModel.GetCenterChunk(player.LogicalPosition);
+            int chunkX = centerChunk.x;
+            int chunkY = centerChunk.y;
             state.ExploredChunks.Add(GameState.PackChunk(chunkX, chunkY));
             if (!force && chunkX == centerChunkX && chunkY == centerChunkY) return;
-            if (!force && (player.IsAutoNavigating || items.Exists(item => item.IsUnderFire || item.IsSinking))) return;
             centerChunkX = chunkX;
             centerChunkY = chunkY;
-            foreach (PoiRecord item in items) if (item.Visual != null) Destroy(item.Visual.gameObject);
-            items.Clear();
 
-            for (int y = chunkY - 3; y <= chunkY + 3; y++)
-            for (int x = chunkX - 3; x <= chunkX + 3; x++)
+            // The chart and the sea must advance from the same infinite-world source.  The
+            // previous implementation paused all streaming during combat, sinking and
+            // auto-docking. A moving ship could therefore enter newly explored chunks while
+            // the chart showed their landmarks but the sea still owned the old POI set.
+            // Reconcile chunks incrementally instead: active VFX survive, old idle chunks are
+            // released, and newly entered chunks are always populated.
+            if (force) ClearStreamedItems();
+
+            var desiredChunks = new HashSet<long>();
+            for (int y = chunkY - WorldStreamingModel.LoadRadius; y <= chunkY + WorldStreamingModel.LoadRadius; y++)
+            for (int x = chunkX - WorldStreamingModel.LoadRadius; x <= chunkX + WorldStreamingModel.LoadRadius; x++)
+                desiredChunks.Add(GameState.PackChunk(x, y));
+
+            for (int index = items.Count - 1; index >= 0; index--)
             {
+                PoiRecord item = items[index];
+                long source = GameState.PackChunk(item.SourceChunkX, item.SourceChunkY);
+                if (desiredChunks.Contains(source) || item.IsUnderFire || item.IsSinking || item.IsPreview) continue;
+                if (item.Visual != null) Destroy(item.Visual.gameObject);
+                items.RemoveAt(index);
+            }
+
+            for (int y = chunkY - WorldStreamingModel.LoadRadius; y <= chunkY + WorldStreamingModel.LoadRadius; y++)
+            for (int x = chunkX - WorldStreamingModel.LoadRadius; x <= chunkX + WorldStreamingModel.LoadRadius; x++)
+            {
+                long packedChunk = GameState.PackChunk(x, y);
+                if (!force && loadedChunks.Contains(packedChunk)) continue;
                 WorldGenerator.GenerateChunk(state.WorldSeed, x, y, generated);
                 foreach (GeneratedEventData data in generated)
                 {
                     if (state.ResolvedEvents.Contains(data.Id)) continue;
+                    if (items.Exists(item => item.Id == data.Id)) continue;
                     int level = EnemyIdentityModel.GetLevel(data.Boss, data.Reward, data.Position);
                     BossMutation mutation = BossMutationModel.Roll(data.Id, data.Boss, data.Position);
                     Transform visual = ProceduralSceneFactory.CreatePoiVisual(data.Kind, transform, data.Boss, data.EnemyArchetype, mutation);
@@ -149,6 +175,8 @@ namespace Desktopirates
                         Kind = data.Kind,
                         LogicalPosition = data.Position,
                         SpawnPosition = data.Position,
+                        SourceChunkX = x,
+                        SourceChunkY = y,
                         Reward = data.Reward,
                         Health = health,
                         MaxHealth = health,
@@ -164,6 +192,17 @@ namespace Desktopirates
                     items.Add(record);
                 }
             }
+
+            loadedChunks.Clear();
+            foreach (long packedChunk in desiredChunks) loadedChunks.Add(packedChunk);
+        }
+
+        private void ClearStreamedItems()
+        {
+            foreach (PoiRecord item in items)
+                if (item.Visual != null) Destroy(item.Visual.gameObject);
+            items.Clear();
+            loadedChunks.Clear();
         }
 
         private void UpdateEnemy(PoiRecord enemy)
