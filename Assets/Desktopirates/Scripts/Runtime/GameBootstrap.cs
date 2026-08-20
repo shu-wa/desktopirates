@@ -38,6 +38,19 @@ namespace Desktopirates
                 ? new SaveSystem(Path.Combine(Application.temporaryCachePath, "desktopirates-preview.dprs"))
                 : new SaveSystem();
             GameState state = preview ? new GameState() : saves.LoadOrNew();
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--inventory-preview"))
+            {
+                state.Food = 28;
+                state.Water = 19;
+                state.Supplies = 14;
+                state.SpareCannons = 3;
+                state.SetPartCount(SalvagePartKind.Timber, 26);
+                state.SetPartCount(SalvagePartKind.Canvas, 12);
+                state.SetPartCount(SalvagePartKind.Iron, 9);
+                state.SetPartCount(SalvagePartKind.Gear, 6);
+                state.SetPartCount(SalvagePartKind.Chart, 4);
+                state.SetPartCount(SalvagePartKind.Relic, 2);
+            }
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--log-preview"))
             {
                 state.Captain.SetDistanceHundredths(184235);

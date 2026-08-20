@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -107,6 +108,103 @@ namespace Desktopirates.Tests
             Assert.That(UiTextureFactory.LoadFramelessPortIcon("food").width, Is.EqualTo(128));
             Assert.That(UiTextureFactory.LoadFramelessPortIcon("water").width, Is.EqualTo(128));
             Assert.That(UiTextureFactory.LoadConceptTexture("Chrome", "port_panel_frame").width, Is.EqualTo(384));
+        }
+
+        [Test]
+        public void InventoryManifest_CoversAllTenPersistedCargoValuesInStableOrder()
+        {
+            var state = new GameState
+            {
+                Food = 1,
+                Water = 2,
+                Supplies = 3,
+                SpareCannons = 4
+            };
+            for (int index = 0; index < SalvageInventory.PartKindCount; index++)
+                state.SetPartCount((SalvagePartKind)index, index + 5);
+
+            Assert.That(InventoryManifestModel.EntryCount, Is.EqualTo(10));
+            for (int index = 0; index < InventoryManifestModel.EntryCount; index++)
+                Assert.That(InventoryManifestModel.GetCount(state, (InventoryItemKind)index), Is.EqualTo(index + 1));
+            Assert.That(InventoryManifestModel.GetTotalCount(state), Is.EqualTo(55));
+        }
+
+        [Test]
+        public void InventoryManifest_UsesUniqueAuthoredTexturesAndReadableMetadata()
+        {
+            var paths = new HashSet<string>();
+            for (int index = 0; index < InventoryManifestModel.EntryCount; index++)
+            {
+                InventoryItemKind kind = (InventoryItemKind)index;
+                string path = InventoryManifestModel.GetTextureResource(kind);
+                Assert.That(paths.Add(path), Is.True, $"Duplicate inventory texture path: {path}");
+                Assert.That(InventoryManifestModel.GetName(kind), Is.Not.Empty, kind.ToString());
+                Assert.That(InventoryManifestModel.GetDescription(kind), Is.Not.Empty, kind.ToString());
+                Assert.That(InventoryManifestModel.GetRarityName(InventoryManifestModel.GetRarity(kind)), Is.Not.Empty, kind.ToString());
+            }
+        }
+
+        [Test]
+        public void InventoryManifest_IsACompactScrollableList()
+        {
+            Assert.That(InventoryManifestModel.RowHeight, Is.GreaterThanOrEqualTo(60f));
+            Assert.That(InventoryManifestModel.RowStride, Is.GreaterThan(InventoryManifestModel.RowHeight));
+            Assert.That(InventoryManifestModel.RequiresScrolling, Is.True);
+            Assert.That(InventoryManifestModel.ContentHeight, Is.GreaterThan(InventoryManifestModel.ViewportHeight));
+
+            float left = InventoryManifestModel.ReferenceCanvasWidth * 0.5f + InventoryManifestModel.PanelCenterX - InventoryManifestModel.PanelWidth * 0.5f;
+            float right = left + InventoryManifestModel.PanelWidth;
+            float top = InventoryManifestModel.PanelTopOffset - InventoryManifestModel.PanelHeight * 0.5f;
+            float bottom = top + InventoryManifestModel.PanelHeight;
+            Assert.That(left, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(right, Is.LessThanOrEqualTo(InventoryManifestModel.ReferenceCanvasWidth));
+            Assert.That(top, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(bottom, Is.LessThanOrEqualTo(InventoryManifestModel.ReferenceCanvasHeight));
+
+            float iconRight = InventoryManifestModel.IconCenterX + InventoryManifestModel.IconSize * 0.5f;
+            float textLeft = InventoryManifestModel.TextCenterX - InventoryManifestModel.TextWidth * 0.5f;
+            float textRight = InventoryManifestModel.TextCenterX + InventoryManifestModel.TextWidth * 0.5f;
+            float countLeft = InventoryManifestModel.CountCenterX - InventoryManifestModel.CountWidth * 0.5f;
+            Assert.That(textLeft - iconRight, Is.GreaterThanOrEqualTo(8f));
+            Assert.That(countLeft - textRight, Is.GreaterThanOrEqualTo(8f));
+        }
+
+        [Test]
+        public void ConceptV04InventoryIcons_AreTransparentPixelFilteredAssets()
+        {
+            for (int index = 0; index < InventoryManifestModel.EntryCount; index++)
+            {
+                InventoryItemKind kind = (InventoryItemKind)index;
+                string path = InventoryManifestModel.GetTextureResource(kind);
+                Texture2D texture = Resources.Load<Texture2D>(path);
+                Assert.That(texture, Is.Not.Null, path);
+                Assert.That(texture.width, Is.EqualTo(256), path);
+                Assert.That(texture.height, Is.EqualTo(256), path);
+                Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point), path);
+                Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Clamp), path);
+
+                string assetPath = $"Assets/Desktopirates/Resources/{path}.png";
+                var readableProbe = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                Assert.That(readableProbe.LoadImage(System.IO.File.ReadAllBytes(assetPath)), Is.True, assetPath);
+                Assert.That(readableProbe.GetPixel(0, 0).a, Is.LessThan(0.05f), path);
+                Assert.That(readableProbe.GetPixel(readableProbe.width - 1, readableProbe.height - 1).a, Is.LessThan(0.05f), path);
+                Object.DestroyImmediate(readableProbe);
+            }
+        }
+
+        [TestCase("frame", 512, 640)]
+        [TestCase("title", 512, 128)]
+        [TestCase("scrollbar_track", 32, 512)]
+        [TestCase("scrollbar_handle", 48, 160)]
+        public void ConceptV04InventoryChrome_UsesDedicatedAuthoredTextures(string part, int width, int height)
+        {
+            string path = $"Textures/UI/ConceptV04/Inventory/inventory_{part}_v04";
+            Texture2D texture = Resources.Load<Texture2D>(path);
+            Assert.That(texture, Is.Not.Null, path);
+            Assert.That(texture.width, Is.EqualTo(width), path);
+            Assert.That(texture.height, Is.EqualTo(height), path);
+            Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point), path);
+            Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Clamp), path);
         }
 
         [Test]

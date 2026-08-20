@@ -63,6 +63,25 @@ namespace Desktopirates
                 ?? CreateInventoryIcon(kind, size);
         }
 
+        public static Texture2D LoadInventoryIcon(InventoryItemKind kind)
+        {
+            Texture2D texture = Resources.Load<Texture2D>(InventoryManifestModel.GetTextureResource(kind));
+            if (texture != null) return texture;
+            return kind switch
+            {
+                InventoryItemKind.Timber => LoadInventoryIcon(SalvagePartKind.Timber),
+                InventoryItemKind.Canvas => LoadInventoryIcon(SalvagePartKind.Canvas),
+                InventoryItemKind.Iron => LoadInventoryIcon(SalvagePartKind.Iron),
+                InventoryItemKind.Gear => LoadInventoryIcon(SalvagePartKind.Gear),
+                InventoryItemKind.Chart => LoadInventoryIcon(SalvagePartKind.Chart),
+                InventoryItemKind.Relic => LoadInventoryIcon(SalvagePartKind.Relic),
+                _ => CreateGlyph(MenuGlyph.Inventory, 64)
+            };
+        }
+
+        public static Texture2D LoadInventoryChrome(string part)
+            => Resources.Load<Texture2D>($"Textures/UI/ConceptV04/Inventory/inventory_{part}_v04");
+
         public static Texture2D LoadSpeedSegment(bool active)
         {
             Texture2D concept = LoadConceptTexture("Navigation", $"speed_{(active ? "active" : "inactive")}");

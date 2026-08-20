@@ -7,7 +7,6 @@ namespace Desktopirates
     public sealed class InventoryController : MonoBehaviour
     {
         private static readonly Color Brass = new Color(0.92f, 0.64f, 0.22f, 1f);
-        private static readonly Color Mint = new Color(0.23f, 0.88f, 0.78f, 1f);
         private static readonly Color RowNormal = new Color(0.025f, 0.080f, 0.105f, 1f);
         private static readonly Color RowAlternate = new Color(0.030f, 0.095f, 0.120f, 1f);
         private static readonly Color RowSelected = new Color(0.035f, 0.155f, 0.165f, 1f);
@@ -16,10 +15,10 @@ namespace Desktopirates
         private GameObject launcherButton;
         private GameObject launcherHint;
         private Text totalText;
-        private readonly Text[] counts = new Text[SalvageInventory.PartKindCount];
-        private readonly Image[] slotFrames = new Image[SalvageInventory.PartKindCount];
-        private readonly GameObject[] selectionMarkers = new GameObject[SalvageInventory.PartKindCount];
-        private SalvagePartKind selected;
+        private readonly Text[] counts = new Text[InventoryManifestModel.EntryCount];
+        private readonly Image[] slotFrames = new Image[InventoryManifestModel.EntryCount];
+        private readonly Image[] rarityStrips = new Image[InventoryManifestModel.EntryCount];
+        private InventoryItemKind selected;
         private Font font;
         private bool launcherVisible;
 
@@ -68,9 +67,9 @@ namespace Desktopirates
         public void Refresh()
         {
             if (state == null || totalText == null) return;
-            totalText.text = $"CARGO  {state.TotalSalvageCount}";
+            totalText.text = $"{InventoryManifestModel.EntryCount} TYPES   •   {InventoryManifestModel.GetTotalCount(state)} ITEMS";
             for (int i = 0; i < counts.Length; i++)
-                counts[i].text = state.GetPartCount((SalvagePartKind)i).ToString();
+                counts[i].text = $"x{InventoryManifestModel.GetCount(state, (InventoryItemKind)i)}";
             Select(selected);
         }
 
@@ -96,18 +95,40 @@ namespace Desktopirates
 
         private void BuildInventory(RectTransform canvas)
         {
-            RectTransform panel = CreateRect("Scrollable Cargo Manifest", canvas, new Vector2(0f, -398f), new Vector2(500f, 520f));
+            // 720x760 reference canvas: x=90 leaves 12 px at the right, y=-425
+            // leaves 12 px at the bottom and a clear gap below the menu circle.
+            RectTransform panel = CreateRect("Concept Inventory Manifest", canvas,
+                new Vector2(InventoryManifestModel.PanelCenterX, -InventoryManifestModel.PanelTopOffset),
+                new Vector2(InventoryManifestModel.PanelWidth, InventoryManifestModel.PanelHeight));
             root = panel.gameObject;
             Image background = root.AddComponent<Image>();
             background.sprite = null;
             background.color = Color.clear;
-            AddAuthoredPanelFill(panel, new Vector2(450f, 468f));
-            AddPanelFrameOverlay(panel, new Vector2(500f, 520f));
+            AddAuthoredPanelFill(panel, new Vector2(488f, 618f));
+            AddPanelFrameOverlay(panel, new Vector2(516f, 646f));
 
-            totalText = CreateText("Cargo Title", panel, "CARGO", 21, new Vector2(0f, 205f), new Vector2(270f, 30f));
-            totalText.color = Brass;
+            RectTransform titlePlate = CreateRect("Inventory Title Cartouche", panel, new Vector2(0f, 286f), new Vector2(320f, 64f));
+            RawImage titlePlateImage = titlePlate.gameObject.AddComponent<RawImage>();
+            titlePlateImage.texture = UiTextureFactory.LoadInventoryChrome("title");
+            titlePlateImage.color = Color.white;
+            titlePlateImage.raycastTarget = false;
+            Text title = CreateText("Inventory Title", titlePlate, "INVENTORY", 24, Vector2.zero, new Vector2(288f, 48f));
+            title.color = new Color(1f, 0.86f, 0.57f, 1f);
+            totalText = CreateText("Inventory Summary", panel, "10 TYPES", 12, new Vector2(58f, 249f), new Vector2(300f, 22f));
+            totalText.alignment = TextAnchor.MiddleRight;
+            totalText.color = new Color(0.67f, 0.75f, 0.75f, 1f);
 
-            RectTransform viewport = CreateRect("Cargo Scroll Viewport", panel, new Vector2(0f, -18f), new Vector2(420f, 384f));
+            RectTransform backRect = CreateRect("Close Inventory", panel, new Vector2(-211f, 286f), new Vector2(76f, 28f));
+            RawImage backImage = backRect.gameObject.AddComponent<RawImage>();
+            backImage.texture = UiTextureFactory.LoadInventoryChrome("title");
+            backImage.color = new Color(0.78f, 0.78f, 0.78f, 1f);
+            Button back = backRect.gameObject.AddComponent<Button>();
+            back.targetGraphic = backImage;
+            back.onClick.AddListener(Close);
+            Text backLabel = CreateText("Close Inventory Label", backRect, "BACK", 11, Vector2.zero, new Vector2(66f, 22f));
+            backLabel.color = Brass;
+
+            RectTransform viewport = CreateRect("Inventory Scroll Viewport", panel, new Vector2(-8f, -38f), new Vector2(452f, InventoryManifestModel.ViewportHeight));
             Image viewportImage = viewport.gameObject.AddComponent<Image>();
             // The mask must be fully rectangular. Decorative sprites have transparent
             // corners and would clip the first/last manifest row.
@@ -116,17 +137,17 @@ namespace Desktopirates
             Mask mask = viewport.gameObject.AddComponent<Mask>();
             mask.showMaskGraphic = true;
 
-            RectTransform content = CreateRect("Cargo Scroll Content", viewport, Vector2.zero,
-                new Vector2(400f, SalvageInventory.PartKindCount * 76f + 12f));
+            RectTransform content = CreateRect("Inventory Scroll Content", viewport, Vector2.zero,
+                new Vector2(432f, InventoryManifestModel.ContentHeight));
             content.anchorMin = new Vector2(0.5f, 1f);
             content.anchorMax = new Vector2(0.5f, 1f);
             content.pivot = new Vector2(0.5f, 1f);
             content.anchoredPosition = new Vector2(0f, -6f);
 
-            for (int i = 0; i < SalvageInventory.PartKindCount; i++)
+            for (int i = 0; i < InventoryManifestModel.EntryCount; i++)
             {
-                SalvagePartKind kind = (SalvagePartKind)i;
-                BuildRow(content, kind, new Vector2(0f, -38f - i * 76f));
+                InventoryItemKind kind = (InventoryItemKind)i;
+                BuildRow(content, kind, new Vector2(0f, -33f - i * InventoryManifestModel.RowStride));
             }
 
             ScrollRect scroll = viewport.gameObject.AddComponent<ScrollRect>();
@@ -135,33 +156,29 @@ namespace Desktopirates
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 32f;
+            scroll.scrollSensitivity = 38f;
             scroll.inertia = true;
             scroll.decelerationRate = 0.12f;
-            RectTransform scrollbarRect = CreateRect("Cargo Scrollbar", panel, new Vector2(214f, -18f), new Vector2(4f, 384f));
-            Image scrollbarTrack = scrollbarRect.gameObject.AddComponent<Image>(); scrollbarTrack.color = new Color(0.04f, 0.13f, 0.16f, 1f); scrollbarTrack.raycastTarget = true;
+            RectTransform scrollbarRect = CreateRect("Inventory Brass Scrollbar", panel, new Vector2(232f, -38f), new Vector2(10f, InventoryManifestModel.ViewportHeight));
+            RawImage scrollbarTrack = scrollbarRect.gameObject.AddComponent<RawImage>(); scrollbarTrack.texture = UiTextureFactory.LoadInventoryChrome("scrollbar_track"); scrollbarTrack.color = Color.white; scrollbarTrack.raycastTarget = true;
             Scrollbar scrollbar = scrollbarRect.gameObject.AddComponent<Scrollbar>();
             RectTransform slidingArea = CreateRect("Cargo Scrollbar Sliding Area", scrollbarRect, Vector2.zero, Vector2.zero);
             slidingArea.anchorMin = Vector2.zero; slidingArea.anchorMax = Vector2.one; slidingArea.offsetMin = new Vector2(1f, 2f); slidingArea.offsetMax = new Vector2(-1f, -2f);
             RectTransform handle = CreateRect("Cargo Scrollbar Handle", slidingArea, Vector2.zero, Vector2.zero);
             handle.anchorMin = Vector2.zero; handle.anchorMax = Vector2.one; handle.offsetMin = Vector2.zero; handle.offsetMax = Vector2.zero;
-            Image handleImage = handle.gameObject.AddComponent<Image>(); handleImage.color = new Color(0.18f, 0.50f, 0.50f, 1f);
+            RawImage handleImage = handle.gameObject.AddComponent<RawImage>(); handleImage.texture = UiTextureFactory.LoadInventoryChrome("scrollbar_handle"); handleImage.color = Color.white;
             scrollbar.handleRect = handle; scrollbar.targetGraphic = handleImage; scrollbar.direction = Scrollbar.Direction.BottomToTop;
             scroll.verticalScrollbar = scrollbar; scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
-            RectTransform backRect = CreateRect("Close Cargo", panel, new Vector2(-205f, -220f), new Vector2(58f, 58f));
-            RawImage backImage = backRect.gameObject.AddComponent<RawImage>();
-            backImage.texture = UiTextureFactory.LoadMenuButton(MenuGlyph.Back, 80);
-            Button back = backRect.gameObject.AddComponent<Button>();
-            back.targetGraphic = backImage;
-            back.onClick.AddListener(Close);
-            Select(SalvagePartKind.Timber);
+            Select(InventoryItemKind.Food);
         }
 
-        private void BuildRow(RectTransform parent, SalvagePartKind kind, Vector2 position)
+        private void BuildRow(RectTransform parent, InventoryItemKind kind, Vector2 position)
         {
             int index = (int)kind;
-            RectTransform slot = CreateRect($"{kind} Cargo Row", parent, position, new Vector2(386f, 68f));
+            InventoryRarity rarity = InventoryManifestModel.GetRarity(kind);
+            Color rarityColor = InventoryManifestModel.GetRarityColor(rarity);
+            RectTransform slot = CreateRect($"{kind} Inventory Row", parent, position, new Vector2(428f, InventoryManifestModel.RowHeight));
             slot.anchorMin = new Vector2(0.5f, 1f);
             slot.anchorMax = new Vector2(0.5f, 1f);
             slot.pivot = new Vector2(0.5f, 0.5f);
@@ -179,38 +196,48 @@ namespace Desktopirates
             button.colors = colors;
             button.onClick.AddListener(() => Select(kind));
 
-            RectTransform selectedBar = CreateRect($"{kind} Selection Marker", slot, new Vector2(-191f, 0f), new Vector2(4f, 56f));
-            Image selectedBarImage = selectedBar.gameObject.AddComponent<Image>(); selectedBarImage.color = Mint; selectedBarImage.raycastTarget = false;
-            selectionMarkers[index] = selectedBar.gameObject;
-            RectTransform divider = CreateRect($"{kind} Row Divider", slot, new Vector2(0f, -33.5f), new Vector2(366f, 1f));
-            Image dividerImage = divider.gameObject.AddComponent<Image>(); dividerImage.color = new Color(0.28f, 0.58f, 0.61f, 0.34f); dividerImage.raycastTarget = false;
+            RectTransform rarityBar = CreateRect($"{kind} Rarity Strip", slot, new Vector2(-211f, 0f), new Vector2(4f, 56f));
+            Image rarityBarImage = rarityBar.gameObject.AddComponent<Image>(); rarityBarImage.color = rarityColor; rarityBarImage.raycastTarget = false;
+            rarityStrips[index] = rarityBarImage;
+            RectTransform divider = CreateRect($"{kind} Row Divider", slot, new Vector2(0f, -30.5f), new Vector2(414f, 1f));
+            Image dividerImage = divider.gameObject.AddComponent<Image>(); dividerImage.color = new Color(0.24f, 0.38f, 0.42f, 0.65f); dividerImage.raycastTarget = false;
 
-            RectTransform iconRect = CreateRect($"{kind} Icon", slot, new Vector2(-158f, 0f), Vector2.one * 44f);
+            RectTransform iconRect = CreateRect($"{kind} Frameless Icon", slot, new Vector2(InventoryManifestModel.IconCenterX, 0f), Vector2.one * InventoryManifestModel.IconSize);
             RawImage icon = iconRect.gameObject.AddComponent<RawImage>();
             icon.texture = UiTextureFactory.LoadInventoryIcon(kind);
             icon.raycastTarget = false;
 
-            Text name = CreateText($"{kind} Name", slot, SalvageInventory.GetDisplayName(kind), 16, new Vector2(4f, 13f), new Vector2(214f, 24f));
+            // Text starts 11 px after the 54 px icon and ends 12 px before the
+            // quantity column, so long descriptions never overlap either one.
+            Text name = CreateText($"{kind} Name", slot, InventoryManifestModel.GetName(kind), 16,
+                new Vector2(InventoryManifestModel.TextCenterX, 17f), new Vector2(InventoryManifestModel.TextWidth, 22f));
             name.alignment = TextAnchor.MiddleLeft;
             name.color = new Color(0.94f, 0.98f, 0.96f, 1f);
-            Text description = CreateText($"{kind} Description", slot, SalvageInventory.GetDescription(kind), 12, new Vector2(4f, -14f), new Vector2(214f, 28f));
+            Text rarityLabel = CreateText($"{kind} Rarity", slot, InventoryManifestModel.GetRarityName(rarity), 10,
+                new Vector2(InventoryManifestModel.TextCenterX, 0f), new Vector2(InventoryManifestModel.TextWidth, 16f));
+            rarityLabel.alignment = TextAnchor.MiddleLeft;
+            rarityLabel.color = rarityColor;
+            Text description = CreateText($"{kind} Description", slot, InventoryManifestModel.GetDescription(kind), 11,
+                new Vector2(InventoryManifestModel.TextCenterX, -18f), new Vector2(InventoryManifestModel.TextWidth, 18f));
             description.alignment = TextAnchor.MiddleLeft;
             description.color = new Color(0.80f, 0.85f, 0.80f, 1f);
             description.resizeTextForBestFit = true;
-            description.resizeTextMinSize = 10;
-            description.resizeTextMaxSize = 12;
-            counts[index] = CreateText($"{kind} Count", slot, "0", 20, new Vector2(158f, 0f), new Vector2(48f, 30f));
-            counts[index].color = Mint;
+            description.resizeTextMinSize = 9;
+            description.resizeTextMaxSize = 11;
+            counts[index] = CreateText($"{kind} Count", slot, "x0", 17,
+                new Vector2(InventoryManifestModel.CountCenterX, 15f), new Vector2(InventoryManifestModel.CountWidth, 24f));
+            counts[index].alignment = TextAnchor.MiddleRight;
+            counts[index].color = new Color(0.94f, 0.98f, 0.96f, 1f);
         }
 
-        private void Select(SalvagePartKind kind)
+        private void Select(InventoryItemKind kind)
         {
             selected = kind;
             for (int i = 0; i < slotFrames.Length; i++)
             {
                 bool isSelected = i == (int)kind;
                 if (slotFrames[i] != null) slotFrames[i].color = isSelected ? RowSelected : (i & 1) == 0 ? RowNormal : RowAlternate;
-                if (selectionMarkers[i] != null) selectionMarkers[i].SetActive(isSelected);
+                if (rarityStrips[i] != null) rarityStrips[i].color = InventoryManifestModel.GetRarityColor(InventoryManifestModel.GetRarity((InventoryItemKind)i));
             }
         }
 
@@ -254,7 +281,7 @@ namespace Desktopirates
         {
             RectTransform frame = CreateRect("Authored Cargo Frame Overlay", parent, Vector2.zero, size);
             RawImage image = frame.gameObject.AddComponent<RawImage>();
-            image.texture = UiTextureFactory.LoadConceptTexture("Chrome", "cargo_panel_frame");
+            image.texture = UiTextureFactory.LoadInventoryChrome("frame");
             image.raycastTarget = false;
         }
     }
