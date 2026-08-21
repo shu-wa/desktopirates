@@ -10,9 +10,14 @@ namespace Desktopirates
         private sealed class Plate
         {
             public GameObject Root;
+            public Image Background;
             public Text Identity;
+            public Text HealthValue;
+            public RectTransform HealthBar;
             public Image Health;
         }
+
+        private const float HealthBarWidth = 188f;
 
         private readonly Dictionary<ulong, Plate> plates = new Dictionary<ulong, Plate>();
         private readonly HashSet<ulong> seen = new HashSet<ulong>();
@@ -71,9 +76,13 @@ namespace Desktopirates
 
                 plate.Identity.text = $"LV {enemy.Level:00}  {enemy.DisplayName}";
                 plate.Identity.color = enemy.Boss == BossKind.None ? UiTheme.PrimaryText : UiTheme.Warning;
-                float ratio = enemy.Health / (float)Mathf.Max(1, enemy.MaxHealth);
-                plate.Health.fillAmount = Mathf.Clamp01(ratio);
+                plate.HealthValue.text = EnemyHudModel.GetHealthLabel(enemy.Health, enemy.MaxHealth);
+                float ratio = EnemyHudModel.GetHealthRatio(enemy.Health, enemy.MaxHealth);
+                plate.HealthBar.sizeDelta = new Vector2(EnemyHudModel.GetBarWidth(HealthBarWidth, enemy.Health, enemy.MaxHealth), 7f);
                 plate.Health.color = ratio <= 0.25f ? UiTheme.Danger : enemy.Boss == BossKind.None ? UiTheme.Mint : UiTheme.Warning;
+                plate.Background.color = enemy.Boss == BossKind.None
+                    ? new Color(0.008f, 0.035f, 0.052f, 0.90f)
+                    : new Color(0.075f, 0.035f, 0.020f, 0.92f);
             }
 
             stale.Clear();
@@ -93,37 +102,43 @@ namespace Desktopirates
             RectTransform root = (RectTransform)rootObject.transform;
             root.anchorMin = root.anchorMax = root.pivot = new Vector2(0.5f, 0.5f);
             root.sizeDelta = new Vector2(UiLayoutMetrics.EnemyPlateWidth, UiLayoutMetrics.EnemyPlateHeight);
-            Image frame = rootObject.GetComponent<Image>();
-            frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tooltip_card", 18f);
-            frame.type = Image.Type.Sliced;
-            frame.color = Color.white;
-            frame.raycastTarget = false;
+            Image background = rootObject.GetComponent<Image>();
+            // Enemy information needs contrast, not another ornamental brass frame.
+            // One quiet translucent backing keeps the name and HP legible over white foam.
+            background.sprite = null;
+            background.color = new Color(0.008f, 0.035f, 0.052f, 0.90f);
+            background.raycastTarget = false;
 
-            Text identity = CreateText(root, "Enemy Identity", new Vector2(0f, 9f), new Vector2(164f, 20f), 12);
-            RectTransform trackRect = CreateRect("Enemy Health Track", root, new Vector2(0f, -14f), new Vector2(150f, 9f));
+            Text identity = CreateText(root, "Enemy Identity", new Vector2(-38f, 10f), new Vector2(126f, 21f), 13, TextAnchor.MiddleLeft);
+            Text healthValue = CreateText(root, "Enemy Health Value", new Vector2(63f, 10f), new Vector2(78f, 21f), 11, TextAnchor.MiddleRight);
+            healthValue.color = UiTheme.SecondaryText;
+            RectTransform trackRect = CreateRect("Enemy Health Track", root, new Vector2(0f, -14f), new Vector2(194f, 11f));
             Image track = trackRect.gameObject.AddComponent<Image>();
-            track.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "slider_rail", 14f);
-            track.type = Image.Type.Sliced;
-            track.color = Color.white;
+            track.sprite = null;
+            track.color = new Color(0f, 0.012f, 0.018f, 0.96f);
             track.raycastTarget = false;
-            RectTransform fillRect = CreateRect("Enemy Health Fill", trackRect, Vector2.zero, new Vector2(142f, 5f));
+            RectTransform fillRect = CreateRect("Enemy Health Fill", trackRect, Vector2.zero, new Vector2(HealthBarWidth, 7f));
+            fillRect.anchorMin = fillRect.anchorMax = new Vector2(0f, 0.5f);
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            fillRect.anchoredPosition = new Vector2(3f, 0f);
             Image fill = fillRect.gameObject.AddComponent<Image>();
-            fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.sprite = null;
+            fill.type = Image.Type.Simple;
+            fillRect.sizeDelta = new Vector2(EnemyHudModel.GetBarWidth(HealthBarWidth, enemy.Health, enemy.MaxHealth), 7f);
             fill.color = UiTheme.Mint;
             fill.raycastTarget = false;
 
-            return new Plate { Root = rootObject, Identity = identity, Health = fill };
+            return new Plate { Root = rootObject, Background = background, Identity = identity, HealthValue = healthValue, HealthBar = fillRect, Health = fill };
         }
 
-        private Text CreateText(Transform parent, string name, Vector2 position, Vector2 size, int fontSize)
+        private Text CreateText(Transform parent, string name, Vector2 position, Vector2 size, int fontSize, TextAnchor alignment)
         {
             RectTransform rect = CreateRect(name, parent, position, size);
             Text text = rect.gameObject.AddComponent<Text>();
             text.font = font;
             text.fontSize = fontSize;
             text.fontStyle = FontStyle.Bold;
-            text.alignment = TextAnchor.MiddleCenter;
+            text.alignment = alignment;
             text.raycastTarget = false;
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 9;

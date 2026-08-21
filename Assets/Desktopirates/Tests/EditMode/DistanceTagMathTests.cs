@@ -67,6 +67,25 @@ namespace Desktopirates.Tests
             Assert.That(marker.x - rim.x, Is.EqualTo(47f + TagRingController.RimPadding).Within(0.001f));
         }
 
+        [Test]
+        public void MarkerIsClampedWithItsWholeArtworkInsideTheWindow()
+        {
+            Rect canvas = new Rect(-360f, -380f, 720f, 760f);
+            Vector2 marker = DistanceTagMath.ClampMarkerInside(new Vector2(420f, 440f), canvas, 94f, TagRingController.WindowPadding);
+            Rect artwork = DistanceTagMath.MarkerRect(marker, 94f);
+            Assert.That(artwork.xMax, Is.LessThanOrEqualTo(canvas.xMax - TagRingController.WindowPadding + 0.001f));
+            Assert.That(artwork.yMax, Is.LessThanOrEqualTo(canvas.yMax - TagRingController.WindowPadding + 0.001f));
+        }
+
+        [Test]
+        public void MarkerCollisionIncludesRequestedVisualSeparation()
+        {
+            Rect first = DistanceTagMath.MarkerRect(Vector2.zero, 40f, TagRingController.MarkerSeparation);
+            Rect touching = DistanceTagMath.MarkerRect(new Vector2(44f, 0f), 40f, TagRingController.MarkerSeparation);
+            Assert.That(first.Overlaps(touching), Is.True);
+            Assert.That(DistanceTagMath.IsClear(touching, new[] { first }), Is.False);
+        }
+
         [TestCase(0f, 0f)]
         [TestCase(1f, -90f)]
         [TestCase(-1f, 90f)]

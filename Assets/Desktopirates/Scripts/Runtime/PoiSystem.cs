@@ -572,6 +572,9 @@ namespace Desktopirates
                 PoiRecord enemy = AddPreviewPoi(0xE1100000UL + (ulong)(startIndex + i), PoiKind.Enemy, positions[i], 35 + i * 5, BossKind.None, archetype);
                 enemy.IsPreview = true;
                 enemy.NextFireTime = float.PositiveInfinity;
+                // The gallery doubles as a visual regression scene for the HUD: four
+                // distinct ratios make a broken or stale fill immediately obvious.
+                enemy.Health = Mathf.Max(1, Mathf.RoundToInt(enemy.MaxHealth * ((i + 1f) / positions.Length)));
             }
         }
 

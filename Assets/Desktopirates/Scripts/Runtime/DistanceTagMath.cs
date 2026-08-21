@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Desktopirates
@@ -42,6 +43,38 @@ namespace Desktopirates
             Vector2 outward = rimPoint - center;
             if (outward.sqrMagnitude < 0.0001f) outward = Vector2.up;
             return rimPoint + outward.normalized * (Mathf.Max(0f, markerPixels) * 0.5f + Mathf.Max(0f, padding));
+        }
+
+        public static Vector2 ClampMarkerInside(Vector2 center, Rect canvasRect, float markerPixels, float padding)
+        {
+            float inset = Mathf.Max(0f, markerPixels) * 0.5f + Mathf.Max(0f, padding);
+            float minX = canvasRect.xMin + inset;
+            float maxX = canvasRect.xMax - inset;
+            float minY = canvasRect.yMin + inset;
+            float maxY = canvasRect.yMax - inset;
+            if (minX > maxX) minX = maxX = canvasRect.center.x;
+            if (minY > maxY) minY = maxY = canvasRect.center.y;
+            return new Vector2(Mathf.Clamp(center.x, minX, maxX), Mathf.Clamp(center.y, minY, maxY));
+        }
+
+        public static Rect MarkerRect(Vector2 center, float markerPixels, float separation = 0f)
+        {
+            float size = Mathf.Max(0f, markerPixels) + Mathf.Max(0f, separation) * 2f;
+            return new Rect(center.x - size * 0.5f, center.y - size * 0.5f, size, size);
+        }
+
+        public static bool IsClear(Rect markerRect, IReadOnlyList<Rect> obstacles)
+        {
+            if (obstacles == null) return true;
+            for (int i = 0; i < obstacles.Count; i++)
+                if (markerRect.Overlaps(obstacles[i])) return false;
+            return true;
+        }
+
+        public static Rect Expanded(Rect source, float padding)
+        {
+            float amount = Mathf.Max(0f, padding);
+            return new Rect(source.xMin - amount, source.yMin - amount, source.width + amount * 2f, source.height + amount * 2f);
         }
     }
 }
