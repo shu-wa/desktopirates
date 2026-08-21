@@ -1,0 +1,75 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace Desktopirates
+{
+    public enum GameLanguage { English, Japanese }
+
+    /// <summary>Small, deliberate bilingual layer. Nautical nouns stay English where that supports the game's tone.</summary>
+    public static class GameLocalization
+    {
+        private const string PreferenceKey = "game_language";
+        private static readonly Dictionary<string, string> Japanese = new Dictionary<string, string>
+        {
+            { "VOLUME", "音量" }, { "SIZE", "表示サイズ" }, { "MUTE", "消音" }, { "UNMUTE", "消音解除" },
+            { "MAP", "海図" }, { "BAG", "船倉" }, { "CAPTAIN LOG", "船長記録" }, { "LANGUAGE", "言語" }, { "EXIT", "終了" },
+            { "LOCAL", "周辺" }, { "WIDE", "広域" }, { "BACK", "戻る" }, { "BACK TO PORT", "港へ戻る" },
+            { "SAIL", "出航" }, { "DEPART HARBOR", "出航する" }, { "SHIPYARD  CUSTOMIZE", "SHIPYARD  船を改装" },
+            { "REPAIR  +10%  20G", "船体修理  +10%  20G" }, { "BUY FOOD  +10  18G", "食料  +10  18G" },
+            { "BUY WATER  +10  14G", "飲料水  +10  14G" }, { "GUN DECK", "GUN DECK" },
+            { "SYSTEMS", "船体設備" }, { "CREW", "船員" }, { "MOUNT / STORE", "搭載 / 倉庫へ" },
+            { "DAMAGE", "威力" }, { "RELOAD", "装填" }, { "RANGE", "射程" }, { "AMMO", "砲弾" },
+            { "CAPACITY", "積載" }, { "PROPULSION", "推進" }, { "ARMOR", "装甲" }, { "TURNING", "旋回" },
+            { "GUNS", "艦砲" }, { "HIRE CREW", "船員を雇う" }, { "SHIP LEVEL", "SHIP LEVEL" },
+            { "PERKS", "パーク" }, { "FOOD", "食料" }, { "WATER", "飲料水" },
+            { "ROUND SHOT", "通常弾" }, { "CHAIN SHOT", "鎖弾" }, { "FIRE SHOT", "焼夷弾" }
+        };
+
+        public static GameLanguage Current
+        {
+            get
+            {
+                string[] arguments = Environment.GetCommandLineArgs();
+                if (Array.Exists(arguments, value => value.Equals("--lang=ja", StringComparison.OrdinalIgnoreCase))) return GameLanguage.Japanese;
+                if (Array.Exists(arguments, value => value.Equals("--lang=en", StringComparison.OrdinalIgnoreCase))) return GameLanguage.English;
+                int fallback = Application.systemLanguage == SystemLanguage.Japanese ? 1 : 0;
+                return (GameLanguage)Mathf.Clamp(PlayerPrefs.GetInt(PreferenceKey, fallback), 0, 1);
+            }
+        }
+
+        public static bool IsJapanese => Current == GameLanguage.Japanese;
+        public static string Choose(string english, string japanese) => IsJapanese ? japanese : english;
+
+        public static string Text(string english)
+            => IsJapanese && Japanese.TryGetValue(english, out string localized) ? localized : english;
+
+        public static void Toggle()
+        {
+            PlayerPrefs.SetInt(PreferenceKey, IsJapanese ? 0 : 1);
+            PlayerPrefs.Save();
+        }
+    }
+
+    public sealed class LocalizedUiText : MonoBehaviour
+    {
+        private Text target;
+        private string english;
+
+        public static void Bind(Text text, string englishText)
+        {
+            if (text == null) return;
+            LocalizedUiText label = text.GetComponent<LocalizedUiText>() ?? text.gameObject.AddComponent<LocalizedUiText>();
+            label.target = text;
+            label.english = englishText;
+            label.Refresh();
+        }
+
+        public void Refresh()
+        {
+            if (target == null) target = GetComponent<Text>();
+            if (target != null && !string.IsNullOrEmpty(english)) target.text = GameLocalization.Text(english);
+        }
+    }
+}

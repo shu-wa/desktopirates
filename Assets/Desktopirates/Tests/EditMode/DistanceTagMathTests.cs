@@ -86,6 +86,21 @@ namespace Desktopirates.Tests
             Assert.That(DistanceTagMath.IsClear(touching, new[] { first }), Is.False);
         }
 
+        [TestCase(0f, 280f)]
+        [TestCase(0f, -280f)]
+        [TestCase(240f, 240f)]
+        public void WindowEdgeAdjustmentPreservesExactLandmarkBearing(float x, float y)
+        {
+            Vector2 center = new Vector2(0f, -63f);
+            Vector2 candidate = new Vector2(x, y);
+            Rect canvas = new Rect(-360f, -380f, 720f, 760f);
+            Vector2 adjusted = DistanceTagMath.PullAlongRayInside(center, candidate, canvas, 94f, TagRingController.WindowPadding);
+            float cross = (candidate.x - center.x) * (adjusted.y - center.y)
+                - (candidate.y - center.y) * (adjusted.x - center.x);
+            Assert.That(cross, Is.EqualTo(0f).Within(0.01f), "A HUD/window adjustment must not rotate the marker around the sea.");
+            Assert.That(Vector2.Dot(candidate - center, adjusted - center), Is.GreaterThan(0f));
+        }
+
         [TestCase(0f, 0f)]
         [TestCase(1f, -90f)]
         [TestCase(-1f, 90f)]

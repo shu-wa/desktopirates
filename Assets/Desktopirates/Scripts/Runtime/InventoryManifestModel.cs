@@ -86,6 +86,44 @@ namespace Desktopirates
             _ => string.Empty
         };
 
+        public static string GetLocalizedName(InventoryItemKind kind)
+        {
+            if (!GameLocalization.IsJapanese) return GetName(kind);
+            return kind switch
+            {
+                InventoryItemKind.Food => "食料",
+                InventoryItemKind.Water => "飲料水",
+                InventoryItemKind.Supplies => "航海物資",
+                InventoryItemKind.SpareCannon => "予備砲台",
+                InventoryItemKind.Timber => "木材",
+                InventoryItemKind.Canvas => "帆布",
+                InventoryItemKind.Iron => "鉄材",
+                InventoryItemKind.Gear => "歯車",
+                InventoryItemKind.Chart => "海図",
+                InventoryItemKind.Relic => "遺物",
+                _ => GetName(kind)
+            };
+        }
+
+        public static string GetLocalizedDescription(InventoryItemKind kind)
+        {
+            if (!GameLocalization.IsJapanese) return GetDescription(kind);
+            return kind switch
+            {
+                InventoryItemKind.Food => "航海中に船員が消費する食糧。",
+                InventoryItemKind.Water => "船員のための新鮮な飲料水。",
+                InventoryItemKind.Supplies => "長い航海を支える船用品。",
+                InventoryItemKind.SpareCannon => "砲座へ搭載できる予備の艦砲。",
+                InventoryItemKind.Timber => "船体修理に使う潮焼けした木材。",
+                InventoryItemKind.Canvas => "帆や索具に使える丈夫な帆布。",
+                InventoryItemKind.Iron => "船体設備を補強する鉄材。",
+                InventoryItemKind.Gear => "推進装置や工房で使う機構部品。",
+                InventoryItemKind.Chart => "周辺海域を記す海図の断片。",
+                InventoryItemKind.Relic => "失われた航海から残った希少な遺物。",
+                _ => string.Empty
+            };
+        }
+
         public static InventoryRarity GetRarity(InventoryItemKind kind) => kind switch
         {
             InventoryItemKind.Food or InventoryItemKind.Water => InventoryRarity.Common,
@@ -96,6 +134,17 @@ namespace Desktopirates
         };
 
         public static string GetRarityName(InventoryRarity rarity) => rarity.ToString().ToUpperInvariant();
+
+        public static string GetLocalizedRarityName(InventoryRarity rarity)
+            => !GameLocalization.IsJapanese ? GetRarityName(rarity) : rarity switch
+            {
+                InventoryRarity.Common => "一般",
+                InventoryRarity.Uncommon => "上質",
+                InventoryRarity.Rare => "希少",
+                InventoryRarity.Epic => "秘宝",
+                InventoryRarity.Legendary => "伝説",
+                _ => GetRarityName(rarity)
+            };
 
         public static Color GetRarityColor(InventoryRarity rarity) => rarity switch
         {

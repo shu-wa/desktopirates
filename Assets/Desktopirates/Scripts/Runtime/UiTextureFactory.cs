@@ -116,6 +116,9 @@ namespace Desktopirates
             return Resources.Load<Texture2D>("Textures/UI/Surfaces/hud_chartwood_navy_v01");
         }
 
+        public static Texture2D LoadScreenBackground(string screen)
+            => Resources.Load<Texture2D>($"Textures/UI/ConceptV05/Screens/{screen}_background_v05");
+
         public static Sprite LoadPanelSprite(int size = 128)
         {
             Sprite concept = LoadConceptSprite("Chrome", "cargo_panel_frame", 0f);

@@ -34,8 +34,10 @@ namespace Desktopirates
     public sealed class PoiSystem : MonoBehaviour
     {
         public const float VisibleRadius = 6.8f;
+        public const float SalvageRange = 1.70f;
         public IReadOnlyList<PoiRecord> Items => items;
         public string InteractionPrompt { get; private set; }
+        public bool AttackMode { get; private set; }
         public event Action<string> Message;
         public event Action PortRequested;
         public event Action StateChanged;
@@ -50,7 +52,7 @@ namespace Desktopirates
         private readonly List<CannonSlot> firingSlots = new List<CannonSlot>();
         private int centerChunkX = int.MinValue;
         private int centerChunkY = int.MinValue;
-        private float cannonCooldown;
+        private readonly float[] cannonReadyAt = new float[ShipCustomizationModel.CannonSlotCount];
         private ulong cannonSalvoSerial;
         private ulong enemyShotSerial;
 
@@ -79,7 +81,6 @@ namespace Desktopirates
         {
             if (player == null) return;
             RefreshChunks(false);
-            cannonCooldown = Mathf.Max(0f, cannonCooldown - Time.deltaTime);
 
             PoiRecord closest = null;
             float closestDistance = float.MaxValue;
@@ -116,7 +117,8 @@ namespace Desktopirates
 
             InteractionPrompt = BuildPrompt(closest, closestDistance);
             if (Input.GetKeyDown(KeyCode.F) && closest != null) Interact(closest, closestDistance);
-            if (Input.GetKeyDown(KeyCode.Space)) FireCannon();
+            if (Input.GetKeyDown(KeyCode.Space)) ToggleAttackMode();
+            if (AttackMode) TryAutomaticFire();
         }
 
         private void RefreshChunks(bool force)
@@ -278,22 +280,26 @@ namespace Desktopirates
 
         private string BuildPrompt(PoiRecord item, float distance)
         {
-            if (player.IsAutoNavigating) return "HARBOR PILOT — 自動接岸中…";
-            if (player.IsMoored) return item != null && item.Kind == PoiKind.Port ? "F PORT SERVICES" : string.Empty;
-            if (item == null) return string.Empty;
-            if (item.Kind == PoiKind.Enemy && distance <= 4.2f)
+            if (player.IsAutoNavigating) return GameLocalization.Choose("HARBOR PILOT — AUTO-DOCKING…", "HARBOR PILOT — 自動接岸中…");
+            if (player.IsMoored) return item != null && item.Kind == PoiKind.Port ? GameLocalization.Choose("F  PORT SERVICES", "F  港湾サービス") : string.Empty;
+            if (item != null && item.Kind == PoiKind.Enemy && distance <= GetLongestCannonRange())
             {
                 float bearing = ShipCustomizationModel.GetRelativeBearing(player.HeadingDegrees, player.LogicalPosition, item.LogicalPosition);
                 SalvoSolution salvo = ShipCustomizationModel.GetSalvo(state, bearing);
-                if (cannonCooldown > 0f) return "大砲を装填中…";
-                if (salvo.CannonsInArc <= 0) return $"{salvo.ArcName} 射界なし — 船を旋回";
-                if (salvo.CannonsFiring <= 0) return $"{salvo.ArcName} 砲員が必要";
-                return $"SPACE {salvo.ArcName}斉射  {salvo.CannonsFiring}/{salvo.CannonsInArc}門";
+                if (!AttackMode) return GameLocalization.Choose("SPACE  ENGAGE ATTACK MODE", "SPACE  攻撃モードへ");
+                if (salvo.CannonsInArc <= 0) return GameLocalization.Choose($"ATTACK MODE — TURN FOR A FIRING ARC", $"ATTACK MODE — {salvo.ArcName} 射界なし");
+                if (salvo.CannonsFiring <= 0) return GameLocalization.Choose("ATTACK MODE — CANNON CREW REQUIRED", "ATTACK MODE — 砲員が必要");
+                return GameLocalization.Choose($"ATTACK MODE — AUTO FIRE  {salvo.CannonsFiring} GUNS", $"ATTACK MODE — 自動砲撃  {salvo.CannonsFiring}門");
             }
-            if (item.Kind == PoiKind.Port && distance <= 3.4f) return "F AUTO-DOCK  港へ入港";
-            if (distance > 1.35f) return string.Empty;
-            if (Mathf.Abs(player.Speed) > 1.15f) return "速度を落として接近";
-            return item.Kind == PoiKind.Port ? "F 港に入る" : item.Kind == PoiKind.Wreck ? "F 残骸を回収" : "F 宝を引き上げる";
+            if (item != null && item.Kind == PoiKind.Port && distance <= 3.4f)
+                return GameLocalization.Choose("F  AUTO-DOCK", "F  港へ自動入港");
+            if (item != null && distance <= SalvageRange && item.Kind != PoiKind.Enemy)
+                return item.Kind == PoiKind.Wreck
+                    ? GameLocalization.Choose("F  SALVAGE WRECK", "F  残骸を回収")
+                    : GameLocalization.Choose("F  RECOVER TREASURE", "F  宝を引き上げる");
+            return AttackMode
+                ? GameLocalization.Choose("ATTACK MODE — AUTO FIRE", "ATTACK MODE — 自動砲撃")
+                : GameLocalization.Choose("WATCH MODE — SPACE TO ENGAGE", "WATCH MODE — SPACEで攻撃態勢");
         }
 
         private void Interact(PoiRecord item, float distance)
@@ -316,7 +322,7 @@ namespace Desktopirates
                 Message?.Invoke("水先案内人が操船を引き継ぎました");
                 return;
             }
-            if (distance > 1.35f || Mathf.Abs(player.Speed) > 1.15f || item.Kind == PoiKind.Enemy) return;
+            if (distance > SalvageRange || item.Kind == PoiKind.Enemy) return;
             int gold = item.Reward + (item.Kind == PoiKind.Treasure ? 18 : 0);
             state.Gold += gold;
             state.Captain.GoldEarned += gold;
@@ -357,25 +363,46 @@ namespace Desktopirates
             for (int x = centerX - 1; x <= centerX + 1; x++) state.ExploredChunks.Add(GameState.PackChunk(x, y));
         }
 
-        private void FireCannon()
+        private void ToggleAttackMode()
         {
-            if (cannonCooldown > 0f || player.IsAutoNavigating || player.IsMoored) return;
-            PoiRecord target = FindCombatTarget(out float best);
-            if (target == null) { Message?.Invoke("射程内に敵はいません"); return; }
+            if (player.IsAutoNavigating || player.IsMoored) return;
+            AttackMode = !AttackMode;
+            Message?.Invoke(AttackMode
+                ? GameLocalization.Choose("ATTACK MODE — BATTERIES WILL FIRE AUTOMATICALLY", "ATTACK MODE — 各砲台が自動砲撃します")
+                : GameLocalization.Choose("WATCH MODE — FIRE CONTROL SAFE", "WATCH MODE — 砲撃を停止しました"));
+            StateChanged?.Invoke();
+        }
+
+        private void TryAutomaticFire(bool previewOverride = false)
+        {
+            if ((!AttackMode && !previewOverride) || player.IsAutoNavigating || player.IsMoored) return;
+            PoiRecord target = FindAutomaticTarget(out float best);
+            if (target == null) return;
             float bearing = ShipCustomizationModel.GetRelativeBearing(player.HeadingDegrees, player.LogicalPosition, target.LogicalPosition);
             SalvoSolution salvo = ShipCustomizationModel.GetSalvo(state, bearing);
-            if (salvo.CannonsInArc <= 0) { Message?.Invoke($"{salvo.ArcName}側に砲台がありません — 船を旋回してください"); return; }
-            if (salvo.CannonsFiring <= 0) { Message?.Invoke("砲台を操作する船員がいません"); return; }
             ShipCustomizationModel.GetFiringSlots(state, bearing, firingSlots);
-            cannonCooldown = Mathf.Max(0.48f, (1.25f - state.CannonLevel * 0.08f) * CrewManagementModel.GetReloadMultiplier(state));
-            int damage = ShipCustomizationModel.GetSalvoDamage(state, salvo);
+            for (int i = firingSlots.Count - 1; i >= 0; i--)
+            {
+                CannonSlot slot = firingSlots[i];
+                if (Time.time < cannonReadyAt[(int)slot] || best > CannonUpgradeModel.GetRange(state, slot)) firingSlots.RemoveAt(i);
+            }
+            if (firingSlots.Count == 0) return;
+            int damage = 0;
+            for (int i = 0; i < firingSlots.Count; i++)
+            {
+                CannonSlot slot = firingSlots[i];
+                damage += CannonUpgradeModel.GetDamage(state, slot);
+                cannonReadyAt[(int)slot] = Time.time + CannonUpgradeModel.GetReloadSeconds(state, slot);
+            }
             ulong salvoEntropy = WorldGenerator.Hash(state.WorldSeed, unchecked((int)target.Id), unchecked((int)(target.Id >> 32)), unchecked((int)++cannonSalvoSerial));
             state.Captain.DamageDealt += Mathf.Min(target.Health, damage);
             target.Health -= damage;
             bool willSink = target.Health <= 0;
             target.IsUnderFire = true;
             target.IsSinking = willSink;
-            Message?.Invoke($"{salvo.ArcName}斉射 {salvo.CannonsFiring}門 — FIRE!");
+            Message?.Invoke(GameLocalization.Choose(
+                $"{salvo.ArcName} AUTO SALVO — {firingSlots.Count} GUNS — FIRE!",
+                $"{salvo.ArcName} 自動斉射 — {firingSlots.Count}門 — FIRE!"));
 
             Action impact = () =>
             {
@@ -428,17 +455,37 @@ namespace Desktopirates
             return CrewManagementModel.RollStatusProc(state, perk, entropy);
         }
 
-        private PoiRecord FindCombatTarget(out float bestDistance)
+        private PoiRecord FindAutomaticTarget(out float bestDistance)
         {
             PoiRecord target = null;
-            bestDistance = 4.25f;
+            bestDistance = float.MaxValue;
             foreach (PoiRecord item in items)
             {
                 if (item.Resolved || item.IsUnderFire || item.IsSinking || item.Kind != PoiKind.Enemy) continue;
                 float distance = Vector2.Distance(item.LogicalPosition, player.LogicalPosition);
-                if (distance < bestDistance) { bestDistance = distance; target = item; }
+                if (distance >= bestDistance) continue;
+                float bearing = ShipCustomizationModel.GetRelativeBearing(player.HeadingDegrees, player.LogicalPosition, item.LogicalPosition);
+                ShipCustomizationModel.GetFiringSlots(state, bearing, firingSlots);
+                bool canFire = false;
+                for (int i = 0; i < firingSlots.Count; i++)
+                {
+                    CannonSlot slot = firingSlots[i];
+                    if (Time.time >= cannonReadyAt[(int)slot] && distance <= CannonUpgradeModel.GetRange(state, slot)) { canFire = true; break; }
+                }
+                if (!canFire) continue;
+                bestDistance = distance;
+                target = item;
             }
             return target;
+        }
+
+        private float GetLongestCannonRange()
+        {
+            float range = CannonUpgradeModel.BaseRange;
+            for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++)
+                if (ShipCustomizationModel.HasCannon(state, (CannonSlot)i))
+                    range = Mathf.Max(range, CannonUpgradeModel.GetRange(state, (CannonSlot)i));
+            return range;
         }
 
         private void BeginStatusSinking(PoiRecord target)
@@ -518,10 +565,10 @@ namespace Desktopirates
             enemy.Health = 99;
             enemy.NextFireTime = float.PositiveInfinity;
             yield return null;
-            FireCannon();
+            TryAutomaticFire(true);
             yield return new WaitForSeconds(1.4f);
             enemy.Health = 1;
-            FireCannon();
+            TryAutomaticFire(true);
         }
 
         private IEnumerator DockPreviewRoutine()

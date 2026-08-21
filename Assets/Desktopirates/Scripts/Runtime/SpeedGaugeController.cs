@@ -32,7 +32,7 @@ namespace Desktopirates
 
             RectTransform root = CreateRect("Compact Engine Telegraph", canvas);
             gaugeRoot = root.gameObject;
-            root.anchoredPosition = new Vector2(0f, -704f);
+            root.anchoredPosition = new Vector2(0f, -724f);
             root.sizeDelta = new Vector2(420f, 96f);
             RawImage background = root.gameObject.AddComponent<RawImage>();
             background.texture = UiTextureFactory.LoadGeneratedTelegraph();

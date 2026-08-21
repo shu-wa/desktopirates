@@ -59,6 +59,22 @@ namespace Desktopirates
             return new Vector2(Mathf.Clamp(center.x, minX, maxX), Mathf.Clamp(center.y, minY, maxY));
         }
 
+        public static Vector2 PullAlongRayInside(Vector2 rayOrigin, Vector2 candidate, Rect canvasRect, float markerPixels, float padding)
+        {
+            float inset = Mathf.Max(0f, markerPixels) * 0.5f + Mathf.Max(0f, padding);
+            float minX = canvasRect.xMin + inset;
+            float maxX = canvasRect.xMax - inset;
+            float minY = canvasRect.yMin + inset;
+            float maxY = canvasRect.yMax - inset;
+            Vector2 delta = candidate - rayOrigin;
+            float scale = 1f;
+            if (delta.x > 0.0001f) scale = Mathf.Min(scale, (maxX - rayOrigin.x) / delta.x);
+            else if (delta.x < -0.0001f) scale = Mathf.Min(scale, (minX - rayOrigin.x) / delta.x);
+            if (delta.y > 0.0001f) scale = Mathf.Min(scale, (maxY - rayOrigin.y) / delta.y);
+            else if (delta.y < -0.0001f) scale = Mathf.Min(scale, (minY - rayOrigin.y) / delta.y);
+            return rayOrigin + delta * Mathf.Clamp01(scale);
+        }
+
         public static Rect MarkerRect(Vector2 center, float markerPixels, float separation = 0f)
         {
             float size = Mathf.Max(0f, markerPixels) + Mathf.Max(0f, separation) * 2f;

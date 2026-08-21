@@ -31,7 +31,7 @@ namespace Desktopirates
             badgeObject.transform.SetParent(canvas, false);
             var rect = badgeObject.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(18f, -94f);
+            rect.anchoredPosition = new Vector2(18f, -62f);
             rect.sizeDelta = new Vector2(252f, 52f);
             Image frame = badgeObject.GetComponent<Image>();
             frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tooltip_card", 18f);

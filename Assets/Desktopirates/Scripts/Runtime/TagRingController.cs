@@ -10,16 +10,9 @@ namespace Desktopirates
         public const float WindowPadding = 8f;
         public const float MarkerSeparation = 5f;
         private const int VisibleMarkerLimit = 5;
-        private static readonly float[] BearingOffsets =
-        {
-            0f, 7.5f, -7.5f, 15f, -15f, 22.5f, -22.5f, 30f, -30f,
-            37.5f, -37.5f, 45f, -45f, 52.5f, -52.5f, 60f, -60f,
-            67.5f, -67.5f, 75f, -75f, 82.5f, -82.5f, 90f, -90f
-        };
         private readonly List<RawImage> markers = new List<RawImage>();
         private readonly List<ulong> markerIds = new List<ulong>();
         private readonly List<int> visibleIndices = new List<int>();
-        private readonly List<Rect> obstacleRects = new List<Rect>();
         private readonly List<Rect> placedMarkerRects = new List<Rect>();
         private RectTransform canvas;
         private BoatController player;
@@ -93,7 +86,6 @@ namespace Desktopirates
                 return distanceOrder != 0 ? distanceOrder : poiSystem.Items[left].Id.CompareTo(poiSystem.Items[right].Id);
             });
 
-            CollectObstacleRects();
             placedMarkerRects.Clear();
             int count = Mathf.Min(VisibleMarkerLimit, visibleIndices.Count);
             for (int rank = 0; rank < count; rank++)
@@ -122,26 +114,27 @@ namespace Desktopirates
 
         private bool TryFindClearPosition(Vector2 worldDirection, float pixels, out Vector2 position)
         {
-            for (int i = 0; i < BearingOffsets.Length; i++)
+            // Never rotate a discovery away from its true bearing. HUD avoidance used to try
+            // many angular offsets, making north/south markers appear to teleport. When the
+            // window edge is tight we now pull the marker inward on the same ray, allowing a
+            // small overlap with the sea while the HUD remains drawn above it.
+            Vector2 candidate = ProjectOutsideRim(worldDirection, pixels, out Vector2 discCenter);
+            candidate = DistanceTagMath.PullAlongRayInside(discCenter, candidate, canvas.rect, pixels, WindowPadding);
+            Rect markerRect = DistanceTagMath.MarkerRect(candidate, pixels, MarkerSeparation);
+            if (!DistanceTagMath.IsClear(markerRect, placedMarkerRects))
             {
-                Vector2 candidateDirection = DistanceTagMath.Rotate(worldDirection, BearingOffsets[i]);
-                Vector2 candidate = ProjectOutsideRim(candidateDirection, pixels);
-                candidate = DistanceTagMath.ClampMarkerInside(candidate, canvas.rect, pixels, WindowPadding);
-                Rect markerRect = DistanceTagMath.MarkerRect(candidate, pixels, MarkerSeparation);
-                if (!DistanceTagMath.IsClear(markerRect, obstacleRects)) continue;
-                if (!DistanceTagMath.IsClear(markerRect, placedMarkerRects)) continue;
-                position = candidate;
-                return true;
+                position = default;
+                return false;
             }
-            position = default;
-            return false;
+            position = candidate;
+            return true;
         }
 
-        private Vector2 ProjectOutsideRim(Vector2 direction, float pixels)
+        private Vector2 ProjectOutsideRim(Vector2 direction, float pixels, out Vector2 discCenter)
         {
             Camera worldCamera = cameraRig.WorldCamera;
             if (worldCamera != null
-                && RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas, worldCamera.WorldToScreenPoint(Vector3.zero), null, out Vector2 discCenter)
+                && RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas, worldCamera.WorldToScreenPoint(Vector3.zero), null, out discCenter)
                 && RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     canvas,
                     worldCamera.WorldToScreenPoint(new Vector3(direction.x * OceanDisc.Radius, 0f, direction.y * OceanDisc.Radius)),
@@ -150,46 +143,9 @@ namespace Desktopirates
                 return DistanceTagMath.PositionOutsideRim(discCenter, rimPosition, pixels, RimPadding);
 
             Vector2 screenDirection = DistanceTagMath.WorldToScreenDirection(direction, cameraRig.CurrentYaw);
-            Vector2 fallbackCenter = new Vector2(0f, -63f);
-            Vector2 fallbackRim = DistanceTagMath.PositionOnEllipse(screenDirection, fallbackCenter, new Vector2(260f, 182f));
-            return DistanceTagMath.PositionOutsideRim(fallbackCenter, fallbackRim, pixels, RimPadding);
-        }
-
-        private void CollectObstacleRects()
-        {
-            obstacleRects.Clear();
-            foreach (Transform child in canvas)
-            {
-                if (!child.gameObject.activeInHierarchy) continue;
-                if (child.name == "Enemy HUD Layer")
-                {
-                    foreach (Transform enemyPlate in child)
-                        if (enemyPlate.gameObject.activeInHierarchy && enemyPlate is RectTransform enemyRect) AddObstacle(enemyRect, 4f);
-                    continue;
-                }
-                if (!(child is RectTransform rect) || !IsHudObstacle(child.name)) continue;
-                AddObstacle(rect, 5f);
-            }
-        }
-
-        private void AddObstacle(RectTransform rect, float padding)
-        {
-            Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(canvas, rect);
-            Rect area = Rect.MinMaxRect(bounds.min.x, bounds.min.y, bounds.max.x, bounds.max.y);
-            if (area.width > 1f && area.height > 1f) obstacleRects.Add(DistanceTagMath.Expanded(area, padding));
-        }
-
-        private static bool IsHudObstacle(string objectName)
-        {
-            return objectName == "Ship Dashboard"
-                || objectName == "Menu Circle"
-                || objectName == "Compact Engine Telegraph"
-                || objectName == "Cargo Bag Button"
-                || objectName == "Cargo Tab Hint Pill"
-                || objectName == "Boss Compass"
-                || objectName == "Sea Region Badge"
-                || objectName == "Context Action Pill"
-                || objectName == "Event Message Pill";
+            discCenter = new Vector2(0f, -63f);
+            Vector2 fallbackRim = DistanceTagMath.PositionOnEllipse(screenDirection, discCenter, new Vector2(260f, 182f));
+            return DistanceTagMath.PositionOutsideRim(discCenter, fallbackRim, pixels, RimPadding);
         }
 
         private bool MarkersAreStale()

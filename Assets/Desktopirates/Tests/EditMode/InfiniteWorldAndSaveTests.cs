@@ -145,6 +145,10 @@ namespace Desktopirates.Tests
             state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.PowderExpert);
             state.AddPerk(CrewPerk.RapidRepair);
             state.TryEquipPerkStack(CrewRole.Repairer, CrewPerk.RapidRepair);
+            state.SetCannonDamageLevel(CannonSlot.PortFore, 4);
+            state.SetCannonReloadLevel(CannonSlot.PortFore, 3);
+            state.SetCannonRangeLevel(CannonSlot.PortFore, 2);
+            state.SetCannonRound(CannonSlot.PortFore, CannonRoundKind.FireShot);
             for (int y = -10; y <= 10; y++)
             for (int x = -22; x <= 22; x++) state.ExploredChunks.Add(GameState.PackChunk(x, y));
             for (ulong i = 0; i < 300; i++) state.ResolvedEvents.Add(1000000UL + i * 17UL);
@@ -176,6 +180,10 @@ namespace Desktopirates.Tests
             Assert.That(restored.GetPerkCount(CrewPerk.PowderExpert, PerkRank.IV), Is.EqualTo(1));
             Assert.That(restored.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.PowderExpert, PerkRank.IV), Is.EqualTo(1));
             Assert.That(restored.GetEquippedPerkCount(CrewRole.Repairer, CrewPerk.RapidRepair), Is.EqualTo(1));
+            Assert.That(restored.GetCannonDamageLevel(CannonSlot.PortFore), Is.EqualTo(4));
+            Assert.That(restored.GetCannonReloadLevel(CannonSlot.PortFore), Is.EqualTo(3));
+            Assert.That(restored.GetCannonRangeLevel(CannonSlot.PortFore), Is.EqualTo(2));
+            Assert.That(restored.GetCannonRound(CannonSlot.PortFore), Is.EqualTo(CannonRoundKind.FireShot));
             Assert.That(restored.ExploredChunks.SetEquals(state.ExploredChunks), Is.True);
             Assert.That(restored.ResolvedEvents.SetEquals(state.ResolvedEvents), Is.True);
             for (int i = 0; i < SalvageInventory.PartKindCount; i++)
@@ -517,6 +525,38 @@ namespace Desktopirates.Tests
             Assert.That(ShipCustomizationModel.GetSalvo(state, -90f).CannonsFiring, Is.Zero);
             Assert.That(CrewManagementModel.AssignOne(state, CrewRole.Cannons), Is.True);
             Assert.That(ShipCustomizationModel.GetSalvo(state, -90f).CannonsFiring, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CannonHardpointUpgradesIndependentlyImproveItsCombatStats()
+        {
+            var state = new GameState { Crew = 2, ShipLevel = 3, CannonMountMask = 1 << (int)CannonSlot.PortFore };
+            state.SetRoleCrew(CrewRole.Cannons, 1);
+            int baseDamage = CannonUpgradeModel.GetDamage(state, CannonSlot.PortFore);
+            float baseReload = CannonUpgradeModel.GetReloadSeconds(state, CannonSlot.PortFore);
+            float baseRange = CannonUpgradeModel.GetRange(state, CannonSlot.PortFore);
+
+            state.SetCannonDamageLevel(CannonSlot.PortFore, 3);
+            state.SetCannonReloadLevel(CannonSlot.PortFore, 3);
+            state.SetCannonRangeLevel(CannonSlot.PortFore, 3);
+
+            Assert.That(CannonUpgradeModel.GetDamage(state, CannonSlot.PortFore), Is.GreaterThan(baseDamage));
+            Assert.That(CannonUpgradeModel.GetReloadSeconds(state, CannonSlot.PortFore), Is.LessThan(baseReload));
+            Assert.That(CannonUpgradeModel.GetRange(state, CannonSlot.PortFore), Is.GreaterThan(baseRange));
+        }
+
+        [Test]
+        public void AmmunitionProfilesHaveDistinctRangeReloadAndDamageTradeoffs()
+        {
+            var state = new GameState();
+            state.SetCannonRound(CannonSlot.Bow, CannonRoundKind.RoundShot);
+            int roundDamage = CannonUpgradeModel.GetDamage(state, CannonSlot.Bow);
+            float roundRange = CannonUpgradeModel.GetRange(state, CannonSlot.Bow);
+            float roundReload = CannonUpgradeModel.GetReloadSeconds(state, CannonSlot.Bow);
+            state.SetCannonRound(CannonSlot.Bow, CannonRoundKind.ChainShot);
+            Assert.That(CannonUpgradeModel.GetDamage(state, CannonSlot.Bow), Is.LessThan(roundDamage));
+            Assert.That(CannonUpgradeModel.GetRange(state, CannonSlot.Bow), Is.LessThan(roundRange));
+            Assert.That(CannonUpgradeModel.GetReloadSeconds(state, CannonSlot.Bow), Is.LessThan(roundReload));
         }
 
         [Test]

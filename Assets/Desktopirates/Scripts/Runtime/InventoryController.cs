@@ -15,11 +15,17 @@ namespace Desktopirates
         private GameObject launcherButton;
         private GameObject launcherHint;
         private Text totalText;
+        private Text titleText;
+        private Text backText;
         private readonly Text[] counts = new Text[InventoryManifestModel.EntryCount];
+        private readonly Text[] names = new Text[InventoryManifestModel.EntryCount];
+        private readonly Text[] rarityLabels = new Text[InventoryManifestModel.EntryCount];
+        private readonly Text[] descriptions = new Text[InventoryManifestModel.EntryCount];
         private readonly Image[] slotFrames = new Image[InventoryManifestModel.EntryCount];
         private readonly Image[] rarityStrips = new Image[InventoryManifestModel.EntryCount];
         private InventoryItemKind selected;
         private Font font;
+        private Font japaneseFont;
         private bool launcherVisible;
 
         public bool IsOpen => root != null && root.activeSelf;
@@ -28,6 +34,7 @@ namespace Desktopirates
         {
             state = gameState;
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            japaneseFont = Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic UI", "Meiryo UI", "Meiryo", "Arial" }, 16);
             BuildBagButton(canvas);
             BuildInventory(canvas);
             root.SetActive(false);
@@ -67,15 +74,27 @@ namespace Desktopirates
         public void Refresh()
         {
             if (state == null || totalText == null) return;
-            totalText.text = $"{InventoryManifestModel.EntryCount} TYPES   •   {InventoryManifestModel.GetTotalCount(state)} ITEMS";
+            Font activeFont = GameLocalization.IsJapanese && japaneseFont != null ? japaneseFont : font;
+            foreach (Text text in root.GetComponentsInChildren<Text>(true)) if (activeFont != null) text.font = activeFont;
+            titleText.text = GameLocalization.Choose("INVENTORY", "船倉目録");
+            backText.text = GameLocalization.Text("BACK");
+            totalText.text = GameLocalization.Choose(
+                $"{InventoryManifestModel.EntryCount} TYPES   •   {InventoryManifestModel.GetTotalCount(state)} ITEMS",
+                $"{InventoryManifestModel.EntryCount} 種   •   合計 {InventoryManifestModel.GetTotalCount(state)}");
             for (int i = 0; i < counts.Length; i++)
+            {
                 counts[i].text = $"x{InventoryManifestModel.GetCount(state, (InventoryItemKind)i)}";
+                InventoryItemKind kind = (InventoryItemKind)i;
+                names[i].text = InventoryManifestModel.GetLocalizedName(kind);
+                rarityLabels[i].text = InventoryManifestModel.GetLocalizedRarityName(InventoryManifestModel.GetRarity(kind));
+                descriptions[i].text = InventoryManifestModel.GetLocalizedDescription(kind);
+            }
             Select(selected);
         }
 
         private void BuildBagButton(RectTransform canvas)
         {
-            RectTransform buttonRect = CreateRect("Cargo Bag Button", canvas, new Vector2(302f, -696f), new Vector2(54f, 54f));
+            RectTransform buttonRect = CreateRect("Cargo Bag Button", canvas, new Vector2(302f, -720f), new Vector2(54f, 54f));
             launcherButton = buttonRect.gameObject;
             RawImage image = buttonRect.gameObject.AddComponent<RawImage>();
             image.texture = UiTextureFactory.LoadMenuButton(MenuGlyph.Inventory, 80);
@@ -115,8 +134,8 @@ namespace Desktopirates
             titlePlateImage.texture = UiTextureFactory.LoadInventoryChrome("title");
             titlePlateImage.color = Color.white;
             titlePlateImage.raycastTarget = false;
-            Text title = CreateText("Inventory Title", titlePlate, "INVENTORY", 24, Vector2.zero, new Vector2(288f, 48f));
-            title.color = new Color(1f, 0.86f, 0.57f, 1f);
+            titleText = CreateText("Inventory Title", titlePlate, "INVENTORY", 24, Vector2.zero, new Vector2(288f, 48f));
+            titleText.color = new Color(1f, 0.86f, 0.57f, 1f);
             totalText = CreateText("Inventory Summary", panel, "10 TYPES", 12,
                 new Vector2(58f, InventoryManifestModel.SummaryCenterY), new Vector2(300f, 22f));
             totalText.alignment = TextAnchor.MiddleRight;
@@ -130,8 +149,8 @@ namespace Desktopirates
             Button back = backRect.gameObject.AddComponent<Button>();
             back.targetGraphic = backImage;
             back.onClick.AddListener(Close);
-            Text backLabel = CreateText("Close Inventory Label", backRect, "BACK", 11, Vector2.zero, new Vector2(66f, 22f));
-            backLabel.color = Brass;
+            backText = CreateText("Close Inventory Label", backRect, "BACK", 11, Vector2.zero, new Vector2(66f, 22f));
+            backText.color = Brass;
 
             RectTransform viewport = CreateRect("Inventory Scroll Viewport", panel,
                 new Vector2(-8f, InventoryManifestModel.ViewportCenterY), new Vector2(452f, InventoryManifestModel.ViewportHeight));
@@ -231,6 +250,9 @@ namespace Desktopirates
             description.resizeTextForBestFit = true;
             description.resizeTextMinSize = 9;
             description.resizeTextMaxSize = 11;
+            names[index] = name;
+            rarityLabels[index] = rarityLabel;
+            descriptions[index] = description;
             counts[index] = CreateText($"{kind} Count", slot, "x0", 17,
                 new Vector2(InventoryManifestModel.CountCenterX, 15f), new Vector2(InventoryManifestModel.CountWidth, 24f));
             counts[index].alignment = TextAnchor.MiddleRight;

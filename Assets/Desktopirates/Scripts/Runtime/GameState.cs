@@ -32,6 +32,10 @@ namespace Desktopirates
         public readonly HashSet<ulong> ResolvedEvents = new HashSet<ulong>();
         private readonly int[] salvageParts = new int[SalvageInventory.PartKindCount];
         private readonly int[] crewByRole = new int[CrewManagementModel.RoleCount];
+        private readonly byte[] cannonDamageLevels = new byte[ShipCustomizationModel.CannonSlotCount];
+        private readonly byte[] cannonReloadLevels = new byte[ShipCustomizationModel.CannonSlotCount];
+        private readonly byte[] cannonRangeLevels = new byte[ShipCustomizationModel.CannonSlotCount];
+        private readonly byte[] cannonRounds = new byte[ShipCustomizationModel.CannonSlotCount];
         private readonly int[] perkInventory = new int[CrewManagementModel.PerkCount * PerkRankModel.RankCount];
         private readonly int[] equippedPerkStacks = new int[CrewManagementModel.RoleCount * CrewManagementModel.PerkCount * PerkRankModel.RankCount];
         public readonly CaptainRecord Captain = new CaptainRecord();
@@ -76,6 +80,15 @@ namespace Desktopirates
             if (amount <= 0) return;
             salvageParts[(int)kind] = Mathf.Max(0, salvageParts[(int)kind] + amount);
         }
+
+        public int GetCannonDamageLevel(CannonSlot slot) => cannonDamageLevels[(int)slot];
+        public int GetCannonReloadLevel(CannonSlot slot) => cannonReloadLevels[(int)slot];
+        public int GetCannonRangeLevel(CannonSlot slot) => cannonRangeLevels[(int)slot];
+        public CannonRoundKind GetCannonRound(CannonSlot slot) => (CannonRoundKind)Mathf.Clamp(cannonRounds[(int)slot], 0, 2);
+        public void SetCannonDamageLevel(CannonSlot slot, int level) => cannonDamageLevels[(int)slot] = (byte)Mathf.Clamp(level, 0, CannonUpgradeModel.MaxSlotUpgrade);
+        public void SetCannonReloadLevel(CannonSlot slot, int level) => cannonReloadLevels[(int)slot] = (byte)Mathf.Clamp(level, 0, CannonUpgradeModel.MaxSlotUpgrade);
+        public void SetCannonRangeLevel(CannonSlot slot, int level) => cannonRangeLevels[(int)slot] = (byte)Mathf.Clamp(level, 0, CannonUpgradeModel.MaxSlotUpgrade);
+        public void SetCannonRound(CannonSlot slot, CannonRoundKind round) => cannonRounds[(int)slot] = (byte)Mathf.Clamp((int)round, 0, 2);
 
         public int GetRoleCrew(CrewRole role) => crewByRole[(int)role];
         public void SetRoleCrew(CrewRole role, int amount) => crewByRole[(int)role] = Mathf.Max(0, amount);
