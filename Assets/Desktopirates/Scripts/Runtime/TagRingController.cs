@@ -115,7 +115,7 @@ namespace Desktopirates
                 marker.gameObject.SetActive(true);
                 marker.rectTransform.anchoredPosition = position;
                 marker.rectTransform.sizeDelta = new Vector2(pixels, pixels);
-                marker.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0.58f, Mathf.InverseLerp(8f, 60f, distance)));
+                marker.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0.72f, Mathf.InverseLerp(8f, 70f, distance)));
                 placedMarkerRects.Add(DistanceTagMath.MarkerRect(position, pixels, MarkerSeparation));
             }
         }

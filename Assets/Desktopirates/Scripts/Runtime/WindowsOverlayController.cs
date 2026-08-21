@@ -9,6 +9,8 @@ namespace Desktopirates
     {
         private const int WindowWidth = 720;
         private const int WindowHeight = 760;
+        public const float MinimumWindowScale = 0.75f;
+        public const float MaximumWindowScale = 1.50f;
         public float WindowScale { get; private set; } = 1f;
 
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
@@ -74,7 +76,7 @@ namespace Desktopirates
         private void Awake()
         {
             Application.runInBackground = true;
-            WindowScale = PlayerPrefs.GetFloat("window_scale", 1f);
+            WindowScale = Mathf.Clamp(PlayerPrefs.GetFloat("window_scale", 1f), MinimumWindowScale, MaximumWindowScale);
             Screen.SetResolution(Mathf.RoundToInt(WindowWidth * WindowScale), Mathf.RoundToInt(WindowHeight * WindowScale), FullScreenMode.Windowed);
             StartCoroutine(ConfigureWindow());
         }
@@ -108,7 +110,7 @@ namespace Desktopirates
 
         public void SetWindowScale(float scale)
         {
-            WindowScale = Mathf.Clamp(scale, 0.72f, 1.28f);
+            WindowScale = Mathf.Clamp(scale, MinimumWindowScale, MaximumWindowScale);
             PlayerPrefs.SetFloat("window_scale", WindowScale);
             PlayerPrefs.Save();
             int width = Mathf.RoundToInt(WindowWidth * WindowScale);
@@ -121,7 +123,7 @@ namespace Desktopirates
             yield return null;
             yield return new WaitForSecondsRealtime(1.0f);
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            WindowScale = PlayerPrefs.GetFloat("window_scale", 1f);
+            WindowScale = Mathf.Clamp(PlayerPrefs.GetFloat("window_scale", 1f), MinimumWindowScale, MaximumWindowScale);
             int scaledWidth = Mathf.RoundToInt(WindowWidth * WindowScale);
             int scaledHeight = Mathf.RoundToInt(WindowHeight * WindowScale);
             Screen.SetResolution(scaledWidth, scaledHeight, FullScreenMode.Windowed);

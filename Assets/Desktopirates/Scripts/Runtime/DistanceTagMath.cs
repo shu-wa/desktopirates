@@ -15,7 +15,9 @@ namespace Desktopirates
         }
 
         public static float PixelSizeForDistance(float distance)
-            => Mathf.Clamp(76f * ScaleForDistance(distance), 30f, 94f);
+            // Restore the legibility of the original rim badges. Collision-aware layout now
+            // handles crowded sectors, so distant discoveries no longer need to shrink to 30 px.
+            => Mathf.Clamp(76f * ScaleForDistance(distance), 62f, 98f);
 
         public static Vector2 Rotate(Vector2 value, float degrees)
         {

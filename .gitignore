@@ -30,6 +30,7 @@ outputs/RuntimeInternal-*.png
 outputs/RuntimeCapture-Authored-*.png
 outputs/RuntimeCapture-MarkerLayout-*.png
 outputs/RuntimeCapture-EnemyHud-*.png
+outputs/RuntimeCapture-BranchMenu-*.png
 
 # Blender's rolling backup files stay local; authored .blend sources are tracked.
 *.blend1

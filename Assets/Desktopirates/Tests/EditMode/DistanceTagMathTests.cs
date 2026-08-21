@@ -12,7 +12,7 @@ namespace Desktopirates.Tests
             float far = DistanceTagMath.ScaleForDistance(60f);
             Assert.That(near, Is.GreaterThan(far));
             Assert.That(DistanceTagMath.PixelSizeForDistance(9f), Is.GreaterThan(80f));
-            Assert.That(DistanceTagMath.PixelSizeForDistance(60f), Is.LessThanOrEqualTo(30f));
+            Assert.That(DistanceTagMath.PixelSizeForDistance(60f), Is.EqualTo(62f).Within(0.001f));
         }
 
         [Test]

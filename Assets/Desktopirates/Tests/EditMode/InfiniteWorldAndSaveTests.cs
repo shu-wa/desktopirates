@@ -458,6 +458,13 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void MenuSizePresetsCoverCompactThroughLargeDesktopModes()
+        {
+            Assert.That(WindowsOverlayController.MinimumWindowScale, Is.EqualTo(0.75f));
+            Assert.That(WindowsOverlayController.MaximumWindowScale, Is.EqualTo(1.50f));
+        }
+
+        [Test]
         public void DeferredSizeSliderCommitsOnlyAfterPointerRelease()
         {
             var sliderObject = new GameObject("Deferred Slider Test", typeof(UnityEngine.UI.Slider));
