@@ -75,7 +75,12 @@ namespace Desktopirates
         {
             int level = Mathf.Clamp(shipLevel, 0, ShipProgressionModel.TierCount - 1);
             Transform visual;
-            if (level == 0) visual = CreateRaft(parent);
+            bool authored = AuthoredModelLibrary.TryCreatePlayer(parent, level, out visual);
+            if (authored)
+            {
+                visual.localPosition = Vector3.zero;
+            }
+            else if (level == 0) visual = CreateRaft(parent);
             else
             {
                 visual = CreateShip(parent, false, 1f);
@@ -84,7 +89,7 @@ namespace Desktopirates
                 AddTierSilhouette(visual, level);
             }
             visual.name = $"Ship Tier Visual L{level + 1}";
-            ApplyTierTexture(visual, level);
+            if (!authored) ApplyTierTexture(visual, level);
         }
 
         private static Transform CreateRaft(Transform parent)
@@ -176,7 +181,8 @@ namespace Desktopirates
                     EnemyArchetype.Hunter => 0.76f,
                     _ => 0.70f
                 };
-                Transform enemy = CreateShip(parent, true, scale);
+                Transform enemy;
+                if (!AuthoredModelLibrary.TryCreateEnemy(parent, scale, out enemy)) enemy = CreateShip(parent, true, scale);
                 enemy.name = $"Enemy {EnemyArchetypeModel.Get(archetype).ClassName}";
                 AddEnemyArchetypeDetails(enemy, archetype);
                 return enemy;
@@ -184,9 +190,12 @@ namespace Desktopirates
 
             var root = new GameObject($"{kind} POI").transform;
             root.SetParent(parent, false);
-            if (kind == PoiKind.Wreck) CreateWreck(root);
-            else if (kind == PoiKind.Treasure) CreateTreasure(root);
-            else CreateHarbor(root);
+            if (!AuthoredModelLibrary.TryCreatePoi(kind, root, out _))
+            {
+                if (kind == PoiKind.Wreck) CreateWreck(root);
+                else if (kind == PoiKind.Treasure) CreateTreasure(root);
+                else CreateHarbor(root);
+            }
             return root;
         }
 
@@ -195,7 +204,7 @@ namespace Desktopirates
             var wrapper = new GameObject($"Boss — {boss}").transform;
             wrapper.SetParent(parent, false);
             Transform model;
-            switch (boss)
+            if (!AuthoredModelLibrary.TryCreateBoss(wrapper, boss, out model)) switch (boss)
             {
                 case BossKind.GangAdmiral: model = CreateGangAdmiral(wrapper); break;
                 case BossKind.GhostShip: model = CreateGhostShip(wrapper); break;

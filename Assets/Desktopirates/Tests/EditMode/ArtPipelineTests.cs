@@ -191,6 +191,73 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void AuthoredWorldPresentation_PrioritizesReadableObjectScale()
+        {
+            float verticalOceanCoverage = OceanDisc.Radius / WorldPresentationMetrics.CameraOrthographicSize;
+            Assert.That(verticalOceanCoverage, Is.GreaterThanOrEqualTo(WorldPresentationMetrics.MinimumOceanVerticalCoverage));
+            Assert.That(WorldPresentationMetrics.PlayerModelScale, Is.GreaterThan(1f));
+            Assert.That(WorldPresentationMetrics.HarborModelScale, Is.InRange(0.70f, 0.90f));
+            Assert.That(WorldPresentationMetrics.WreckModelScale, Is.GreaterThan(1f));
+            Assert.That(WorldPresentationMetrics.TreasureModelScale, Is.GreaterThan(1f));
+        }
+
+        [Test]
+        public void BlenderAuthoredModelLibrary_HasAllRuntimePrefabs()
+        {
+            for (int tier = 0; tier < ShipProgressionModel.TierCount; tier++)
+                Assert.That(Resources.Load<GameObject>($"Models/Ships/player_tier_{tier}_v02"), Is.Not.Null, $"Missing player tier {tier}");
+            Assert.That(Resources.Load<GameObject>("Models/Ships/enemy_corsair_v02"), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Models/World/harbor_v02"), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Models/World/wreck_v02"), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Models/World/treasure_v02"), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Models/Bosses/gang_admiral_v02"), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Models/Bosses/ghost_ship_v02"), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Models/Bosses/kraken_v02"), Is.Not.Null);
+            Assert.That(Resources.Load<GameObject>("Models/Bosses/poseidon_v02"), Is.Not.Null);
+        }
+
+        [Test]
+        public void BlenderAuthoredModelLibrary_InstantiatesTexturedRuntimeVisuals()
+        {
+            var parent = new GameObject("Authored Model Test Root").transform;
+            try
+            {
+                Assert.That(AuthoredModelLibrary.TryCreatePlayer(parent, 0, out Transform player), Is.True);
+                Assert.That(player.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
+                Assert.That(AuthoredModelLibrary.TryCreateEnemy(parent, 0.72f, out Transform enemy), Is.True);
+                Assert.That(enemy.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
+                Assert.That(AuthoredModelLibrary.TryCreatePoi(PoiKind.Port, parent, out Transform harbor), Is.True);
+                Assert.That(harbor.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
+                Assert.That(AuthoredModelLibrary.TryCreateBoss(parent, BossKind.Kraken, out Transform boss), Is.True);
+                Assert.That(boss.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent.gameObject);
+            }
+        }
+
+        [Test]
+        public void AuthoredModelTextures_ArePointFilteredRepeatableAlbedo()
+        {
+            string[] paths =
+            {
+                "Textures/Models/v02/HullWood_Pixel_v02",
+                "Textures/Models/v02/SailCanvas_Pixel_v02",
+                "Textures/Models/v02/EnemySail_Pixel_v02",
+                "Textures/Models/v02/HarborStone_Pixel_v02",
+                "Textures/Models/v02/HarborWood_Pixel_v02"
+            };
+            foreach (string path in paths)
+            {
+                Texture2D texture = Resources.Load<Texture2D>(path);
+                Assert.That(texture, Is.Not.Null, path);
+                Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point), path);
+                Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Repeat), path);
+            }
+        }
+
+        [Test]
         public void ConceptV04InventoryIcons_AreTransparentPixelFilteredAssets()
         {
             for (int index = 0; index < InventoryManifestModel.EntryCount; index++)

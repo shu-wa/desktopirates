@@ -150,7 +150,7 @@ namespace Desktopirates
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = TransparentKey;
             camera.orthographic = true;
-            camera.orthographicSize = 7.20f;
+            camera.orthographicSize = WorldPresentationMetrics.CameraOrthographicSize;
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 80f;
             camera.allowHDR = false;

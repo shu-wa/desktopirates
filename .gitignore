@@ -22,4 +22,12 @@ sysinfo.txt
 
 # Generated concept-art references stay local and are not published to Git.
 ArtSource/ConceptArt/
+Assets/Desktopirates/Art/Concept/
+Assets/Desktopirates/Art/Concept.meta
 outputs/concept-art-*.png
+/TestResults/
+outputs/RuntimeInternal-*.png
+outputs/RuntimeCapture-Authored-*.png
+
+# Blender's rolling backup files stay local; authored .blend sources are tracked.
+*.blend1
