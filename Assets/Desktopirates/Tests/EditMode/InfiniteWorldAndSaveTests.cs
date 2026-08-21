@@ -458,7 +458,7 @@ namespace Desktopirates.Tests
         }
 
         [Test]
-        public void MenuSizePresetsCoverCompactThroughLargeDesktopModes()
+        public void MenuSizeSliderCoversCompactThroughLargeDesktopModes()
         {
             Assert.That(WindowsOverlayController.MinimumWindowScale, Is.EqualTo(0.75f));
             Assert.That(WindowsOverlayController.MaximumWindowScale, Is.EqualTo(1.50f));

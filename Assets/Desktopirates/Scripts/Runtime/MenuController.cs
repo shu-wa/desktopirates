@@ -52,10 +52,11 @@ namespace Desktopirates
         private Text prompt;
         private Text toast;
         private Text menuVolumeValue;
+        private Text menuSizeValue;
         private Text menuMuteLabel;
+        private Slider menuVolumeSlider;
+        private Slider menuSizeSlider;
         private float lastAudibleVolume = 0.65f;
-        private readonly Image[] menuSizePresetImages = new Image[4];
-        private static readonly float[] MenuSizePresets = { 0.75f, 1.00f, 1.25f, 1.50f };
         private Text engineUpgradeText;
         private Text shipyardSummary;
         private readonly Text[] cannonSlotTexts = new Text[ShipCustomizationModel.CannonSlotCount];
@@ -163,7 +164,17 @@ namespace Desktopirates
                 if (mapRoot != null) CloseMap();
                 else { CloseAll(); OpenMap(); }
             }
-            if (Input.GetKeyDown(KeyCode.Escape)) CloseAll();
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                bool menuOpen = menuRoot != null && menuRoot.activeSelf;
+                bool anotherPanelOpen = (captainLogRoot != null && captainLogRoot.activeSelf)
+                    || (portRoot != null && portRoot.activeSelf)
+                    || (shipyardRoot != null && shipyardRoot.activeSelf)
+                    || (inventory != null && inventory.IsOpen)
+                    || mapRoot != null;
+                if (menuOpen || anotherPanelOpen) CloseAll();
+                else ToggleMenu();
+            }
         }
 
         private void OnApplicationPause(bool paused) { if (paused && state != null) saves.Save(state); }
@@ -179,42 +190,25 @@ namespace Desktopirates
 
         private void BuildMenu()
         {
-            menuRoot = CreateUiObject("Menu Circle Branch Controls", canvas).gameObject;
-            var animatedRows = new RectTransform[6];
-            CreateMenuBranchConnectors(menuRoot.transform, new[] { -92f, -161f, -226f, -282f, -338f, -394f });
+            menuRoot = CreateUiObject("Menu Circle Downward Controls", canvas).gameObject;
+            var animatedRows = new RectTransform[7];
+            float[] rowY = { -158f, -210f, -262f, -314f, -366f, -418f, -470f };
+            CreateMenuBranchConnectors(menuRoot.transform, rowY);
 
-            RectTransform volume = CreateMenuBranchPanel(menuRoot.transform, "Volume Branch", new Vector2(206f, -92f), new Vector2(260f, 58f), MenuGlyph.Volume, "VOLUME");
-            animatedRows[0] = volume;
-            Image volumeDown = CreateMenuMiniButton(volume, "Volume Down", new Vector2(22f, -10f), new Vector2(42f, 28f), string.Empty, () => SetMenuVolume(AudioListener.volume - 0.10f));
-            AddMenuVolumeSymbol(volumeDown.rectTransform, false);
-            menuVolumeValue = CreateText(volume, "Volume Value", new Vector2(69f, -10f), new Vector2(48f, 28f), 15, TextAnchor.MiddleCenter);
-            menuVolumeValue.color = UiTheme.Brass; UiTheme.StyleText(menuVolumeValue, 15);
-            Image volumeUp = CreateMenuMiniButton(volume, "Volume Up", new Vector2(116f, -10f), new Vector2(42f, 28f), string.Empty, () => SetMenuVolume(AudioListener.volume + 0.10f));
-            AddMenuVolumeSymbol(volumeUp.rectTransform, true);
+            animatedRows[0] = CreateMenuSliderPanel(menuRoot.transform, "Volume Row", new Vector2(0f, rowY[0]), MenuGlyph.Volume, "VOLUME",
+                0f, 1f, AudioListener.volume, false, SetMenuVolume, out menuVolumeSlider, out menuVolumeValue);
+            animatedRows[1] = CreateMenuSliderPanel(menuRoot.transform, "Size Row", new Vector2(0f, rowY[1]), MenuGlyph.Size, "SIZE",
+                WindowsOverlayController.MinimumWindowScale, WindowsOverlayController.MaximumWindowScale, overlay.WindowScale, true,
+                value => overlay.SetWindowScale(value), out menuSizeSlider, out menuSizeValue);
 
-            RectTransform size = CreateMenuBranchPanel(menuRoot.transform, "Size Branch", new Vector2(206f, -161f), new Vector2(260f, 72f), MenuGlyph.Size, "SIZE");
-            animatedRows[1] = size;
-            for (int i = 0; i < MenuSizePresets.Length; i++)
-            {
-                int presetIndex = i;
-                menuSizePresetImages[i] = CreateMenuMiniButton(size, $"Size {MenuSizePresets[i] * 100f:0}", new Vector2(-68f + i * 55f, -16f), new Vector2(50f, 28f), $"{MenuSizePresets[i] * 100f:0}%", () =>
-                {
-                    overlay.SetWindowScale(MenuSizePresets[presetIndex]);
-                    RefreshBranchMenuState();
-                });
-            }
-
-            RectTransform mutePanel = CreateMenuActionPanel(menuRoot.transform, "Mute Branch", new Vector2(206f, -226f), MenuGlyph.Volume, "MUTE", ToggleMute, out menuMuteLabel);
+            RectTransform mutePanel = CreateMenuActionPanel(menuRoot.transform, "Mute Row", new Vector2(0f, rowY[2]), MenuGlyph.Volume, "MUTE", ToggleMute, out menuMuteLabel);
             animatedRows[2] = mutePanel;
-            RectTransform muteSlash = CreateUiObject("Mute Red Slash", mutePanel); muteSlash.anchoredPosition = new Vector2(-102f, 2f); muteSlash.sizeDelta = new Vector2(4f, 27f); muteSlash.localRotation = Quaternion.Euler(0f, 0f, -42f);
+            RectTransform muteSlash = CreateUiObject("Mute Red Slash", mutePanel); muteSlash.anchoredPosition = new Vector2(-112f, 0f); muteSlash.sizeDelta = new Vector2(4f, 25f); muteSlash.localRotation = Quaternion.Euler(0f, 0f, -42f);
             Image muteSlashImage = muteSlash.gameObject.AddComponent<Image>(); muteSlashImage.sprite = null; muteSlashImage.color = UiTheme.Danger; muteSlashImage.raycastTarget = false;
-            RectTransform tools = CreateMenuBranchPanel(menuRoot.transform, "Tools Branch", new Vector2(206f, -282f), new Vector2(260f, 48f), MenuGlyph.Map, "TOOLS");
-            animatedRows[3] = tools;
-            RectTransform toolsHeading = (RectTransform)tools.Find("TOOLS"); toolsHeading.anchoredPosition = new Vector2(-45f, 12f); toolsHeading.sizeDelta = new Vector2(70f, 20f);
-            CreateMenuMiniButton(tools, "Open Map", new Vector2(29f, 0f), new Vector2(64f, 32f), "MAP", () => { menuRoot.SetActive(false); OpenMap(); });
-            CreateMenuMiniButton(tools, "Open Bag", new Vector2(93f, 0f), new Vector2(58f, 32f), "BAG", () => { menuRoot.SetActive(false); inventory.Toggle(); });
-            animatedRows[4] = CreateMenuActionPanel(menuRoot.transform, "Captain Log Branch", new Vector2(206f, -338f), MenuGlyph.Log, "CAPTAIN LOG", () => { menuRoot.SetActive(false); OpenCaptainLog(); }, out _);
-            animatedRows[5] = CreateMenuActionPanel(menuRoot.transform, "Exit Branch", new Vector2(206f, -394f), MenuGlyph.Exit, "EXIT", () => { saves.Save(state); Application.Quit(); }, out Text exitLabel);
+            animatedRows[3] = CreateMenuActionPanel(menuRoot.transform, "Map Row", new Vector2(0f, rowY[3]), MenuGlyph.Map, "MAP", () => { menuRoot.SetActive(false); OpenMap(); }, out _);
+            animatedRows[4] = CreateMenuActionPanel(menuRoot.transform, "Bag Row", new Vector2(0f, rowY[4]), MenuGlyph.Inventory, "BAG", () => { menuRoot.SetActive(false); inventory.Toggle(); }, out _);
+            animatedRows[5] = CreateMenuActionPanel(menuRoot.transform, "Captain Log Row", new Vector2(0f, rowY[5]), MenuGlyph.Log, "CAPTAIN LOG", () => { menuRoot.SetActive(false); OpenCaptainLog(); }, out _);
+            animatedRows[6] = CreateMenuActionPanel(menuRoot.transform, "Exit Row", new Vector2(0f, rowY[6]), MenuGlyph.Exit, "EXIT", () => { saves.Save(state); Application.Quit(); }, out Text exitLabel);
             exitLabel.color = UiTheme.Danger;
 
             MenuBranchAnimator animator = menuRoot.AddComponent<MenuBranchAnimator>();
@@ -244,18 +238,16 @@ namespace Desktopirates
 
         private void RefreshBranchMenuState()
         {
-            if (menuVolumeValue != null) menuVolumeValue.text = Mathf.RoundToInt(AudioListener.volume * 100f).ToString();
+            if (menuVolumeSlider != null) menuVolumeSlider.SetValueWithoutNotify(AudioListener.volume);
+            if (menuVolumeValue != null) menuVolumeValue.text = $"{Mathf.RoundToInt(AudioListener.volume * 100f)}%";
+            if (menuSizeSlider != null) menuSizeSlider.SetValueWithoutNotify(overlay.WindowScale);
+            if (menuSizeValue != null) menuSizeValue.text = $"{Mathf.RoundToInt(overlay.WindowScale * 100f)}%";
             if (menuMuteLabel != null)
             {
                 bool muted = AudioListener.volume <= 0.001f;
                 menuMuteLabel.text = muted ? "UNMUTE" : "MUTE";
                 menuMuteLabel.color = muted ? UiTheme.Danger : UiTheme.PrimaryText;
             }
-            for (int i = 0; i < menuSizePresetImages.Length; i++)
-                if (menuSizePresetImages[i] != null)
-                    menuSizePresetImages[i].color = Mathf.Abs(overlay.WindowScale - MenuSizePresets[i]) < 0.02f
-                        ? new Color(1f, 0.82f, 0.38f, 1f)
-                        : Color.white;
         }
 
         private void BuildCaptainLog()
@@ -1000,48 +992,64 @@ namespace Desktopirates
             Image background = panel.gameObject.AddComponent<Image>(); background.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill"); background.color = Color.white;
             RectTransform frame = CreateUiObject(name + " Brass Frame", panel); frame.sizeDelta = size;
             Image frameImage = frame.gameObject.AddComponent<Image>(); frameImage.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f, true); frameImage.type = Image.Type.Sliced; frameImage.raycastTarget = false;
-            RectTransform glyphRect = CreateUiObject(name + " Icon", panel); glyphRect.anchoredPosition = new Vector2(-102f, size.y * 0.5f - 22f); glyphRect.sizeDelta = Vector2.one * 34f;
-            RawImage glyphImage = glyphRect.gameObject.AddComponent<RawImage>(); glyphImage.texture = UiTextureFactory.LoadGlyph(glyph, glyph == MenuGlyph.Log ? 64 : 40); glyphImage.raycastTarget = false;
-            Text heading = CreateText(panel, title, new Vector2(-28f, size.y * 0.5f - 12f), new Vector2(116f, 20f), 15, TextAnchor.MiddleLeft);
-            heading.color = UiTheme.Brass; UiTheme.StyleText(heading, 15);
+            RectTransform glyphRect = CreateUiObject(name + " Frameless Icon", panel); glyphRect.anchoredPosition = new Vector2(-112f, 0f); glyphRect.sizeDelta = Vector2.one * 32f;
+            RawImage glyphImage = glyphRect.gameObject.AddComponent<RawImage>(); glyphImage.texture = UiTextureFactory.LoadFramelessMenuGlyph(glyph, 48); glyphImage.raycastTarget = false;
+            Text heading = CreateText(panel, title, new Vector2(13f, 0f), new Vector2(210f, 36f), 15, TextAnchor.MiddleCenter);
+            heading.color = UiTheme.PrimaryText; UiTheme.StyleText(heading, 15);
             return panel;
         }
 
         private RectTransform CreateMenuActionPanel(Transform parent, string name, Vector2 position, MenuGlyph glyph, string label, Action action, out Text labelText)
         {
-            RectTransform panel = CreateMenuBranchPanel(parent, name, position, new Vector2(260f, 48f), glyph, label);
-            Button button = panel.gameObject.AddComponent<Button>(); button.targetGraphic = panel.GetComponent<Image>(); button.onClick.AddListener(() => action());
+            RectTransform panel = CreateMenuBranchPanel(parent, name, position, new Vector2(276f, 48f), glyph, label);
             labelText = panel.Find(label)?.GetComponent<Text>();
+            RectTransform hitArea = CreateUiObject(name + " Full Row Hit Area", panel);
+            hitArea.anchorMin = Vector2.zero; hitArea.anchorMax = Vector2.one;
+            hitArea.offsetMin = Vector2.zero; hitArea.offsetMax = Vector2.zero;
+            Image hitImage = hitArea.gameObject.AddComponent<Image>(); hitImage.sprite = null; hitImage.color = new Color(1f, 1f, 1f, 0.001f); hitImage.raycastTarget = true;
+            Button button = hitArea.gameObject.AddComponent<Button>(); button.targetGraphic = hitImage; button.onClick.AddListener(() => action());
             return panel;
         }
 
-        private Image CreateMenuMiniButton(Transform parent, string name, Vector2 position, Vector2 size, string label, Action action)
+        private RectTransform CreateMenuSliderPanel(Transform parent, string name, Vector2 position, MenuGlyph glyph, string label,
+            float minimum, float maximum, float value, bool commitOnRelease, Action<float> changed, out Slider slider, out Text valueText)
         {
-            RectTransform rect = CreateUiObject(name, parent); rect.anchoredPosition = position; rect.sizeDelta = size;
-            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tab_frame", 16f); image.type = Image.Type.Sliced;
-            Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
-            Text text = CreateText(rect, name + " Label", Vector2.zero, size - new Vector2(4f, 2f), Mathf.Min(14, Mathf.RoundToInt(size.y * 0.45f)), TextAnchor.MiddleCenter);
-            text.text = label; text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 11);
-            return image;
-        }
-
-        private static void AddMenuVolumeSymbol(RectTransform parent, bool plus)
-        {
-            RectTransform horizontal = CreateUiObject("Volume Horizontal Stroke", parent); horizontal.sizeDelta = new Vector2(13f, 3f);
-            Image horizontalImage = horizontal.gameObject.AddComponent<Image>(); horizontalImage.sprite = null; horizontalImage.color = UiTheme.Brass; horizontalImage.raycastTarget = false;
-            if (!plus) return;
-            RectTransform vertical = CreateUiObject("Volume Vertical Stroke", parent); vertical.sizeDelta = new Vector2(3f, 13f);
-            Image verticalImage = vertical.gameObject.AddComponent<Image>(); verticalImage.sprite = null; verticalImage.color = UiTheme.Brass; verticalImage.raycastTarget = false;
+            RectTransform panel = CreateMenuBranchPanel(parent, name, position, new Vector2(276f, 48f), glyph, label);
+            RectTransform heading = panel.Find(label) as RectTransform;
+            heading.anchoredPosition = new Vector2(-70f, 0f); heading.sizeDelta = new Vector2(72f, 34f);
+            RectTransform bar = CreateUiObject(name + " Bar", panel); bar.anchoredPosition = new Vector2(27f, 0f); bar.sizeDelta = new Vector2(112f, 10f);
+            Image rail = bar.gameObject.AddComponent<Image>(); rail.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "slider_rail", 14f); rail.type = Image.Type.Sliced; rail.color = Color.white;
+            slider = bar.gameObject.AddComponent<Slider>(); slider.minValue = minimum; slider.maxValue = maximum; slider.value = value;
+            RectTransform fill = CreateUiObject("Fill", bar); fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.offsetMin = Vector2.zero; fill.offsetMax = Vector2.zero;
+            Image fillImage = fill.gameObject.AddComponent<Image>(); fillImage.color = Brass; fillImage.raycastTarget = false; slider.fillRect = fill;
+            RectTransform handle = CreateUiObject("Handle", bar); handle.sizeDelta = new Vector2(16f, 16f);
+            Image handleImage = handle.gameObject.AddComponent<Image>(); handleImage.sprite = diamondSprite; handleImage.color = Color.white; slider.handleRect = handle; slider.targetGraphic = handleImage;
+            valueText = CreateText(panel, name + " Value", new Vector2(109f, 0f), new Vector2(46f, 30f), 13, TextAnchor.MiddleCenter);
+            valueText.color = UiTheme.Brass; UiTheme.StyleText(valueText, 13);
+            Text capturedValueText = valueText;
+            if (commitOnRelease)
+            {
+                DeferredSliderCommit deferred = bar.gameObject.AddComponent<DeferredSliderCommit>();
+                deferred.Initialize(slider, current => capturedValueText.text = $"{Mathf.RoundToInt(current * 100f)}%", changed);
+            }
+            else
+            {
+                slider.onValueChanged.AddListener(current =>
+                {
+                    capturedValueText.text = $"{Mathf.RoundToInt(current * 100f)}%";
+                    changed(current);
+                });
+                capturedValueText.text = $"{Mathf.RoundToInt(value * 100f)}%";
+            }
+            return panel;
         }
 
         private static void CreateMenuBranchConnectors(Transform parent, float[] rowY)
         {
             if (rowY == null || rowY.Length == 0) return;
-            float top = -72f;
+            float top = -132f;
             float bottom = rowY[rowY.Length - 1];
-            AddMenuConnector(parent, "Menu Brass Trunk", new Vector2(70f, (top + bottom) * 0.5f), new Vector2(4f, top - bottom + 4f));
-            AddMenuConnector(parent, "Menu Circle Link", new Vector2(65f, top), new Vector2(14f, 4f));
-            for (int i = 0; i < rowY.Length; i++) AddMenuConnector(parent, $"Menu Branch {i + 1}", new Vector2(73f, rowY[i]), new Vector2(10f, 4f));
+            AddMenuConnector(parent, "Menu Brass Downward Spine", new Vector2(0f, (top + bottom) * 0.5f), new Vector2(4f, top - bottom + 4f));
         }
 
         private static void AddMenuConnector(Transform parent, string name, Vector2 position, Vector2 size)

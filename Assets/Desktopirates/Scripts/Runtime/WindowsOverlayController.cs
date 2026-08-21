@@ -130,16 +130,7 @@ namespace Desktopirates
             yield return null;
             yield return new WaitForEndOfFrame();
 
-            windowHandle = GetActiveWindow();
-            if (windowHandle == IntPtr.Zero) yield break;
-
-            int style = GetWindowLong(windowHandle, GwlStyle);
-            style &= ~(WsCaption | WsThickFrame | WsMinimizeBox | WsMaximizeBox | WsSysMenu);
-            SetWindowLong(windowHandle, GwlStyle, style);
-
-            int extendedStyle = GetWindowLong(windowHandle, GwlExStyle);
-            SetWindowLong(windowHandle, GwlExStyle, extendedStyle | WsExLayered | WsExToolWindow);
-            SetLayeredWindowAttributes(windowHandle, 0x00FF00FF, 0, LwaColorKey);
+            if (!ApplyOverlayWindowStyle()) yield break;
 
             bool hasWorkArea = SystemParametersInfo(SpiGetWorkArea, 0, out Rect workArea, 0);
             IntPtr monitor = MonitorFromWindow(windowHandle, MonitorDefaultToNearest);
@@ -193,6 +184,9 @@ namespace Desktopirates
             yield return null;
             yield return new WaitForEndOfFrame();
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            // SetResolution may recreate the player HWND or restore its overlapped-window
+            // decoration. Always reacquire it and strip the non-client frame before sizing.
+            if (!ApplyOverlayWindowStyle()) yield break;
             if (hasOriginalRect)
             {
                 Vector2Int position = WindowScaleMath.KeepMenuCircleFixed(
@@ -211,29 +205,36 @@ namespace Desktopirates
                     position.y = Mathf.Clamp(position.y, monitorInfo.Work.Top, Mathf.Max(monitorInfo.Work.Top, monitorInfo.Work.Bottom - height));
                 }
 
-                SetWindowPos(windowHandle, HwndTopmost, position.x, position.y, width, height, SwpNoActivate);
-                // Unity/Windows can append an invisible border after SetResolution. Read the
-                // actual outer size and correct once so the visible menu circle stays exact.
+                SetWindowPos(windowHandle, HwndTopmost, position.x, position.y, width, height, SwpNoActivate | SwpFrameChanged);
+                // Unity can make one final style pass after SetResolution. Reapply our overlay
+                // style on the next frame and force the exact outer size a second time.
                 yield return null;
-                if (GetWindowRect(windowHandle, out Rect actualRect))
-                {
-                    int actualWidth = actualRect.Right - actualRect.Left;
-                    int actualHeight = actualRect.Bottom - actualRect.Top;
-                    position.x = anchorX - Mathf.RoundToInt(actualWidth * 0.5f);
-                    position.y = anchorY - Mathf.RoundToInt(actualHeight * WindowScaleMath.MenuCircleTopRatio);
-                    if (monitor != IntPtr.Zero && GetMonitorInfo(monitor, ref monitorInfo))
-                    {
-                        position.x = Mathf.Clamp(position.x, monitorInfo.Work.Left, Mathf.Max(monitorInfo.Work.Left, monitorInfo.Work.Right - actualWidth));
-                        position.y = Mathf.Clamp(position.y, monitorInfo.Work.Top, Mathf.Max(monitorInfo.Work.Top, monitorInfo.Work.Bottom - actualHeight));
-                    }
-                    SetWindowPos(windowHandle, HwndTopmost, position.x, position.y, 0, 0, SwpNoSize | SwpNoActivate);
-                }
+                if (!ApplyOverlayWindowStyle()) yield break;
+                SetWindowPos(windowHandle, HwndTopmost, position.x, position.y, width, height, SwpNoActivate | SwpFrameChanged);
                 PlayerPrefs.SetInt("window_x", position.x);
                 PlayerPrefs.SetInt("window_y", position.y);
                 PlayerPrefs.Save();
+                Debug.Log($"desktopirates frameless overlay reapplied after resize to {width}x{height}.");
             }
 #endif
         }
+
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        private bool ApplyOverlayWindowStyle()
+        {
+            windowHandle = GetActiveWindow();
+            if (windowHandle == IntPtr.Zero) return false;
+
+            int style = GetWindowLong(windowHandle, GwlStyle);
+            style &= ~(WsCaption | WsThickFrame | WsMinimizeBox | WsMaximizeBox | WsSysMenu);
+            SetWindowLong(windowHandle, GwlStyle, style);
+
+            int extendedStyle = GetWindowLong(windowHandle, GwlExStyle);
+            SetWindowLong(windowHandle, GwlExStyle, extendedStyle | WsExLayered | WsExToolWindow);
+            SetLayeredWindowAttributes(windowHandle, 0x00FF00FF, 0, LwaColorKey);
+            return true;
+        }
+#endif
 
         private void OnApplicationFocus(bool hasFocus)
         {

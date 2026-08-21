@@ -196,8 +196,8 @@ namespace Desktopirates.Tests
             float verticalOceanCoverage = OceanDisc.Radius / WorldPresentationMetrics.CameraOrthographicSize;
             Assert.That(verticalOceanCoverage, Is.GreaterThanOrEqualTo(WorldPresentationMetrics.MinimumOceanVerticalCoverage));
             Assert.That(WorldPresentationMetrics.PlayerModelScale, Is.GreaterThan(1f));
-            Assert.That(WorldPresentationMetrics.CameraOrthographicSize, Is.EqualTo(7.65f).Within(0.001f));
-            Assert.That(WorldPresentationMetrics.HarborModelScale, Is.InRange(0.90f, 1.10f));
+            Assert.That(WorldPresentationMetrics.CameraOrthographicSize, Is.EqualTo(8.25f).Within(0.001f));
+            Assert.That(WorldPresentationMetrics.HarborModelScale, Is.InRange(1.10f, 1.20f));
             Assert.That(WorldPresentationMetrics.WreckModelScale, Is.GreaterThan(1f));
             Assert.That(WorldPresentationMetrics.TreasureModelScale, Is.GreaterThan(1f));
         }

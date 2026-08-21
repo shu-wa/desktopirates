@@ -32,6 +32,13 @@ namespace Desktopirates
                 ?? CreateGlyph(glyph, size);
         }
 
+        /// <summary>Loads transparent glyph art without the circular launcher frame.</summary>
+        public static Texture2D LoadFramelessMenuGlyph(MenuGlyph glyph, int size = 48)
+        {
+            return Resources.Load<Texture2D>($"Textures/UI/Glyphs/glyph_{glyph.ToString().ToLowerInvariant()}")
+                ?? CreateGlyph(glyph, size);
+        }
+
         public static Texture2D LoadPoiBadge(PoiKind kind, int size = 64)
         {
             Texture2D concept = LoadConceptTexture("Icons", $"marker_{kind.ToString().ToLowerInvariant()}");
