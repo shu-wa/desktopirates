@@ -161,6 +161,15 @@ namespace Desktopirates.Tests
             Assert.That(top, Is.GreaterThanOrEqualTo(0f));
             Assert.That(bottom, Is.LessThanOrEqualTo(InventoryManifestModel.ReferenceCanvasHeight));
 
+            float titleTop = InventoryManifestModel.PanelTopOffset - InventoryManifestModel.TitleCenterY - InventoryManifestModel.TitleHeight * 0.5f;
+            float titleBottom = titleTop + InventoryManifestModel.TitleHeight;
+            float summaryTop = InventoryManifestModel.PanelTopOffset - InventoryManifestModel.SummaryCenterY - 11f;
+            float summaryBottom = summaryTop + 22f;
+            float viewportTop = InventoryManifestModel.PanelTopOffset - InventoryManifestModel.ViewportCenterY - InventoryManifestModel.ViewportHeight * 0.5f;
+            Assert.That(titleTop - InventoryManifestModel.MenuCircleBottom, Is.GreaterThanOrEqualTo(8f));
+            Assert.That(summaryTop, Is.GreaterThanOrEqualTo(titleBottom));
+            Assert.That(viewportTop - summaryBottom, Is.GreaterThanOrEqualTo(8f));
+
             float iconRight = InventoryManifestModel.IconCenterX + InventoryManifestModel.IconSize * 0.5f;
             float textLeft = InventoryManifestModel.TextCenterX - InventoryManifestModel.TextWidth * 0.5f;
             float textRight = InventoryManifestModel.TextCenterX + InventoryManifestModel.TextWidth * 0.5f;

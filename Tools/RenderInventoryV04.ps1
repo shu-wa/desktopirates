@@ -56,23 +56,23 @@ try {
     $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::SingleBitPerPixelGridFit
 
     # Exact 720x760 reference-canvas geometry used by InventoryController.
-    $panel = [System.Drawing.Rectangle]::new(192, 102, 516, 646)
+    $panel = [System.Drawing.Rectangle]::new(192, 150, 516, 600)
     $fillBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 4, 18, 28))
-    try { $graphics.FillRectangle($fillBrush, [System.Drawing.Rectangle]::new(206, 116, 488, 618)) } finally { $fillBrush.Dispose() }
+    try { $graphics.FillRectangle($fillBrush, [System.Drawing.Rectangle]::new(206, 164, 488, 572)) } finally { $fillBrush.Dispose() }
 
-    Draw-Texture $graphics "inventory_title_v04.png" ([System.Drawing.Rectangle]::new(290, 107, 320, 64))
-    Draw-Texture $graphics "inventory_title_v04.png" ([System.Drawing.Rectangle]::new(201, 125, 76, 28))
-    Draw-Label $graphics "INVENTORY" 24 ([System.Drawing.Color]::FromArgb(255, 255, 219, 145)) 306 115 288 48 ([System.Drawing.StringAlignment]::Center)
-    Draw-Label $graphics "BACK" 11 ([System.Drawing.Color]::FromArgb(255, 235, 163, 56)) 206 128 66 22 ([System.Drawing.StringAlignment]::Center)
-    Draw-Label $graphics "10 TYPES   •   123 ITEMS" 12 ([System.Drawing.Color]::FromArgb(255, 171, 191, 191)) 358 165 300 22 ([System.Drawing.StringAlignment]::Far)
+    Draw-Texture $graphics "inventory_title_v04.png" ([System.Drawing.Rectangle]::new(290, 140, 320, 64))
+    Draw-Texture $graphics "inventory_title_v04.png" ([System.Drawing.Rectangle]::new(201, 158, 76, 28))
+    Draw-Label $graphics "INVENTORY" 24 ([System.Drawing.Color]::FromArgb(255, 255, 219, 145)) 306 148 288 48 ([System.Drawing.StringAlignment]::Center)
+    Draw-Label $graphics "BACK" 11 ([System.Drawing.Color]::FromArgb(255, 235, 163, 56)) 206 161 66 22 ([System.Drawing.StringAlignment]::Center)
+    Draw-Label $graphics "10 TYPES   •   123 ITEMS" 12 ([System.Drawing.Color]::FromArgb(255, 171, 191, 191)) 358 204 300 22 ([System.Drawing.StringAlignment]::Far)
 
-    $viewport = [System.Drawing.Rectangle]::new(216, 203, 452, 520)
+    $viewport = [System.Drawing.Rectangle]::new(216, 237, 452, 510)
     $viewportBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 4, 12, 18))
     try { $graphics.FillRectangle($viewportBrush, $viewport) } finally { $viewportBrush.Dispose() }
     $oldClip = $graphics.Clip
     $graphics.SetClip($viewport)
     for ($index = 0; $index -lt $items.Count; $index++) {
-        $rowTop = 211 + $index * 66
+        $rowTop = 245 + $index * 66
         $rowColor = if (($index % 2) -eq 0) { [System.Drawing.Color]::FromArgb(255, 6, 20, 27) } else { [System.Drawing.Color]::FromArgb(255, 8, 24, 31) }
         $rowBrush = [System.Drawing.SolidBrush]::new($rowColor)
         try { $graphics.FillRectangle($rowBrush, [System.Drawing.Rectangle]::new(228, $rowTop, 428, 62)) } finally { $rowBrush.Dispose() }
@@ -88,8 +88,8 @@ try {
     $graphics.Clip = $oldClip
     $oldClip.Dispose()
 
-    Draw-Texture $graphics "inventory_scrollbar_track_v04.png" ([System.Drawing.Rectangle]::new(677, 203, 10, 520))
-    Draw-Texture $graphics "inventory_scrollbar_handle_v04.png" ([System.Drawing.Rectangle]::new(678, 207, 8, 400))
+    Draw-Texture $graphics "inventory_scrollbar_track_v04.png" ([System.Drawing.Rectangle]::new(677, 237, 10, 510))
+    Draw-Texture $graphics "inventory_scrollbar_handle_v04.png" ([System.Drawing.Rectangle]::new(678, 241, 8, 390))
     Draw-Texture $graphics "inventory_frame_v04.png" $panel
 
     $layoutPath = Join-Path $outputRoot "inventory-v04-layout-proof.png"

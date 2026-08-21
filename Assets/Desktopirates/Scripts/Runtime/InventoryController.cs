@@ -95,8 +95,8 @@ namespace Desktopirates
 
         private void BuildInventory(RectTransform canvas)
         {
-            // 720x760 reference canvas: x=90 leaves 12 px at the right, y=-425
-            // leaves 12 px at the bottom and a clear gap below the menu circle.
+            // 720x760 reference canvas: the panel leaves 12 px at the right,
+            // 10 px at the bottom, and 8 px between the title and menu circle.
             RectTransform panel = CreateRect("Concept Inventory Manifest", canvas,
                 new Vector2(InventoryManifestModel.PanelCenterX, -InventoryManifestModel.PanelTopOffset),
                 new Vector2(InventoryManifestModel.PanelWidth, InventoryManifestModel.PanelHeight));
@@ -104,21 +104,26 @@ namespace Desktopirates
             Image background = root.AddComponent<Image>();
             background.sprite = null;
             background.color = Color.clear;
-            AddAuthoredPanelFill(panel, new Vector2(488f, 618f));
+            AddAuthoredPanelFill(panel, new Vector2(
+                InventoryManifestModel.PanelWidth - InventoryManifestModel.PanelFillInset * 2f,
+                InventoryManifestModel.PanelHeight - InventoryManifestModel.PanelFillInset * 2f));
             AddPanelFrameOverlay(panel, new Vector2(516f, 646f));
 
-            RectTransform titlePlate = CreateRect("Inventory Title Cartouche", panel, new Vector2(0f, 286f), new Vector2(320f, 64f));
+            RectTransform titlePlate = CreateRect("Inventory Title Cartouche", panel,
+                new Vector2(0f, InventoryManifestModel.TitleCenterY), new Vector2(320f, InventoryManifestModel.TitleHeight));
             RawImage titlePlateImage = titlePlate.gameObject.AddComponent<RawImage>();
             titlePlateImage.texture = UiTextureFactory.LoadInventoryChrome("title");
             titlePlateImage.color = Color.white;
             titlePlateImage.raycastTarget = false;
             Text title = CreateText("Inventory Title", titlePlate, "INVENTORY", 24, Vector2.zero, new Vector2(288f, 48f));
             title.color = new Color(1f, 0.86f, 0.57f, 1f);
-            totalText = CreateText("Inventory Summary", panel, "10 TYPES", 12, new Vector2(58f, 249f), new Vector2(300f, 22f));
+            totalText = CreateText("Inventory Summary", panel, "10 TYPES", 12,
+                new Vector2(58f, InventoryManifestModel.SummaryCenterY), new Vector2(300f, 22f));
             totalText.alignment = TextAnchor.MiddleRight;
             totalText.color = new Color(0.67f, 0.75f, 0.75f, 1f);
 
-            RectTransform backRect = CreateRect("Close Inventory", panel, new Vector2(-211f, 286f), new Vector2(76f, 28f));
+            RectTransform backRect = CreateRect("Close Inventory", panel,
+                new Vector2(-211f, InventoryManifestModel.TitleCenterY), new Vector2(76f, 28f));
             RawImage backImage = backRect.gameObject.AddComponent<RawImage>();
             backImage.texture = UiTextureFactory.LoadInventoryChrome("title");
             backImage.color = new Color(0.78f, 0.78f, 0.78f, 1f);
@@ -128,7 +133,8 @@ namespace Desktopirates
             Text backLabel = CreateText("Close Inventory Label", backRect, "BACK", 11, Vector2.zero, new Vector2(66f, 22f));
             backLabel.color = Brass;
 
-            RectTransform viewport = CreateRect("Inventory Scroll Viewport", panel, new Vector2(-8f, -38f), new Vector2(452f, InventoryManifestModel.ViewportHeight));
+            RectTransform viewport = CreateRect("Inventory Scroll Viewport", panel,
+                new Vector2(-8f, InventoryManifestModel.ViewportCenterY), new Vector2(452f, InventoryManifestModel.ViewportHeight));
             Image viewportImage = viewport.gameObject.AddComponent<Image>();
             // The mask must be fully rectangular. Decorative sprites have transparent
             // corners and would clip the first/last manifest row.
@@ -159,7 +165,8 @@ namespace Desktopirates
             scroll.scrollSensitivity = 38f;
             scroll.inertia = true;
             scroll.decelerationRate = 0.12f;
-            RectTransform scrollbarRect = CreateRect("Inventory Brass Scrollbar", panel, new Vector2(232f, -38f), new Vector2(10f, InventoryManifestModel.ViewportHeight));
+            RectTransform scrollbarRect = CreateRect("Inventory Brass Scrollbar", panel,
+                new Vector2(232f, InventoryManifestModel.ViewportCenterY), new Vector2(10f, InventoryManifestModel.ViewportHeight));
             RawImage scrollbarTrack = scrollbarRect.gameObject.AddComponent<RawImage>(); scrollbarTrack.texture = UiTextureFactory.LoadInventoryChrome("scrollbar_track"); scrollbarTrack.color = Color.white; scrollbarTrack.raycastTarget = true;
             Scrollbar scrollbar = scrollbarRect.gameObject.AddComponent<Scrollbar>();
             RectTransform slidingArea = CreateRect("Cargo Scrollbar Sliding Area", scrollbarRect, Vector2.zero, Vector2.zero);
