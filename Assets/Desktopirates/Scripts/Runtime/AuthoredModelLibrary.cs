@@ -108,15 +108,17 @@ namespace Desktopirates
             {
                 string part = renderer.gameObject.name.ToLowerInvariant();
                 if (part.Contains("stone") || part.Contains("shoal") || part.Contains("lighthouse"))
-                    renderer.sharedMaterial = GetTextured(HarborStoneTexture, Color.white);
+                    renderer.sharedMaterial = GetTextured(HarborStoneTexture, new Color(0.92f, 0.96f, 0.92f));
                 else if (part.Contains("brass") || part.Contains("gold"))
                     renderer.sharedMaterial = GetFlat("Brass", new Color(0.92f, 0.52f, 0.08f));
                 else if (part.Contains("metal") || part.Contains("lantern_room"))
                     renderer.sharedMaterial = GetFlat("Iron", new Color(0.075f, 0.08f, 0.075f));
-                else if (part.Contains("beacon"))
+                else if (part.Contains("beacon") || part.Contains("window"))
                     renderer.sharedMaterial = GetFlat("Beacon", new Color(1f, 0.45f, 0.04f), true);
+                else if (part.Contains("roof"))
+                    renderer.sharedMaterial = GetTextured(HullTexture, new Color(1f, 0.62f, 0.42f));
                 else if (part.Contains("harbor") || part.Contains("pier") || part.Contains("warehouse") || part.Contains("crane"))
-                    renderer.sharedMaterial = GetTextured(HarborWoodTexture, Color.white);
+                    renderer.sharedMaterial = GetTextured(HarborWoodTexture, new Color(1f, 0.88f, 0.68f));
                 else
                     renderer.sharedMaterial = GetTextured(HullTexture, Color.white);
             }

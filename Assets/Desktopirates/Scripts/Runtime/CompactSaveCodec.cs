@@ -10,7 +10,7 @@ namespace Desktopirates
 {
     public static class CompactSaveCodec
     {
-        private const byte Version = 7;
+        private const byte Version = 8;
         private const int Version4RoleCount = 4;
         private const int Version4PerkCount = 14;
         private const int Version5RoleCount = 5;
@@ -58,6 +58,7 @@ namespace Desktopirates
                 WriteExploration(writer, state.ExploredChunks);
                 WriteResolved(writer, state.ResolvedEvents);
                 WriteCaptainRecord(writer, state.Captain);
+                writer.Write(state.BossCompassOwned);
             }
 
             raw.Position = 0;
@@ -160,6 +161,7 @@ namespace Desktopirates
             ReadExploration(reader, state.ExploredChunks);
             ReadResolved(reader, state.ResolvedEvents);
             if (version >= 7) ReadCaptainRecord(reader, state.Captain);
+            if (version >= 8) state.BossCompassOwned = reader.ReadBoolean();
             return state;
         }
 

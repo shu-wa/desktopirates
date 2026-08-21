@@ -6,6 +6,7 @@ namespace Desktopirates
     {
         public float CurrentYaw { get; private set; }
         public int DirectionIndex => Mathf.RoundToInt(CurrentYaw / 45f) & 7;
+        public Camera WorldCamera => targetCamera;
 
         private Camera targetCamera;
         private float targetYaw;

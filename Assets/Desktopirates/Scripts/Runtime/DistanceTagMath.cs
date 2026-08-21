@@ -36,5 +36,12 @@ namespace Desktopirates
             Vector2 unit = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector2.up;
             return center + new Vector2(unit.x * radii.x, unit.y * radii.y);
         }
+
+        public static Vector2 PositionOutsideRim(Vector2 center, Vector2 rimPoint, float markerPixels, float padding)
+        {
+            Vector2 outward = rimPoint - center;
+            if (outward.sqrMagnitude < 0.0001f) outward = Vector2.up;
+            return rimPoint + outward.normalized * (Mathf.Max(0f, markerPixels) * 0.5f + Mathf.Max(0f, padding));
+        }
     }
 }

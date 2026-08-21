@@ -165,6 +165,7 @@ namespace Desktopirates
 
         public static Texture2D LoadFramelessPortIcon(string name)
         {
+            if (name == "boss_compass") return LoadCompassArrow();
             Texture2D texture = LoadConceptTexture("PortFrameless", name);
             return texture != null ? texture : LoadPortIcon(name);
         }

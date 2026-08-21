@@ -37,7 +37,11 @@ namespace Desktopirates
     public static class WorldGenerator
     {
         public const float ChunkSize = 18f;
-        private const int BossSectorSize = 12;
+        // Bosses are intentionally much rarer than ordinary landmarks. One repeatable
+        // anchor per 28x28 chunks makes blind discovery possible, but exceptional; the
+        // purchasable boss compass is the dependable way to hunt them.
+        public const int BossSectorSize = 28;
+        public const int MinimumInfiniteBossRange = 8;
 
         public static void GenerateChunk(int seed, int chunkX, int chunkY, List<GeneratedEventData> output)
         {
@@ -84,24 +88,25 @@ namespace Desktopirates
                 break;
             }
 
-            // Every infinite 12x12 sector owns one deterministic boss anchor, so bosses
-            // remain farmable after the four introductory encounters are resolved.
+            // Every distant infinite sector owns one deterministic boss anchor, so bosses
+            // remain farmable without becoming common roadside encounters.
             int sectorX = FloorDiv(chunkX, BossSectorSize);
             int sectorY = FloorDiv(chunkY, BossSectorSize);
-            ulong sectorHash = Hash(seed, sectorX, sectorY, 6401);
-            int sectorBossX = sectorX * BossSectorSize + (int)(sectorHash % BossSectorSize);
-            int sectorBossY = sectorY * BossSectorSize + (int)((sectorHash >> 12) % BossSectorSize);
+            GetSectorBossChunk(seed, sectorX, sectorY, out int sectorBossX, out int sectorBossY, out BossKind sectorBoss);
             int range = Mathf.Max(Mathf.Abs(chunkX), Mathf.Abs(chunkY));
-            if (!hasBoss && range >= 4 && chunkX == sectorBossX && chunkY == sectorBossY)
+            if (!hasBoss
+                && !SectorContainsGuaranteedBoss(seed, sectorX, sectorY)
+                && range >= MinimumInfiniteBossRange
+                && chunkX == sectorBossX && chunkY == sectorBossY)
             {
-                BossKind boss = (BossKind)(1 + (int)((sectorHash >> 24) % 4UL));
-                AddBoss(seed, chunkX, chunkY, boss, 6500 + (int)(sectorHash & 1023UL), output);
+                ulong sectorHash = Hash(seed, sectorX, sectorY, 6401);
+                AddBoss(seed, chunkX, chunkY, sectorBoss, 6500 + (int)(sectorHash & 1023UL), output);
             }
         }
 
         public static void GetGuaranteedBossChunk(int seed, BossKind boss, out int chunkX, out int chunkY)
         {
-            int[] rings = { 0, 4, 7, 11, 16 };
+            int[] rings = { 0, 10, 18, 28, 40 };
             int ring = rings[Mathf.Clamp((int)boss, 1, 4)];
             ulong hash = Hash(seed, (int)boss, ring, 5011);
             Vector2Int[] directions =
@@ -117,13 +122,85 @@ namespace Desktopirates
             chunkY = coordinate.y;
         }
 
+        public static bool TryFindNearestBoss(int seed, Vector2 origin, ISet<ulong> resolvedEvents, out GeneratedEventData nearest)
+        {
+            nearest = default;
+            GeneratedEventData best = default;
+            float bestDistanceSquared = float.MaxValue;
+            bool found = false;
+
+            bool Consider(GeneratedEventData candidate)
+            {
+                if (resolvedEvents != null && resolvedEvents.Contains(candidate.Id)) return false;
+                float distanceSquared = (candidate.Position - origin).sqrMagnitude;
+                if (distanceSquared < bestDistanceSquared)
+                {
+                    bestDistanceSquared = distanceSquared;
+                    best = candidate;
+                    found = true;
+                }
+                return true;
+            }
+
+            for (int value = (int)BossKind.GangAdmiral; value <= (int)BossKind.Poseidon; value++)
+            {
+                GetGuaranteedBossChunk(seed, (BossKind)value, out int x, out int y);
+                Consider(CreateBossEvent(seed, x, y, (BossKind)value, 700 + value));
+            }
+
+            Vector2Int centerChunk = WorldStreamingModel.GetCenterChunk(origin);
+            int centerSectorX = FloorDiv(centerChunk.x, BossSectorSize);
+            int centerSectorY = FloorDiv(centerChunk.y, BossSectorSize);
+            int firstUnresolvedSectorRing = -1;
+            // Expand until an undefeated repeatable boss is found, then inspect two more
+            // rings so a sector-corner captain still receives the genuinely nearest signal.
+            for (int ring = 0; ring <= 128 && (firstUnresolvedSectorRing < 0 || ring <= firstUnresolvedSectorRing + 2); ring++)
+            {
+                for (int sectorY = centerSectorY - ring; sectorY <= centerSectorY + ring; sectorY++)
+                for (int sectorX = centerSectorX - ring; sectorX <= centerSectorX + ring; sectorX++)
+                {
+                    if (Mathf.Max(Mathf.Abs(sectorX - centerSectorX), Mathf.Abs(sectorY - centerSectorY)) != ring) continue;
+                    if (SectorContainsGuaranteedBoss(seed, sectorX, sectorY)) continue;
+                    GetSectorBossChunk(seed, sectorX, sectorY, out int x, out int y, out BossKind boss);
+                    if (Mathf.Max(Mathf.Abs(x), Mathf.Abs(y)) < MinimumInfiniteBossRange) continue;
+                    ulong sectorHash = Hash(seed, sectorX, sectorY, 6401);
+                    if (Consider(CreateBossEvent(seed, x, y, boss, 6500 + (int)(sectorHash & 1023UL)))
+                        && firstUnresolvedSectorRing < 0)
+                        firstUnresolvedSectorRing = ring;
+                }
+            }
+            nearest = best;
+            return found;
+        }
+
+        public static void GetSectorBossChunk(int seed, int sectorX, int sectorY, out int chunkX, out int chunkY, out BossKind boss)
+        {
+            ulong sectorHash = Hash(seed, sectorX, sectorY, 6401);
+            chunkX = sectorX * BossSectorSize + (int)(sectorHash % (ulong)BossSectorSize);
+            chunkY = sectorY * BossSectorSize + (int)((sectorHash >> 12) % (ulong)BossSectorSize);
+            boss = (BossKind)(1 + (int)((sectorHash >> 24) % 4UL));
+        }
+
+        private static bool SectorContainsGuaranteedBoss(int seed, int sectorX, int sectorY)
+        {
+            for (int value = (int)BossKind.GangAdmiral; value <= (int)BossKind.Poseidon; value++)
+            {
+                GetGuaranteedBossChunk(seed, (BossKind)value, out int x, out int y);
+                if (FloorDiv(x, BossSectorSize) == sectorX && FloorDiv(y, BossSectorSize) == sectorY) return true;
+            }
+            return false;
+        }
+
         private static void AddBoss(int seed, int chunkX, int chunkY, BossKind boss, int salt, List<GeneratedEventData> output)
+            => output.Add(CreateBossEvent(seed, chunkX, chunkY, boss, salt));
+
+        private static GeneratedEventData CreateBossEvent(int seed, int chunkX, int chunkY, BossKind boss, int salt)
         {
             ulong h = Hash(seed, chunkX, chunkY, salt);
             Vector2 position = new Vector2(
                 chunkX * ChunkSize + 4f + Unit(h) * (ChunkSize - 8f),
                 chunkY * ChunkSize + 4f + Unit(h >> 19) * (ChunkSize - 8f));
-            output.Add(new GeneratedEventData(Hash(seed, chunkX, chunkY, salt + 1), PoiKind.Enemy, position, 120 + (int)boss * 70, boss));
+            return new GeneratedEventData(Hash(seed, chunkX, chunkY, salt + 1), PoiKind.Enemy, position, 120 + (int)boss * 70, boss);
         }
 
         private static int FloorDiv(int value, int divisor) => Mathf.FloorToInt(value / (float)divisor);

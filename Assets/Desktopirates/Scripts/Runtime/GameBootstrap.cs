@@ -38,6 +38,8 @@ namespace Desktopirates
                 ? new SaveSystem(Path.Combine(Application.temporaryCachePath, "desktopirates-preview.dprs"))
                 : new SaveSystem();
             GameState state = preview ? new GameState() : saves.LoadOrNew();
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--compass-preview"))
+                state.BossCompassOwned = true;
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--inventory-preview"))
             {
                 state.Food = 28;
@@ -126,6 +128,8 @@ namespace Desktopirates
             inventory.Initialize(canvas, state);
             MenuController menu = gameObject.AddComponent<MenuController>();
             menu.Initialize(canvas, overlay, state, saves, boat, poiSystem, inventory, null);
+            BossCompassController bossCompass = gameObject.AddComponent<BossCompassController>();
+            bossCompass.Initialize(canvas, state, boat, cameraRig, inventory, menu);
             SeaRegionController seaRegions = gameObject.AddComponent<SeaRegionController>();
             seaRegions.Initialize(canvas, state, boat, ocean, inventory, menu);
             SpeedGaugeController speedGauge = gameObject.AddComponent<SpeedGaugeController>();

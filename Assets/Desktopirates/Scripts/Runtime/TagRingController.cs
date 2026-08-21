@@ -6,7 +6,7 @@ namespace Desktopirates
 {
     public sealed class TagRingController : MonoBehaviour
     {
-        public const float HudSafeTop = 105f;
+        public const float RimPadding = 6f;
         private readonly List<RawImage> markers = new List<RawImage>();
         private readonly List<ulong> markerIds = new List<ulong>();
         private RectTransform canvas;
@@ -40,6 +40,9 @@ namespace Desktopirates
             {
                 var markerObject = new GameObject($"{poi.Kind} Direction Tag", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
                 markerObject.transform.SetParent(canvas, false);
+                // Direction tags belong behind every HUD/modal surface. Their centers can
+                // correctly sit beyond the top sea rim without covering HULL/GOLD cards.
+                markerObject.transform.SetAsFirstSibling();
                 var marker = markerObject.GetComponent<RawImage>();
                 marker.texture = UiTextureFactory.LoadPoiBadge(poi.Kind, 128);
                 marker.color = Color.white;
@@ -71,20 +74,28 @@ namespace Desktopirates
                 marker.gameObject.SetActive(showTag);
                 if (!showTag) continue;
 
-                Vector2 direction = relative.sqrMagnitude > 0.001f ? relative.normalized : Vector2.up;
-                Vector2 screenDirection = DistanceTagMath.WorldToScreenDirection(direction, cameraRig.CurrentYaw);
-                Vector2 discCenter = new Vector2(0f, -63f);
-                Vector2 rimPosition = DistanceTagMath.PositionOnEllipse(
-                    screenDirection,
-                    discCenter,
-                    new Vector2(312f, 218f));
-                // The physical top rim sits behind the dashboard. Preserve horizontal
-                // bearing but move that short arc below the HUD, accounting for the
-                // largest 98 px marker so no artwork can cover HULL/GOLD/CREW/LOAD.
-                rimPosition.y = Mathf.Min(rimPosition.y, HudSafeTop);
-                marker.rectTransform.anchoredPosition = rimPosition;
-
                 float pixels = DistanceTagMath.PixelSizeForDistance(distance);
+                Vector2 direction = relative.sqrMagnitude > 0.001f ? relative.normalized : Vector2.up;
+                Camera worldCamera = cameraRig.WorldCamera;
+                if (worldCamera != null
+                    && RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas, worldCamera.WorldToScreenPoint(Vector3.zero), null, out Vector2 discCenter)
+                    && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        canvas,
+                        worldCamera.WorldToScreenPoint(new Vector3(direction.x * OceanDisc.Radius, 0f, direction.y * OceanDisc.Radius)),
+                        null,
+                        out Vector2 rimPosition))
+                {
+                    // The marker's inner edge begins beyond the actually rendered ocean.
+                    // Projecting the world rim removes every camera-size/yaw hard-coded offset.
+                    marker.rectTransform.anchoredPosition = DistanceTagMath.PositionOutsideRim(discCenter, rimPosition, pixels, RimPadding);
+                }
+                else
+                {
+                    Vector2 screenDirection = DistanceTagMath.WorldToScreenDirection(direction, cameraRig.CurrentYaw);
+                    Vector2 fallbackCenter = new Vector2(0f, -63f);
+                    Vector2 fallbackRim = DistanceTagMath.PositionOnEllipse(screenDirection, fallbackCenter, new Vector2(260f, 182f));
+                    marker.rectTransform.anchoredPosition = DistanceTagMath.PositionOutsideRim(fallbackCenter, fallbackRim, pixels, RimPadding);
+                }
                 marker.rectTransform.sizeDelta = new Vector2(pixels, pixels);
                 marker.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0.58f, Mathf.InverseLerp(8f, 60f, distance)));
             }

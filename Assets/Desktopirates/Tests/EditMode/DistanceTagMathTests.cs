@@ -59,10 +59,21 @@ namespace Desktopirates.Tests
         }
 
         [Test]
-        public void LargestTopTagKeepsClearOfTheDashboard()
+        public void LandmarkMarkerBeginsOutsideTheProjectedSeaRim()
         {
-            const float largestMarkerRadius = 49f;
-            Assert.That(TagRingController.HudSafeTop + largestMarkerRadius, Is.LessThan(160f));
+            Vector2 center = new Vector2(0f, -63f);
+            Vector2 rim = new Vector2(260f, -63f);
+            Vector2 marker = DistanceTagMath.PositionOutsideRim(center, rim, 94f, TagRingController.RimPadding);
+            Assert.That(marker.x - rim.x, Is.EqualTo(47f + TagRingController.RimPadding).Within(0.001f));
+        }
+
+        [TestCase(0f, 0f)]
+        [TestCase(1f, -90f)]
+        [TestCase(-1f, 90f)]
+        public void BossCompassNeedleTracksScreenDirection(float worldX, float expectedAngle)
+        {
+            Vector2 direction = worldX == 0f ? Vector2.up : new Vector2(worldX, 0f);
+            Assert.That(BossCompassModel.GetNeedleAngle(direction, 0f), Is.EqualTo(expectedAngle).Within(0.001f));
         }
     }
 }

@@ -196,7 +196,8 @@ namespace Desktopirates.Tests
             float verticalOceanCoverage = OceanDisc.Radius / WorldPresentationMetrics.CameraOrthographicSize;
             Assert.That(verticalOceanCoverage, Is.GreaterThanOrEqualTo(WorldPresentationMetrics.MinimumOceanVerticalCoverage));
             Assert.That(WorldPresentationMetrics.PlayerModelScale, Is.GreaterThan(1f));
-            Assert.That(WorldPresentationMetrics.HarborModelScale, Is.InRange(0.70f, 0.90f));
+            Assert.That(WorldPresentationMetrics.CameraOrthographicSize, Is.EqualTo(7.20f).Within(0.001f));
+            Assert.That(WorldPresentationMetrics.HarborModelScale, Is.InRange(0.90f, 1.10f));
             Assert.That(WorldPresentationMetrics.WreckModelScale, Is.GreaterThan(1f));
             Assert.That(WorldPresentationMetrics.TreasureModelScale, Is.GreaterThan(1f));
         }
@@ -230,6 +231,29 @@ namespace Desktopirates.Tests
                 Assert.That(harbor.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
                 Assert.That(AuthoredModelLibrary.TryCreateBoss(parent, BossKind.Kraken, out Transform boss), Is.True);
                 Assert.That(boss.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent.gameObject);
+            }
+        }
+
+        [Test]
+        public void AuthoredHarborContainsConceptLandmarksAndShipSternFacesAft()
+        {
+            var parent = new GameObject("Authored Landmark Test Root").transform;
+            try
+            {
+                Assert.That(AuthoredModelLibrary.TryCreatePoi(PoiKind.Port, parent, out Transform harbor), Is.True);
+                string[] required = { "lighthouse", "crane", "shipyard", "tavern", "pier" };
+                Transform[] harborParts = harbor.GetComponentsInChildren<Transform>(true);
+                foreach (string token in required)
+                    Assert.That(System.Array.Exists(harborParts, part => part.name.ToLowerInvariant().Contains(token)), Is.True, token);
+
+                Assert.That(AuthoredModelLibrary.TryCreatePlayer(parent, 3, out Transform player), Is.True);
+                Transform stern = System.Array.Find(player.GetComponentsInChildren<Transform>(true), part => part.name.ToLowerInvariant().Contains("stern_cabin"));
+                Assert.That(stern, Is.Not.Null);
+                Assert.That(player.InverseTransformPoint(stern.position).z, Is.LessThan(0f), "The stern must sit behind runtime +Z forward.");
             }
             finally
             {

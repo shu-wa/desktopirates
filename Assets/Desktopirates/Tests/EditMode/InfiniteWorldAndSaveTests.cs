@@ -551,13 +551,43 @@ namespace Desktopirates.Tests
         {
             int found = 0;
             var events = new List<GeneratedEventData>();
-            for (int y = 24; y < 48; y++)
-            for (int x = 24; x < 48; x++)
+            for (int sectorY = 2; sectorY < 6; sectorY++)
+            for (int sectorX = 2; sectorX < 6; sectorX++)
             {
+                WorldGenerator.GetSectorBossChunk(173, sectorX, sectorY, out int x, out int y, out _);
                 WorldGenerator.GenerateChunk(173, x, y, events);
                 if (events.Exists(item => item.Boss != BossKind.None)) found++;
             }
-            Assert.That(found, Is.GreaterThanOrEqualTo(4));
+            Assert.That(found, Is.EqualTo(16));
+        }
+
+        [Test]
+        public void BossesAreSparseAndCompassCanFindTheNearestUnresolvedAnchor()
+        {
+            WorldGenerator.GetGuaranteedBossChunk(7919, BossKind.GangAdmiral, out int firstX, out int firstY);
+            Assert.That(Mathf.Max(Mathf.Abs(firstX), Mathf.Abs(firstY)), Is.GreaterThanOrEqualTo(9));
+            Assert.That(WorldGenerator.BossSectorSize, Is.GreaterThanOrEqualTo(28));
+
+            Assert.That(WorldGenerator.TryFindNearestBoss(7919, Vector2.zero, null, out GeneratedEventData first), Is.True);
+            var resolved = new HashSet<ulong> { first.Id };
+            Assert.That(WorldGenerator.TryFindNearestBoss(7919, Vector2.zero, resolved, out GeneratedEventData second), Is.True);
+            Assert.That(second.Id, Is.Not.EqualTo(first.Id));
+            Assert.That(second.Boss, Is.Not.EqualTo(BossKind.None));
+            for (int i = 0; i < 40; i++)
+            {
+                Assert.That(WorldGenerator.TryFindNearestBoss(7919, Vector2.zero, resolved, out GeneratedEventData next), Is.True);
+                resolved.Add(next.Id);
+            }
+            Assert.That(WorldGenerator.TryFindNearestBoss(7919, Vector2.zero, resolved, out _), Is.True,
+                "The infinite compass search must continue beyond a heavily farmed neighborhood.");
+        }
+
+        [Test]
+        public void BossCompassOwnershipRoundTripsInCompactSave()
+        {
+            var state = new GameState { BossCompassOwned = true };
+            GameState restored = CompactSaveCodec.Deserialize(CompactSaveCodec.Serialize(state));
+            Assert.That(restored.BossCompassOwned, Is.True);
         }
 
         [Test]

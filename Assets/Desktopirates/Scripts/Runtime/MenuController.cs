@@ -69,6 +69,7 @@ namespace Desktopirates
         private Text portRepairText;
         private Text portFoodText;
         private Text portWaterText;
+        private Text portBossCompassText;
         private readonly Text[] crewRoleTexts = new Text[CrewManagementModel.RoleCount];
         private readonly Text[] crewPerkTexts = new Text[CrewManagementModel.RoleCount];
         private float toastUntil;
@@ -346,13 +347,14 @@ namespace Desktopirates
             provisionText = CreateText(board, "CREW CONSUMPTION", new Vector2(0f, 116f), new Vector2(334f, 22f), 12, TextAnchor.MiddleCenter);
             provisionText.color = UiTheme.SecondaryText; UiTheme.StyleText(provisionText, 12);
 
-            portRepairText = CreatePortServiceButton(board, "REPAIR  +10%  20G", new Vector2(0f, 76f), Repair, "repair").GetComponentInChildren<Text>();
-            portFoodText = CreatePortServiceButton(board, "BUY FOOD  +10  18G", new Vector2(0f, 28f), () => BuyProvision(true), "food").GetComponentInChildren<Text>();
-            portWaterText = CreatePortServiceButton(board, "BUY WATER  +10  14G", new Vector2(0f, -20f), () => BuyProvision(false), "water").GetComponentInChildren<Text>();
-            Button engineButton = CreatePortServiceButton(board, "ENGINE  L0 > L1", new Vector2(0f, -68f), UpgradeEngine, "propulsion");
+            portRepairText = CreatePortServiceButton(board, "REPAIR  +10%  20G", new Vector2(0f, 82f), Repair, "repair").GetComponentInChildren<Text>();
+            portFoodText = CreatePortServiceButton(board, "BUY FOOD  +10  18G", new Vector2(0f, 38f), () => BuyProvision(true), "food").GetComponentInChildren<Text>();
+            portWaterText = CreatePortServiceButton(board, "BUY WATER  +10  14G", new Vector2(0f, -6f), () => BuyProvision(false), "water").GetComponentInChildren<Text>();
+            Button engineButton = CreatePortServiceButton(board, "ENGINE  L0 > L1", new Vector2(0f, -50f), UpgradeEngine, "propulsion");
             engineUpgradeText = engineButton.GetComponentInChildren<Text>();
-            CreatePortServiceButton(board, "SHIPYARD  CUSTOMIZE", new Vector2(0f, -116f), OpenShipyard, "shipyard");
-            CreatePortServiceButton(board, "DEPART HARBOR", new Vector2(0f, -178f), () => DepartPort(portRoot), "sail", 220f, true);
+            portBossCompassText = CreatePortServiceButton(board, $"BOSS COMPASS  {BossCompassModel.PurchaseCost}G", new Vector2(0f, -94f), BuyBossCompass, "boss_compass").GetComponentInChildren<Text>();
+            CreatePortServiceButton(board, "SHIPYARD  CUSTOMIZE", new Vector2(0f, -138f), OpenShipyard, "shipyard");
+            CreatePortServiceButton(board, "DEPART HARBOR", new Vector2(0f, -194f), () => DepartPort(portRoot), "sail", 220f, true);
             portRoot.SetActive(false);
         }
 
@@ -661,6 +663,17 @@ namespace Desktopirates
             ShowMessage(food ? "FOOD +10" : "FRESH WATER +10");
         }
 
+        private void BuyBossCompass()
+        {
+            if (state.BossCompassOwned) { ShowMessage("BOSS COMPASS ALREADY INSTALLED"); return; }
+            if (state.Gold < BossCompassModel.PurchaseCost) { ShowMessage($"BOSS COMPASS NEEDS {BossCompassModel.PurchaseCost}G"); return; }
+            state.Gold -= BossCompassModel.PurchaseCost;
+            state.BossCompassOwned = true;
+            RefreshPortStatus();
+            saves.Save(state);
+            ShowMessage("BOSS COMPASS INSTALLED — FOLLOW THE AMBER NEEDLE");
+        }
+
         private void RefreshPortStatus()
         {
             if (portFoodStockText != null) portFoodStockText.text = $"FOOD  {state.Food}";
@@ -672,6 +685,9 @@ namespace Desktopirates
             if (portRepairText != null) portRepairText.text = repairAmount <= 0 ? "REPAIR  FULL" : $"REPAIR  +{repairAmount}  {repairCost}G";
             if (portFoodText != null) portFoodText.text = "BUY FOOD  +10  18G";
             if (portWaterText != null) portWaterText.text = "BUY WATER  +10  14G";
+            if (portBossCompassText != null) portBossCompassText.text = state.BossCompassOwned
+                ? "BOSS COMPASS  INSTALLED"
+                : $"BOSS COMPASS  {BossCompassModel.PurchaseCost}G";
         }
 
         private void UpgradeEngine()

@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import bpy
+from mathutils import Matrix
 
 
 PROJECT_ROOT = Path(sys.argv[sys.argv.index("--") + 1]).resolve() if "--" in sys.argv else Path.cwd()
@@ -35,6 +36,13 @@ def reset_scene() -> None:
     for name, color in MATERIAL_COLORS.items():
         material = bpy.data.materials.new(name)
         material.diffuse_color = color
+
+
+def rotate_scene_yaw_180() -> None:
+    """Convert the authored +Y bow to the runtime's expected visual forward axis."""
+    rotation = Matrix.Rotation(math.pi, 4, "Z")
+    for obj in bpy.context.scene.objects:
+        obj.matrix_world = rotation @ obj.matrix_world
 
 
 def material(name: str):
@@ -169,18 +177,43 @@ def create_ship(tier: int, enemy=False):
 
 
 def create_harbor():
-    cylinder("Harbor_Stone_Island", (-0.6, 0.1, 0.0), 2.25, 0.24, "HarborStone_v02", vertices=12)
-    cube("Harbor_Stone_Quay", (0.60, -0.20, 0.24), (3.8, 1.55, 0.32), "HarborStone_v02", bevel=0.08)
-    for index in range(8):
-        cube(f"Harbor_Pier_Plank_{index + 1}", (1.15, -1.10 - index * 0.22, 0.29), (1.10, 0.18, 0.12), "HarborWood_v02", bevel=0.025)
-    for index, (x, y, sx, sy) in enumerate(((-1.15, 0.20, 1.25, 0.90), (0.15, 0.52, 1.05, 0.75), (1.10, 0.44, 0.86, 0.66))):
-        cube(f"Harbor_Warehouse_{index + 1}", (x, y, 0.70), (sx, sy, 1.10), "HarborWood_v02", bevel=0.07)
-        cube(f"Harbor_Roof_{index + 1}", (x, y, 1.32), (sx * 1.12, sy * 1.12, 0.18), "HullWood_v02", rotation=(0.0, math.radians(8 if index % 2 == 0 else -8), 0.0), bevel=0.035)
-    cylinder("Harbor_Lighthouse_Tower", (-1.75, -0.15, 1.05), 0.30, 1.95, "HarborStone_v02", vertices=10)
-    cylinder("Harbor_Lantern_Room", (-1.75, -0.15, 2.12), 0.39, 0.25, "Metal_v02", vertices=8)
-    cylinder("Harbor_Beacon", (-1.75, -0.15, 2.28), 0.20, 0.18, "Glow_v02", vertices=8)
-    cube("Harbor_Crane_Post", (1.30, 0.65, 1.15), (0.16, 0.16, 1.75), "HarborWood_v02")
-    cube("Harbor_Crane_Arm", (1.68, 0.65, 1.88), (0.95, 0.14, 0.14), "HarborWood_v02", rotation=(0.0, math.radians(-9), 0.0))
+    # Open-front stone quay: the negative-Y half remains navigable water, matching the
+    # concept-art harbor basin instead of reading as a solid round island.
+    cube("Harbor_Stone_Main_Quay", (0.15, 0.72, 0.18), (4.55, 1.72, 0.38), "HarborStone_v02", bevel=0.10)
+    cube("Harbor_Stone_Left_Wing", (-1.72, -0.05, 0.18), (0.82, 1.32, 0.38), "HarborStone_v02", bevel=0.09)
+    cube("Harbor_Stone_Right_Wing", (1.85, -0.02, 0.18), (0.72, 1.22, 0.38), "HarborStone_v02", bevel=0.09)
+    for index in range(9):
+        angle = math.radians(18 + index * 18)
+        x = math.cos(angle) * 2.42
+        y = 0.42 + math.sin(angle) * 1.38
+        cube(f"Harbor_Stone_Seawall_{index + 1}", (x, y, 0.34), (0.58, 0.34, 0.46), "HarborStone_v02", rotation=(0.0, 0.0, angle - math.pi / 2), bevel=0.06)
+
+    # Three readable berths form the harbor silhouette even at desktop-overlay scale.
+    for berth, x in enumerate((-0.70, 0.45, 1.45)):
+        cube(f"Harbor_Pier_{berth + 1}", (x, -0.72, 0.31), (0.34, 2.10, 0.15), "HarborWood_v02", bevel=0.025)
+        for post in (-1, 1):
+            cube(f"Harbor_Pier_{berth + 1}_Post_{post}", (x + post * 0.19, -1.52, 0.25), (0.10, 0.10, 0.66), "HarborWood_v02")
+
+    # Lighthouse, crane, shipyard and tavern mirror the strong landmarks in the reference.
+    cylinder("Harbor_Lighthouse_Tower", (-1.62, 0.74, 1.18), 0.34, 2.20, "HarborStone_v02", vertices=10)
+    cylinder("Harbor_Lantern_Room", (-1.62, 0.74, 2.36), 0.43, 0.28, "Metal_v02", vertices=8)
+    cylinder("Harbor_Beacon", (-1.62, 0.74, 2.54), 0.23, 0.20, "Glow_v02", vertices=8)
+
+    cube("Harbor_Crane_Post", (-0.35, 1.00, 1.18), (0.18, 0.18, 1.90), "HarborWood_v02")
+    cube("Harbor_Crane_Arm", (0.10, 1.00, 1.94), (1.08, 0.16, 0.16), "HarborWood_v02", rotation=(0.0, math.radians(-8), 0.0))
+    cube("Harbor_Crane_Counterweight", (-0.63, 1.00, 1.78), (0.34, 0.32, 0.40), "Metal_v02", bevel=0.03)
+
+    cube("Harbor_Shipyard", (0.72, 0.92, 0.82), (1.42, 1.00, 1.30), "HarborWood_v02", bevel=0.07)
+    cube("Harbor_Shipyard_Roof", (0.72, 0.92, 1.56), (1.58, 1.15, 0.20), "HullWood_v02", rotation=(0.0, math.radians(7), 0.0), bevel=0.04)
+    cube("Harbor_Shipyard_Sign", (0.72, 0.38, 1.06), (0.88, 0.08, 0.28), "Brass_v02", bevel=0.03)
+    for window, x in enumerate((0.38, 1.06)):
+        cube(f"Harbor_Shipyard_Window_{window + 1}", (x, 0.365, 0.76), (0.23, 0.055, 0.24), "Glow_v02", bevel=0.015)
+
+    cube("Harbor_Tavern", (1.78, 0.72, 0.70), (0.92, 0.90, 1.08), "HarborWood_v02", bevel=0.07)
+    cube("Harbor_Tavern_Roof", (1.78, 0.72, 1.33), (1.06, 1.04, 0.18), "HullWood_v02", rotation=(0.0, math.radians(-8), 0.0), bevel=0.04)
+    cube("Harbor_Tavern_Sign", (1.31, 0.48, 0.88), (0.09, 0.38, 0.32), "Brass_v02", bevel=0.025)
+    for window, x in enumerate((1.58, 1.96)):
+        cube(f"Harbor_Tavern_Window_{window + 1}", (x, 0.245, 0.78), (0.20, 0.055, 0.24), "Glow_v02", bevel=0.015)
 
 
 def create_wreck():
@@ -280,9 +313,11 @@ def build_all() -> None:
     for tier in range(6):
         reset_scene()
         create_ship(tier)
+        rotate_scene_yaw_180()
         save_and_export("Ships", f"player_tier_{tier}_v02")
     reset_scene()
     create_ship(3, enemy=True)
+    rotate_scene_yaw_180()
     save_and_export("Ships", "enemy_corsair_v02")
     reset_scene()
     create_harbor()
@@ -295,9 +330,11 @@ def build_all() -> None:
     save_and_export("World", "treasure_v02")
     reset_scene()
     create_gang_admiral()
+    rotate_scene_yaw_180()
     save_and_export("Bosses", "gang_admiral_v02")
     reset_scene()
     create_ghost_ship()
+    rotate_scene_yaw_180()
     save_and_export("Bosses", "ghost_ship_v02")
     reset_scene()
     create_kraken()

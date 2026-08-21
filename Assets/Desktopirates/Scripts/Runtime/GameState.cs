@@ -27,6 +27,7 @@ namespace Desktopirates
         public int TurningLevel;
         public int CannonMountMask;
         public int SpareCannons;
+        public bool BossCompassOwned;
         public readonly HashSet<long> ExploredChunks = new HashSet<long>();
         public readonly HashSet<ulong> ResolvedEvents = new HashSet<ulong>();
         private readonly int[] salvageParts = new int[SalvageInventory.PartKindCount];
