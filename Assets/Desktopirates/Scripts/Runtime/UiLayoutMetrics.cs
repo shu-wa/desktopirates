@@ -9,8 +9,10 @@ namespace Desktopirates
         public const float HudCardHeight = 78f;
         public const float HudCardSpacing = 178f;
         public const float HudCardSafeWidth = 108f;
-        public const float PortFrameSize = 540f;
+        public const float PortFrameSize = 500f;
+        public const float PortCenterY = 500f;
         public const float PortServiceBoardWidth = 382f;
+        public const float PortServiceBoardOffsetX = 0f;
         public const float PortServiceButtonWidth = 350f;
         public const float EnemyPlateWidth = 184f;
         public const float EnemyPlateHeight = 48f;

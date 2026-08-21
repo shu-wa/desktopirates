@@ -167,6 +167,7 @@ namespace Desktopirates.Tests
             float summaryBottom = summaryTop + 22f;
             float viewportTop = InventoryManifestModel.PanelTopOffset - InventoryManifestModel.ViewportCenterY - InventoryManifestModel.ViewportHeight * 0.5f;
             Assert.That(titleTop - InventoryManifestModel.MenuCircleBottom, Is.GreaterThanOrEqualTo(8f));
+            Assert.That(titleTop - InventoryManifestModel.HudDashboardBottom, Is.GreaterThanOrEqualTo(8f));
             Assert.That(summaryTop, Is.GreaterThanOrEqualTo(titleBottom));
             Assert.That(viewportTop - summaryBottom, Is.GreaterThanOrEqualTo(8f));
 
@@ -176,6 +177,17 @@ namespace Desktopirates.Tests
             float countLeft = InventoryManifestModel.CountCenterX - InventoryManifestModel.CountWidth * 0.5f;
             Assert.That(textLeft - iconRight, Is.GreaterThanOrEqualTo(8f));
             Assert.That(countLeft - textRight, Is.GreaterThanOrEqualTo(8f));
+        }
+
+        [Test]
+        public void HarborAndInventoryPanels_AreCenteredBelowPersistentHud()
+        {
+            Assert.That(InventoryManifestModel.PanelCenterX, Is.EqualTo(0f));
+            Assert.That(UiLayoutMetrics.PortServiceBoardOffsetX, Is.EqualTo(0f));
+            Assert.That(UiLayoutMetrics.PortCenterY - UiLayoutMetrics.PortFrameSize * 0.5f,
+                Is.GreaterThan(InventoryManifestModel.HudDashboardBottom));
+            Assert.That(UiLayoutMetrics.PortCenterY + UiLayoutMetrics.PortFrameSize * 0.5f,
+                Is.LessThanOrEqualTo(InventoryManifestModel.ReferenceCanvasHeight));
         }
 
         [Test]

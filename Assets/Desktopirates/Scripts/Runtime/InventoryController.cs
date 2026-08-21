@@ -95,8 +95,8 @@ namespace Desktopirates
 
         private void BuildInventory(RectTransform canvas)
         {
-            // 720x760 reference canvas: the panel leaves 12 px at the right,
-            // 10 px at the bottom, and 8 px between the title and menu circle.
+            // Centered in the canvas below the persistent ship HUD. The compact
+            // viewport intentionally scrolls so the sea remains visible at both sides.
             RectTransform panel = CreateRect("Concept Inventory Manifest", canvas,
                 new Vector2(InventoryManifestModel.PanelCenterX, -InventoryManifestModel.PanelTopOffset),
                 new Vector2(InventoryManifestModel.PanelWidth, InventoryManifestModel.PanelHeight));

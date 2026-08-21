@@ -19,3 +19,7 @@ TestResults*.xml
 *.pdb
 *.mdb
 sysinfo.txt
+
+# Generated concept-art references stay local and are not published to Git.
+ArtSource/ConceptArt/
+outputs/concept-art-*.png

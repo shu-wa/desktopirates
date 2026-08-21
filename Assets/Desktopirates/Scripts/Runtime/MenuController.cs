@@ -137,12 +137,17 @@ namespace Desktopirates
             loadBar.fillAmount = Mathf.Clamp01(loadRatio);
             hullBar.color = state.Hull <= state.MaxHull * 0.3f ? UiTheme.Danger : UiTheme.Mint;
             loadBar.color = loadRatio >= 0.92f ? UiTheme.Danger : loadRatio >= 0.78f ? UiTheme.Warning : UiTheme.Brass;
-            bool normalHud = (inventory == null || !inventory.IsOpen) && !IsModalOpen;
-            hudRoot.SetActive(normalHud);
-            inventory?.SetLauncherVisible(normalHud);
-            if (compassRoot != null) compassRoot.SetActive(normalHud);
+            bool normalNavigation = (inventory == null || !inventory.IsOpen) && !IsModalOpen;
+            // Hull, gold, crew and load are persistent ship state. Hiding them while
+            // shopping or sorting cargo made every decision harder to evaluate.
+            bool persistentStatusPanel = (inventory != null && inventory.IsOpen)
+                || (portRoot != null && portRoot.activeSelf)
+                || (shipyardRoot != null && shipyardRoot.activeSelf);
+            hudRoot.SetActive(normalNavigation || persistentStatusPanel);
+            inventory?.SetLauncherVisible(normalNavigation);
+            if (compassRoot != null) compassRoot.SetActive(normalNavigation);
             prompt.text = pois.InteractionPrompt;
-            prompt.transform.parent.gameObject.SetActive(normalHud && !string.IsNullOrEmpty(prompt.text));
+            prompt.transform.parent.gameObject.SetActive(normalNavigation && !string.IsNullOrEmpty(prompt.text));
             toast.transform.parent.gameObject.SetActive((inventory == null || !inventory.IsOpen) && Time.unscaledTime < toastUntil);
             if (mapRoot != null && Time.unscaledTime >= nextMapLiveUpdate) UpdateLiveMap();
             if (captainLogRoot != null && captainLogRoot.activeSelf) RefreshCaptainLog();
@@ -323,13 +328,13 @@ namespace Desktopirates
             back.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "port_panel_frame");
             back.color = Color.white;
             RectTransform rect = (RectTransform)portRoot.transform;
-            rect.anchoredPosition = new Vector2(0f, -398f);
+            rect.anchoredPosition = new Vector2(0f, -UiLayoutMetrics.PortCenterY);
             rect.sizeDelta = Vector2.one * UiLayoutMetrics.PortFrameSize;
-            AddAuthoredPanelFill(portRoot.transform, new Vector2(458f, 458f));
+            AddAuthoredPanelFill(portRoot.transform, Vector2.one * (UiLayoutMetrics.PortFrameSize - 82f));
             AddPanelFrameOverlay(portRoot.transform, "port_panel_frame", rect.sizeDelta);
 
             RectTransform board = CreateUiObject("Harbor Readable Service Board", portRoot.transform);
-            board.anchoredPosition = new Vector2(28f, -2f);
+            board.anchoredPosition = new Vector2(UiLayoutMetrics.PortServiceBoardOffsetX, -2f);
             board.sizeDelta = new Vector2(UiLayoutMetrics.PortServiceBoardWidth, 452f);
             Image boardFill = board.gameObject.AddComponent<Image>(); boardFill.sprite = null; boardFill.color = Color.clear; boardFill.raycastTarget = false;
 
@@ -356,9 +361,9 @@ namespace Desktopirates
             shipyardRoot = CreateUiObject("Shipyard Customization", canvas).gameObject;
             Image back = shipyardRoot.AddComponent<Image>(); back.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "shipyard_panel_frame"); back.color = Color.white;
             RectTransform rect = (RectTransform)shipyardRoot.transform;
-            rect.anchoredPosition = new Vector2(0f, -410f);
-            rect.sizeDelta = new Vector2(560f, 580f);
-            AddAuthoredPanelFill(shipyardRoot.transform, new Vector2(482f, 502f));
+            rect.anchoredPosition = new Vector2(0f, -500f);
+            rect.sizeDelta = new Vector2(560f, 500f);
+            AddAuthoredPanelFill(shipyardRoot.transform, new Vector2(482f, 422f));
             AddPanelFrameOverlay(shipyardRoot.transform, "shipyard_panel_frame", rect.sizeDelta);
             RectTransform titleFill = CreateUiObject("Shipyard Title Navy Fill", shipyardRoot.transform);
             titleFill.anchoredPosition = new Vector2(0f, 230f);
