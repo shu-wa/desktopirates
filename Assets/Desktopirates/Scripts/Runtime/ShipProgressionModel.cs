@@ -35,7 +35,7 @@ namespace Desktopirates
         public const int TierCount = 6;
         private static readonly ShipTierDefinition[] Tiers =
         {
-            new ShipTierDefinition(ShipTier.Raft, "RAFT", 100, 0, 2, 0, 0, 0.72f),
+            new ShipTierDefinition(ShipTier.Raft, "RAFT", 100, 1, 2, 0, 0, 0.72f),
             new ShipTierDefinition(ShipTier.SmallShip, "SMALL SHIP", 300, 2, 4, 1, 180, 0.88f),
             new ShipTierDefinition(ShipTier.SemiMediumShip, "SEMI-MEDIUM", 800, 3, 6, 2, 380, 1.00f),
             new ShipTierDefinition(ShipTier.MediumShip, "MEDIUM SHIP", 2000, 4, 9, 3, 700, 1.12f),

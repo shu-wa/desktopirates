@@ -519,6 +519,29 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void TutorialRaftCanMountOneStoredCannonOnItsBow()
+        {
+            var state = new GameState { ShipLevel = 0, SpareCannons = 1 };
+            Assert.That(ShipCustomizationModel.GetCannonCapacity(state), Is.EqualTo(1));
+            Assert.That(ShipCustomizationModel.IsHardpointUnlocked(state, CannonSlot.Bow), Is.True);
+            Assert.That(ShipCustomizationModel.IsHardpointUnlocked(state, CannonSlot.PortFore), Is.False);
+
+            float massBefore = ShipCustomizationModel.GetMass(state);
+            Assert.That(ShipCustomizationModel.TryMountStoredCannon(state, CannonSlot.Bow), Is.True);
+            Assert.That(state.SpareCannons, Is.Zero);
+            Assert.That(ShipCustomizationModel.HasCannon(state, CannonSlot.Bow), Is.True);
+            Assert.That(ShipCustomizationModel.GetMass(state), Is.EqualTo(massBefore).Within(0.001f));
+        }
+
+        [Test]
+        public void MovingCannonBetweenStorageAndHardpointPreservesTotalMass()
+        {
+            var stored = new GameState { ShipLevel = 1, SpareCannons = 1, CannonMountMask = 0 };
+            var mounted = new GameState { ShipLevel = 1, SpareCannons = 0, CannonMountMask = 1 << (int)CannonSlot.Bow };
+            Assert.That(ShipCustomizationModel.GetMass(stored), Is.EqualTo(ShipCustomizationModel.GetMass(mounted)).Within(0.001f));
+        }
+
+        [Test]
         public void CrewMustBeExplicitlyAssignedToFireCannons()
         {
             var state = new GameState { Crew = 4, ShipLevel = 3, CannonMountMask = 0b001110 };

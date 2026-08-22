@@ -34,6 +34,10 @@ outputs/RuntimeCapture-BranchMenu-*.png
 outputs/RuntimeCapture-V05-*.png
 outputs/EditMode-V05.*
 outputs/Build-V05.log
+outputs/RuntimeCapture-MapOverlay-*.png
+outputs/RuntimeCapture-RaftCannon-*.png
+outputs/EditMode-MapOverlay.*
+outputs/Build-MapOverlay.log
 
 # Blender's rolling backup files stay local; authored .blend sources are tracked.
 *.blend1

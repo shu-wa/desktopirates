@@ -63,7 +63,7 @@ Editor内ではWindowsのカラーキー透過を使わないため、透明部�
 
 ## 6. テストする
 
-Unityでは `Window` → `General` → `Test Runner` → `EditMode` → `Run All` を選びます。現在は13件すべて成功するのが正常です。
+Unityでは `Window` → `General` → `Test Runner` → `EditMode` → `Run All` を選びます。全テストが成功することを確認します。
 
 コマンドから実行する場合は、Test Runnerが自動終了するため `-quit` を付けません。
 
@@ -76,7 +76,7 @@ Unityでは `Window` → `General` → `Test Runner` → `EditMode` → `Run All
   -logFile 'C:\dev\desktop pirates\TestResults\editmode.log'
 ```
 
-`editmode.xml` の先頭が `result="Passed" total="13" passed="13" failed="0"` なら成功です。
+`editmode.xml` の先頭が `result="Passed"` かつ `failed="0"` なら成功です。テスト件数は実装追加に伴って増えます。
 
 ## 7. Gitの日常操作
 

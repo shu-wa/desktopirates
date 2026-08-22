@@ -72,6 +72,15 @@ namespace Desktopirates
         public static bool HasCannon(GameState state, CannonSlot slot)
             => (state.CannonMountMask & (1 << (int)slot)) != 0;
 
+        public static bool TryMountStoredCannon(GameState state, CannonSlot slot)
+        {
+            if (state == null || state.SpareCannons <= 0 || HasCannon(state, slot)) return false;
+            if (!IsHardpointUnlocked(state, slot) || GetInstalledCannonCount(state) >= GetCannonCapacity(state)) return false;
+            state.SpareCannons--;
+            state.CannonMountMask |= 1 << (int)slot;
+            return true;
+        }
+
         public static int GetUpgradeCap(GameState state) => ShipProgressionModel.Get(state.ShipLevel).UpgradeCap;
         public static int GetCannonCapacity(GameState state) => ShipProgressionModel.Get(state.ShipLevel).MaxCannons;
         public static int GetCrewCapacity(GameState state) => ShipProgressionModel.Get(state.ShipLevel).MaxCrew;
@@ -82,7 +91,7 @@ namespace Desktopirates
             {
                 CannonSlot.PortFore => 1,
                 CannonSlot.StarboardFore => 1,
-                CannonSlot.Bow => 2,
+                CannonSlot.Bow => 0,
                 CannonSlot.PortAft => 3,
                 CannonSlot.StarboardAft => 4,
                 CannonSlot.Stern => 5,
@@ -104,7 +113,9 @@ namespace Desktopirates
             float structure = 5.5f + state.ShipLevel * 5.2f + state.CapacityLevel * 1.6f;
             float machinery = state.EngineLevel * 1.25f + state.TurningLevel * 0.75f;
             float armor = state.ArmorLevel * 3.4f;
-            float weapons = GetInstalledCannonCount(state) * CannonMass;
+            // A stored cannon is still physically aboard. Moving it between the cargo hold
+            // and a hardpoint must not create or remove mass.
+            float weapons = (GetInstalledCannonCount(state) + Mathf.Max(0, state.SpareCannons)) * CannonMass;
             float crew = Mathf.Max(0, state.Crew) * CrewMass;
             float stores = Mathf.Max(0, state.Supplies) * 0.08f + state.TotalSalvageCount * 0.10f;
             return structure + machinery + armor + weapons + crew + stores;
