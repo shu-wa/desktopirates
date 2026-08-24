@@ -19,6 +19,7 @@ param(
     [string]$PortEscapeCruiseOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Port-Escape-Cruise.png'),
     [string]$DirectionStartOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Direction-0.png'),
     [string]$DirectionRotatedOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Direction-90.png'),
+    [string]$CompassOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-BossCompass.png'),
     [switch]$ShipyardOnly,
     [switch]$MapOnly,
     [switch]$CombatOnly,
@@ -30,6 +31,7 @@ param(
     [switch]$HudMaxOnly,
     [switch]$PortEscapeCruiseOnly,
     [switch]$DirectionOnly,
+    [switch]$CompassOnly,
     [switch]$InventoryOnly
 )
 
@@ -121,6 +123,7 @@ try {
     elseif ($HudMaxOnly) { $launch.ArgumentList = '--hud-max-preview' }
     elseif ($PortEscapeCruiseOnly) { $launch.ArgumentList = '--port-preview' }
     elseif ($DirectionOnly) { $launch.ArgumentList = '--voyage-preview' }
+    elseif ($CompassOnly) { $launch.ArgumentList = '--compass-preview' }
     elseif ($InventoryOnly) { $launch.ArgumentList = '--inventory-preview' }
     $game = Start-Process @launch
     for ($i = 0; $i -lt 60 -and $game.MainWindowHandle -eq 0; $i++) {
@@ -179,6 +182,7 @@ try {
         Save-WindowCapture $game.MainWindowHandle $DirectionRotatedOutput
         return
     }
+    if ($CompassOnly) { Save-WindowCapture $game.MainWindowHandle $CompassOutput; return }
     if ($InventoryOnly) { Save-WindowCapture $game.MainWindowHandle $InventoryOutput; return }
 
     # Click the Menu Circle at the top-center of the 720 x 760 overlay.

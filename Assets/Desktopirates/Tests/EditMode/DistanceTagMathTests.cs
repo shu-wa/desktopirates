@@ -109,5 +109,31 @@ namespace Desktopirates.Tests
             Vector2 direction = worldX == 0f ? Vector2.up : new Vector2(worldX, 0f);
             Assert.That(BossCompassModel.GetNeedleAngle(direction, 0f), Is.EqualTo(expectedAngle).Within(0.001f));
         }
+
+        [Test]
+        public void BossCompassNeedleUsesExactDialCenterAsRotationPivot()
+        {
+            var objectUnderTest = new GameObject("Needle", typeof(RectTransform));
+            try
+            {
+                RectTransform needle = objectUnderTest.GetComponent<RectTransform>();
+                needle.anchorMin = Vector2.zero;
+                needle.anchorMax = Vector2.one;
+                needle.pivot = Vector2.zero;
+                needle.anchoredPosition = new Vector2(27f, -13f);
+
+                BossCompassModel.CenterNeedleOnDial(needle);
+
+                Assert.That(needle.anchorMin, Is.EqualTo(BossCompassModel.CenterAnchor));
+                Assert.That(needle.anchorMax, Is.EqualTo(BossCompassModel.CenterAnchor));
+                Assert.That(needle.pivot, Is.EqualTo(BossCompassModel.CenterAnchor));
+                Assert.That(needle.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(needle.localScale, Is.EqualTo(Vector3.one));
+            }
+            finally
+            {
+                Object.DestroyImmediate(objectUnderTest);
+            }
+        }
     }
 }

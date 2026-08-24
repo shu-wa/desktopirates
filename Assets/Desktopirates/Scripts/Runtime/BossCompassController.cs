@@ -6,6 +6,17 @@ namespace Desktopirates
     public static class BossCompassModel
     {
         public const int PurchaseCost = 240;
+        public static readonly Vector2 CenterAnchor = new Vector2(0.5f, 0.5f);
+
+        public static void CenterNeedleOnDial(RectTransform needle)
+        {
+            if (needle == null) return;
+            needle.anchorMin = CenterAnchor;
+            needle.anchorMax = CenterAnchor;
+            needle.pivot = CenterAnchor;
+            needle.anchoredPosition = Vector2.zero;
+            needle.localScale = Vector3.one;
+        }
 
         public static float GetNeedleAngle(Vector2 worldDirection, float cameraYawDegrees)
         {
@@ -37,21 +48,31 @@ namespace Desktopirates
             inventory = cargo;
             menu = menuController;
 
-            var rootObject = new GameObject("Boss Compass", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            var rootObject = new GameObject("Boss Compass", typeof(RectTransform));
             rootObject.transform.SetParent(canvas, false);
             root = rootObject.GetComponent<RectTransform>();
             root.anchorMin = root.anchorMax = root.pivot = new Vector2(0.5f, 0.5f);
             root.anchoredPosition = new Vector2(-282f, -250f);
             root.sizeDelta = new Vector2(132f, 156f);
-            Image plate = rootObject.GetComponent<Image>();
+
+            // Keep the circular artwork square and give it its own coordinate space.
+            // The readout is intentionally outside this dial space, so it can never
+            // shift the needle's visual rotation centre.
+            var dialObject = new GameObject("Boss Compass Dial", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            dialObject.transform.SetParent(root, false);
+            RectTransform dial = dialObject.GetComponent<RectTransform>();
+            dial.anchorMin = dial.anchorMax = dial.pivot = BossCompassModel.CenterAnchor;
+            dial.anchoredPosition = new Vector2(0f, 15f);
+            dial.sizeDelta = new Vector2(132f, 132f);
+            Image plate = dialObject.GetComponent<Image>();
             plate.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "radial_hub");
             plate.color = Color.white;
             plate.raycastTarget = false;
 
             var needleObject = new GameObject("Boss Bearing Needle", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
-            needleObject.transform.SetParent(root, false);
+            needleObject.transform.SetParent(dial, false);
             needle = needleObject.GetComponent<RectTransform>();
-            needle.anchoredPosition = new Vector2(0f, 15f);
+            BossCompassModel.CenterNeedleOnDial(needle);
             needle.sizeDelta = new Vector2(54f, 54f);
             RawImage needleImage = needleObject.GetComponent<RawImage>();
             needleImage.texture = UiTextureFactory.LoadCompassArrow();
