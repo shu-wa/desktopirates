@@ -66,7 +66,19 @@ function Save-WindowCapture([IntPtr]$Handle, [string]$Path) {
     try {
         # PrintWindow can report success while returning an empty alpha-composited
         # surface for a layered overlay. Capture the actual desktop composition.
-        $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, (New-Object Drawing.Size $width, $height))
+        try {
+            $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, (New-Object Drawing.Size $width, $height))
+        }
+        catch {
+            # Headless/isolated desktop sessions can reject CopyFromScreen even though
+            # the game window is valid. Print the compositor-owned window as a QA fallback.
+            $graphics.Clear([Drawing.Color]::FromArgb(2, 10, 24))
+            $hdc = $graphics.GetHdc()
+            try {
+                if (-not [DesktopiratesCaptureNative]::PrintWindow($Handle, $hdc, 2)) { throw }
+            }
+            finally { $graphics.ReleaseHdc($hdc) }
+        }
         $bitmap.Save([IO.Path]::GetFullPath($Path), [Drawing.Imaging.ImageFormat]::Png)
     }
     finally { $graphics.Dispose(); $bitmap.Dispose() }

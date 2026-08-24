@@ -14,6 +14,7 @@ namespace Desktopirates
         public const float PortServiceBoardWidth = 382f;
         public const float PortServiceBoardOffsetX = 0f;
         public const float PortServiceButtonWidth = 350f;
+        public const float NavigationChartCenterX = 0f;
         public const float EnemyPlateWidth = 218f;
         public const float EnemyPlateHeight = 52f;
     }

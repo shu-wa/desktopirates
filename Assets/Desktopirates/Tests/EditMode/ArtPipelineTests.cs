@@ -184,6 +184,7 @@ namespace Desktopirates.Tests
         {
             Assert.That(InventoryManifestModel.PanelCenterX, Is.EqualTo(0f));
             Assert.That(UiLayoutMetrics.PortServiceBoardOffsetX, Is.EqualTo(0f));
+            Assert.That(UiLayoutMetrics.NavigationChartCenterX, Is.EqualTo(0f));
             Assert.That(UiLayoutMetrics.PortCenterY - UiLayoutMetrics.PortFrameSize * 0.5f,
                 Is.GreaterThan(InventoryManifestModel.HudDashboardBottom));
             Assert.That(UiLayoutMetrics.PortCenterY + UiLayoutMetrics.PortFrameSize * 0.5f,
@@ -206,8 +207,12 @@ namespace Desktopirates.Tests
         public void BlenderAuthoredModelLibrary_HasAllRuntimePrefabs()
         {
             for (int tier = 0; tier < ShipProgressionModel.TierCount; tier++)
-                Assert.That(Resources.Load<GameObject>($"Models/Ships/player_tier_{tier}_v02"), Is.Not.Null, $"Missing player tier {tier}");
-            Assert.That(Resources.Load<GameObject>("Models/Ships/enemy_corsair_v02"), Is.Not.Null);
+                Assert.That(Resources.Load<GameObject>($"Models/ShipsV03/player_tier_{tier}_v03"), Is.Not.Null, $"Missing player tier {tier}");
+            for (int index = 0; index < EnemyArchetypeModel.Count; index++)
+            {
+                EnemyArchetype archetype = (EnemyArchetype)index;
+                Assert.That(Resources.Load<GameObject>(AuthoredModelLibrary.GetEnemyResourcePath(archetype)), Is.Not.Null, $"Missing {archetype}");
+            }
             Assert.That(Resources.Load<GameObject>("Models/World/harbor_v02"), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>("Models/World/wreck_v02"), Is.Not.Null);
             Assert.That(Resources.Load<GameObject>("Models/World/treasure_v02"), Is.Not.Null);
@@ -225,12 +230,61 @@ namespace Desktopirates.Tests
             {
                 Assert.That(AuthoredModelLibrary.TryCreatePlayer(parent, 0, out Transform player), Is.True);
                 Assert.That(player.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
-                Assert.That(AuthoredModelLibrary.TryCreateEnemy(parent, 0.72f, out Transform enemy), Is.True);
+                Assert.That(AuthoredModelLibrary.TryCreateEnemy(parent, EnemyArchetype.Ironclad, 0.72f, out Transform enemy), Is.True);
                 Assert.That(enemy.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
                 Assert.That(AuthoredModelLibrary.TryCreatePoi(PoiKind.Port, parent, out Transform harbor), Is.True);
                 Assert.That(harbor.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
                 Assert.That(AuthoredModelLibrary.TryCreateBoss(parent, BossKind.Kraken, out Transform boss), Is.True);
                 Assert.That(boss.GetComponentsInChildren<MeshRenderer>(true).Length, Is.GreaterThan(0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent.gameObject);
+            }
+        }
+
+        [Test]
+        public void EnemyFleetV04_UsesEightDistinctReadableSilhouettes()
+        {
+            var parent = new GameObject("Enemy Fleet v04 Test Root").transform;
+            var rendererCounts = new HashSet<int>();
+            string[] identityTokens =
+            {
+                "corsair", "skirmisher", "gunboat", "fireraider",
+                "plagueraider", "frostcutter", "ironclad", "hunter"
+            };
+            try
+            {
+                for (int index = 0; index < EnemyArchetypeModel.Count; index++)
+                {
+                    EnemyArchetype archetype = (EnemyArchetype)index;
+                    Assert.That(AuthoredModelLibrary.TryCreateEnemy(parent, archetype, 1f, out Transform enemy), Is.True, archetype.ToString());
+                    Transform[] parts = enemy.GetComponentsInChildren<Transform>(true);
+                    Assert.That(System.Array.Exists(parts, part => part.name.ToLowerInvariant().Contains(identityTokens[index])), Is.True, archetype.ToString());
+                    rendererCounts.Add(enemy.GetComponentsInChildren<MeshRenderer>(true).Length);
+                    Object.DestroyImmediate(enemy.gameObject);
+                }
+                Assert.That(rendererCounts.Count, Is.GreaterThanOrEqualTo(5), "Enemy classes need structural, not color-only, variation.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent.gameObject);
+            }
+        }
+
+        [Test]
+        public void EnemyFleetV04_BowFacesRuntimeForward()
+        {
+            var parent = new GameObject("Enemy Direction Test Root").transform;
+            try
+            {
+                Assert.That(AuthoredModelLibrary.TryCreateEnemy(parent, EnemyArchetype.Skirmisher, 1f, out Transform enemy), Is.True);
+                Transform bow = System.Array.Find(enemy.GetComponentsInChildren<Transform>(true), part => part.name.ToLowerInvariant().Contains("extended_bowsprit"));
+                Transform stern = System.Array.Find(enemy.GetComponentsInChildren<Transform>(true), part => part.name.ToLowerInvariant().Contains("stern_greatcabin"));
+                Assert.That(bow, Is.Not.Null);
+                Assert.That(stern, Is.Not.Null);
+                Assert.That(enemy.InverseTransformPoint(bow.position).z, Is.GreaterThan(0f), "Enemy bow must face runtime +Z forward.");
+                Assert.That(enemy.InverseTransformPoint(stern.position).z, Is.LessThan(0f), "Enemy stern must remain aft.");
             }
             finally
             {
@@ -251,7 +305,7 @@ namespace Desktopirates.Tests
                     Assert.That(System.Array.Exists(harborParts, part => part.name.ToLowerInvariant().Contains(token)), Is.True, token);
 
                 Assert.That(AuthoredModelLibrary.TryCreatePlayer(parent, 3, out Transform player), Is.True);
-                Transform stern = System.Array.Find(player.GetComponentsInChildren<Transform>(true), part => part.name.ToLowerInvariant().Contains("stern_cabin"));
+                Transform stern = System.Array.Find(player.GetComponentsInChildren<Transform>(true), part => part.name.ToLowerInvariant().Contains("stern_greatcabin"));
                 Assert.That(stern, Is.Not.Null);
                 Assert.That(player.InverseTransformPoint(stern.position).z, Is.LessThan(0f), "The stern must sit behind runtime +Z forward.");
             }
@@ -266,9 +320,11 @@ namespace Desktopirates.Tests
         {
             string[] paths =
             {
-                "Textures/Models/v02/HullWood_Pixel_v02",
-                "Textures/Models/v02/SailCanvas_Pixel_v02",
-                "Textures/Models/v02/EnemySail_Pixel_v02",
+                "Textures/Models/v03/HullEbony_SaltWorn_Pixel_v03",
+                "Textures/Models/v03/DeckOak_Warm_Pixel_v03",
+                "Textures/Models/v03/SailCanvas_Patched_Pixel_v03",
+                "Textures/Models/v04/EnemyHull_BurgundyIron_Pixel_v04",
+                "Textures/Models/v04/EnemySail_RaggedPatch_Pixel_v04",
                 "Textures/Models/v02/HarborStone_Pixel_v02",
                 "Textures/Models/v02/HarborWood_Pixel_v02"
             };
@@ -278,7 +334,24 @@ namespace Desktopirates.Tests
                 Assert.That(texture, Is.Not.Null, path);
                 Assert.That(texture.filterMode, Is.EqualTo(FilterMode.Point), path);
                 Assert.That(texture.wrapMode, Is.EqualTo(TextureWrapMode.Repeat), path);
+                Assert.That(Mathf.Max(texture.width, texture.height), Is.LessThanOrEqualTo(512), path);
             }
+        }
+
+        [Test]
+        public void HeroFleetV03_GrowsInReadableGeometryAndCarriesWorkingRig()
+        {
+            GameObject sloop = Resources.Load<GameObject>("Models/ShipsV03/player_tier_1_v03");
+            GameObject flagship = Resources.Load<GameObject>("Models/ShipsV03/player_tier_5_v03");
+            Assert.That(sloop, Is.Not.Null);
+            Assert.That(flagship, Is.Not.Null);
+            Assert.That(flagship.GetComponentsInChildren<MeshRenderer>(true).Length,
+                Is.GreaterThan(sloop.GetComponentsInChildren<MeshRenderer>(true).Length));
+
+            Transform[] parts = flagship.GetComponentsInChildren<Transform>(true);
+            string[] required = { "lofted_hull", "deck", "stern_greatcabin", "sail", "rigging", "gunport", "figurehead" };
+            foreach (string token in required)
+                Assert.That(System.Array.Exists(parts, part => part.name.ToLowerInvariant().Contains(token)), Is.True, token);
         }
 
         [Test]

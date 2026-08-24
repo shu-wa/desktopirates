@@ -182,9 +182,10 @@ namespace Desktopirates
                     _ => 0.70f
                 };
                 Transform enemy;
-                if (!AuthoredModelLibrary.TryCreateEnemy(parent, scale, out enemy)) enemy = CreateShip(parent, true, scale);
+                bool authored = AuthoredModelLibrary.TryCreateEnemy(parent, archetype, scale, out enemy);
+                if (!authored) enemy = CreateShip(parent, true, scale);
                 enemy.name = $"Enemy {EnemyArchetypeModel.Get(archetype).ClassName}";
-                AddEnemyArchetypeDetails(enemy, archetype);
+                if (!authored) AddEnemyArchetypeDetails(enemy, archetype);
                 return enemy;
             }
 

@@ -38,6 +38,15 @@ outputs/RuntimeCapture-MapOverlay-*.png
 outputs/RuntimeCapture-RaftCannon-*.png
 outputs/EditMode-MapOverlay.*
 outputs/Build-MapOverlay.log
+outputs/FleetV03/
+outputs/EnemyFleetV04/
+outputs/EditMode-FleetV03.*
+outputs/Build-FleetV03.*
+outputs/RuntimeCapture-FleetV03-*.png
+outputs/*EnemyV04*
+outputs/RuntimeCapture-EnemyTypes-*-v04.png
+outputs/RuntimeCapture-Map-Centered-v04.png
+__pycache__/
 
 # Blender's rolling backup files stay local; authored .blend sources are tracked.
 *.blend1

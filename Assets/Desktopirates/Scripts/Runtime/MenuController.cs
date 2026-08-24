@@ -915,9 +915,9 @@ namespace Desktopirates
             mapChartCenter = boat.LogicalPosition;
             RectTransform panel = CreateUiObject("Transparent Navigation Chart", canvas);
             mapRoot = panel.gameObject;
-            // Dock the live chart to the right. The circular texture is transparent outside
-            // its rim, so the ship and approaching hazards remain visible on the left.
-            panel.anchoredPosition = new Vector2(168f, -465f);
+            // Keep the frameless live chart centered. The circular texture remains
+            // transparent outside its rim so navigation is still visible around it.
+            panel.anchoredPosition = new Vector2(UiLayoutMetrics.NavigationChartCenterX, -465f);
             panel.sizeDelta = new Vector2(380f, 490f);
 
             CreateMapStrip(panel, "Chart Title Strip", new Vector2(22f, 218f), new Vector2(222f, 34f));

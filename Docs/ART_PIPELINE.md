@@ -27,7 +27,10 @@
 ## 現在の表現方法
 
 - 海：生成した青緑テクスチャを専用シェーダーで2層スクロールし、ファセット・泡・ディザを合成。
-- 船・港・イベント：Unityプリミティブと小さな専用メッシュからランタイム生成。木材・帆布・石材の共用テクスチャ、共通パレット、ハードシャドウを使用。
+- プレイヤー船：`Tools/Blender/GenerateHeroFleetV03.py` から6船級を再生成する。ロフト船体、甲板キャンバー、船尾楼、帆装、索具、砲門を船級ごとに構成し、`ArtSource/Models/Blender/ShipsV03` に制作元、`Resources/Models/ShipsV03` にFBXを保存する。
+- 敵船：`Tools/Blender/GenerateEnemyFleetV04.py` から通常敵8船種を再生成する。船種ごとに比率・武装・甲板装備を変え、`ArtSource/Models/Blender/EnemyShipsV04` に制作元、`Resources/Models/EnemyShipsV04` にFBXを保存する。`ValidateEnemyFleetV04.py` で固有部品と構造差を検証する。
+- 船テクスチャ：プレイヤー船は`Resources/Textures/Models/v03`、敵船は`Resources/Textures/Models/v04`の船体板・甲板板・帆布を用途別に割り当てる。Point / Repeat / No MipMapでドット感を維持する。
+- 港・イベント：Blender製専用メッシュを基本とし、共通パレットとハードシャドウを使用。
 - UI：円、ピル、菱形、グリフを `Texture2D` へ描画し、Pointフィルタで表示。外周は3段階の真鍮ベベル。
 - 時間帯：実時計から朝・昼・夕方・夜のパレットを補間し、海、環境光、太陽、メニューサークルへ反映。
 
