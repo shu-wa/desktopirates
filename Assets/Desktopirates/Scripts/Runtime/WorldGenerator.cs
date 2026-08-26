@@ -53,7 +53,9 @@ namespace Desktopirates
                 output.Add(new GeneratedEventData(Hash(seed, 0, 0, 99), PoiKind.Port, new Vector2(3.0f, 3.5f), 0));
 
             int densityRoll = (int)(root & 15UL);
-            int count = densityRoll < 3 ? 0 : densityRoll < 12 ? 1 : densityRoll < 15 ? 2 : 3;
+            // Autopilot makes long passages practical. A quieter distribution gives
+            // discoveries breathing room: 37.5% empty, 50% single, 12.5% double.
+            int count = densityRoll < 6 ? 0 : densityRoll < 14 ? 1 : 2;
             for (int i = 0; i < count; i++)
             {
                 ulong h = Hash(seed, chunkX, chunkY, i + 1);

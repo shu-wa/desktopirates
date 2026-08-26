@@ -27,11 +27,11 @@ namespace Desktopirates
         private Text wreckText;
         private Text treasureText;
         private readonly Text[] encounterTexts = new Text[3];
-        private readonly Text[] destinationTexts = new Text[4];
+        private readonly Text[] destinationTexts = new Text[5];
         private Image wreckButton;
         private Image treasureButton;
         private readonly Image[] encounterButtons = new Image[3];
-        private readonly Image[] destinationButtons = new Image[4];
+        private readonly Image[] destinationButtons = new Image[5];
         private bool draftWrecks;
         private bool draftTreasures;
         private AutoEncounterPolicy draftEncounter;
@@ -177,6 +177,9 @@ namespace Desktopirates
                     if (state.BossCompassOwned && AutoVoyageModel.TryFindBossHarbor(state.WorldSeed, boat.LogicalPosition,
                         state.ResolvedEvents, out _, out target)) SetCourse(target);
                     break;
+                case AutoDestinationMode.NearestHarbor:
+                    if (AutoVoyageModel.TryFindNearestHarbor(state.WorldSeed, boat.LogicalPosition, out target)) SetCourse(target);
+                    break;
                 default:
                     if (!hasCourse || advanceLeg)
                     {
@@ -206,6 +209,7 @@ namespace Desktopirates
                 AutoDestinationMode.NearestLandmark => GameLocalization.Choose("LANDMARK", "ランドマーク"),
                 AutoDestinationMode.BossSignal => GameLocalization.Choose("BOSS SIGNAL", "ボス信号"),
                 AutoDestinationMode.BossHarbor => GameLocalization.Choose("BOSS HARBOR", "ボス直近港"),
+                AutoDestinationMode.NearestHarbor => GameLocalization.Choose("NEAREST HARBOR", "最寄り港"),
                 _ => GameLocalization.Choose("UNCHARTED WATERS", "未踏海域")
             };
             return GameLocalization.Choose($"AUTO → {destination}  {distance:0}m", $"AUTO → {destination}  {distance:0}m");
@@ -292,7 +296,8 @@ namespace Desktopirates
             Vector2[] destinationPositions =
             {
                 new Vector2(-145f, -96f), new Vector2(145f, -96f),
-                new Vector2(-145f, -147f), new Vector2(145f, -147f)
+                new Vector2(-145f, -143f), new Vector2(145f, -143f),
+                new Vector2(0f, -190f)
             };
             for (int i = 0; i < destinationButtons.Length; i++)
             {
@@ -301,13 +306,13 @@ namespace Desktopirates
                     () => { draftDestination = (AutoDestinationMode)captured; RefreshPanel(); }, out destinationTexts[i]);
             }
 
-            panelStatus = CreateText(panel, string.Empty, new Vector2(0f, -202f), new Vector2(560f, 38f), 12, TextAnchor.MiddleCenter);
+            panelStatus = CreateText(panel, string.Empty, new Vector2(0f, -226f), new Vector2(560f, 32f), 12, TextAnchor.MiddleCenter);
             panelStatus.color = UiTheme.SecondaryText;
-            Image startButton = CreateChoiceButton(panel, new Vector2(145f, -252f), new Vector2(258f, 52f), ApplyAndStart, out startText);
+            Image startButton = CreateChoiceButton(panel, new Vector2(145f, -263f), new Vector2(258f, 46f), ApplyAndStart, out startText);
             startButton.color = new Color(0.72f, 1f, 0.90f, 1f);
-            Image stopButton = CreateChoiceButton(panel, new Vector2(-145f, -252f), new Vector2(258f, 52f), () => StopAutopilot(), out stopText);
+            Image stopButton = CreateChoiceButton(panel, new Vector2(-145f, -263f), new Vector2(258f, 46f), () => StopAutopilot(), out stopText);
             stopButton.color = new Color(1f, 0.62f, 0.52f, 1f);
-            CreateChoiceButton(panel, new Vector2(0f, -289f), new Vector2(220f, 28f), ClosePanel, out closeText);
+            CreateChoiceButton(panel, new Vector2(0f, -294f), new Vector2(220f, 24f), ClosePanel, out closeText);
             panelRoot.SetActive(false);
         }
 
@@ -318,7 +323,7 @@ namespace Desktopirates
             RectTransform rect = badgeRoot.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(0f, 142f);
+            rect.anchoredPosition = new Vector2(0f, 166f);
             rect.sizeDelta = new Vector2(410f, 34f);
             Image image = badgeRoot.GetComponent<Image>();
             image.sprite = UiTextureFactory.LoadPillSprite();
@@ -395,8 +400,8 @@ namespace Desktopirates
             }
 
             string[] destinations = GameLocalization.IsJapanese
-                ? new[] { "FREE ROAM / 自由航海", "NEAREST / 近隣地点", "BOSS SIGNAL / ボス追跡", "BOSS HARBOR / ボス直近港" }
-                : new[] { "FREE ROAM", "NEAREST LANDMARK", "BOSS SIGNAL", "BOSS HARBOR" };
+                ? new[] { "FREE ROAM / 自由航海", "LANDMARK / 近隣地点", "BOSS SIGNAL / ボス追跡", "BOSS HARBOR / ボス直近港", "HARBOR / 最寄り港" }
+                : new[] { "FREE ROAM", "NEAREST LANDMARK", "BOSS SIGNAL", "BOSS HARBOR", "NEAREST HARBOR" };
             for (int i = 0; i < destinationTexts.Length; i++)
             {
                 destinationTexts[i].text = destinations[i];

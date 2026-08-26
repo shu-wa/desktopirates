@@ -43,6 +43,7 @@ namespace Desktopirates
         private GameObject shipyardSystemsPage;
         private GameObject crewManagementPage;
         private GameObject hudRoot;
+        private RectTransform hullStatusCard;
         private Text hullValue;
         private Text goldValue;
         private Text crewValue;
@@ -95,6 +96,8 @@ namespace Desktopirates
         private Sprite diamondSprite;
         private Func<bool> externalModalOpen;
         private Action closeExternalModal;
+        public event Action<string> Message;
+        public RectTransform HullStatusCard => hullStatusCard;
         public bool IsExternalModalOpen => externalModalOpen != null && externalModalOpen();
         public bool IsModalOpen => (menuRoot != null && menuRoot.activeSelf) || (captainLogRoot != null && captainLogRoot.activeSelf) || (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf) || mapRoot != null || IsExternalModalOpen;
 
@@ -403,14 +406,15 @@ namespace Desktopirates
             hudRoot = dashboard.gameObject;
             float spacing = UiLayoutMetrics.HudCardSpacing;
             hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-spacing * 1.5f, 0f), UiTheme.Mint, out hullBar);
+            hullStatusCard = hullValue.transform.parent.parent as RectTransform;
             goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-spacing * 0.5f, 0f), UiTheme.Brass, out _);
             crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(spacing * 0.5f, 0f), UiTheme.SecondaryText, out _);
             loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(spacing * 1.5f, 0f), UiTheme.Brass, out loadBar);
 
-            prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -646f), new Vector2(430f, 34f), 17);
+            prompt = CreatePillText(canvas, "Context Action", new Vector2(0f, -586f), new Vector2(430f, 34f), 17);
             prompt.color = UiTheme.PrimaryText;
             UiTheme.StyleText(prompt, 18);
-            toast = CreatePillText(canvas, "Event Message", new Vector2(0f, -365f), new Vector2(430f, 40f), 18);
+            toast = CreatePillText(canvas, "Event Message", new Vector2(190f, -660f), new Vector2(330f, 40f), 15);
             toast.color = UiTheme.Brass;
             UiTheme.StyleText(toast, 18);
             toast.transform.parent.gameObject.SetActive(false);
@@ -1122,7 +1126,13 @@ namespace Desktopirates
         }
 
         private void Autosave() => saves.Save(state);
-        private void ShowMessage(string value) { toast.text = value; toastUntil = Time.unscaledTime + 2.8f; toast.transform.parent.gameObject.SetActive(true); }
+        private void ShowMessage(string value)
+        {
+            if (Message != null) { Message.Invoke(value); return; }
+            toast.text = value;
+            toastUntil = Time.unscaledTime + 5f;
+            toast.transform.parent.gameObject.SetActive(true);
+        }
 
         private Button CreateButton(Transform parent, string label, Vector2 position, Action action)
         {

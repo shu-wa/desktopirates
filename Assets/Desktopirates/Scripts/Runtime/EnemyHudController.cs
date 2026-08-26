@@ -61,9 +61,11 @@ namespace Desktopirates
 
                 bool visible = enemy.Visual.gameObject.activeInHierarchy;
                 Vector3 screen = visible
-                    ? worldCamera.WorldToScreenPoint(enemy.Visual.position + Vector3.up * (enemy.Boss == BossKind.None ? 1.0f : 1.35f))
+                    ? worldCamera.WorldToScreenPoint(enemy.Visual.position + Vector3.up * EnemyHudModel.GetVerticalOffset(enemy.Boss != BossKind.None))
                     : Vector3.back;
-                visible &= screen.z > 0f && screen.x >= 0f && screen.x <= Screen.width && screen.y >= 0f && screen.y <= Screen.height;
+                // If the mast reaches under the top dashboard, keep the plate pinned just
+                // below that dashboard instead of hiding it as an off-screen element.
+                visible &= screen.z > 0f && screen.x >= 0f && screen.x <= Screen.width && screen.y >= 0f;
                 plate.Root.SetActive(visible);
                 if (!visible) continue;
 
@@ -71,7 +73,8 @@ namespace Desktopirates
                 RectTransform rect = (RectTransform)plate.Root.transform;
                 float halfWidth = UiLayoutMetrics.EnemyPlateWidth * 0.5f;
                 local.x = Mathf.Clamp(local.x, canvas.rect.xMin + halfWidth, canvas.rect.xMax - halfWidth);
-                local.y = Mathf.Clamp(local.y, canvas.rect.yMin + 30f, canvas.rect.yMax - 30f);
+                local.y = Mathf.Clamp(local.y, canvas.rect.yMin + 30f,
+                    canvas.rect.yMax - UiLayoutMetrics.EnemyHudTopSafeInset);
                 rect.anchoredPosition = local;
 
                 plate.Identity.text = $"LV {enemy.Level:00}  {enemy.DisplayName}";

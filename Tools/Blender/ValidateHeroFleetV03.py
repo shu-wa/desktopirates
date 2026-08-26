@@ -43,11 +43,32 @@ def validate_file(tier: int):
         assert longitudinal_span(deck) >= longitudinal_span(hull) * 0.98, \
             f"tier {tier} deck does not close the bow: deck={longitudinal_span(deck):.3f}, hull={longitudinal_span(hull):.3f}"
 
+        hull_rims = {}
+        deck_lows = {}
+        for vertex in hull.data.vertices:
+            world = hull.matrix_world @ vertex.co
+            key = round(world.y, 4)
+            hull_rims[key] = max(hull_rims.get(key, -1e9), world.z)
+        for vertex in deck.data.vertices:
+            world = deck.matrix_world @ vertex.co
+            key = round(world.y, 4)
+            deck_lows[key] = min(deck_lows.get(key, 1e9), world.z)
+        for key, deck_z in deck_lows.items():
+            hull_key = min(hull_rims, key=lambda value: abs(value - key))
+            assert deck_z > hull_rims[hull_key], \
+                f"tier {tier} deck intersects the gunwale at y={key}: deck={deck_z:.3f}, hull={hull_rims[hull_key]:.3f}"
+
         bow = next(obj for obj in meshes if "prow_figurehead" in obj.name.lower())
         stern = next(obj for obj in meshes if "stern_greatcabin" in obj.name.lower())
         forward = bow.matrix_world.translation - stern.matrix_world.translation
         forward.z = 0.0
         forward.normalize()
+
+        bowsprit = next(obj for obj in meshes if "bowsprit_main" in obj.name.lower())
+        local_axis = bowsprit.matrix_world.to_3x3() @ Vector((0.0, 0.0, 1.0))
+        forward_end_axis = local_axis if local_axis.dot(forward) > 0.0 else -local_axis
+        assert forward_end_axis.z > 0.0, \
+            f"tier {tier} bowsprit points downward toward the bow: z={forward_end_axis.z:.3f}"
         for sail in (obj for obj in meshes if obj.name.lower().startswith("sail_")):
             mast_index = sail.name.split("_")[1]
             mast = next(obj for obj in meshes if obj.name.lower().startswith(f"mast_{mast_index}_lower"))

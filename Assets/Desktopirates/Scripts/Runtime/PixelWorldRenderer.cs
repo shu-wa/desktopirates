@@ -6,7 +6,7 @@ namespace Desktopirates
     [RequireComponent(typeof(Camera))]
     public sealed class PixelWorldRenderer : MonoBehaviour
     {
-        public const int WorldPixelScale = 2;
+        public const int WorldPixelScale = 3;
 
         private void OnRenderImage(RenderTexture source, RenderTexture destination)
         {

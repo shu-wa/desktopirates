@@ -146,9 +146,12 @@ def create_lofted_hull(name: str, length: float, width: float, depth: float):
     # left an open wedge through which Unity's animated ocean could be seen.
     for y_ratio, beam_ratio, sheer in stations:
         y = length * y_ratio
-        half = width * 0.47 * beam_ratio
-        z = depth * (0.53 + sheer)
-        deck_vertices.extend([(-half, y, z), (0.0, y, z + depth * 0.055), (half, y, z)])
+        # Slightly overlap the gunwale and keep the entire cambered surface above
+        # the hull rim. The former inset left a narrow seam where the animated sea
+        # could show through, especially along the forward quarter.
+        half = width * 0.505 * beam_ratio
+        z = depth * (0.57 + sheer)
+        deck_vertices.extend([(-half, y, z), (0.0, y, z + depth * 0.065), (half, y, z)])
     deck_faces = []
     for station in range(len(stations) - 1):
         a = station * 3
@@ -159,6 +162,9 @@ def create_lofted_hull(name: str, length: float, width: float, depth: float):
     deck_mesh.update()
     deck = bpy.data.objects.new(name.replace("Hull", "Deck"), deck_mesh)
     bpy.context.collection.objects.link(deck)
+    deck_solidify = deck.modifiers.new("Sealed deck thickness", "SOLIDIFY")
+    deck_solidify.thickness = depth * 0.055
+    deck_solidify.offset = -1.0
     finish(deck, "DeckOak_v03")
     return obj
 
@@ -240,7 +246,7 @@ def add_bow_details(length, width, depth, tier):
     bow_y = length * 0.52
     deck_z = depth * 0.60
     cylinder("Bowsprit_Main", (0.0, bow_y + length * 0.18, deck_z + 0.10), 0.035 + tier * 0.003,
-             length * 0.52, "Rope_v03", vertices=8, rotation=(math.radians(77), 0.0, 0.0))
+             length * 0.52, "Rope_v03", vertices=8, rotation=(math.radians(-77), 0.0, 0.0))
     sphere("Prow_Figurehead", (0.0, bow_y + length * 0.08, deck_z - 0.05),
            (0.085 + tier * 0.006, 0.12, 0.14 + tier * 0.012), "Brass_v03")
     if tier >= 3:

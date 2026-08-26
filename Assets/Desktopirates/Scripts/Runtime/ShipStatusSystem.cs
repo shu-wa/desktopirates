@@ -108,6 +108,7 @@ namespace Desktopirates
         public event Action<string> Message;
         public event Action Changed;
         public event Action HullDepleted;
+        public event Action<int> HullDamaged;
 
         private GameState state;
         private ShipStatusVisualController visuals;
@@ -147,6 +148,7 @@ namespace Desktopirates
             if (dotDamage > 0)
             {
                 state.Hull = Mathf.Max(0, state.Hull - dotDamage);
+                HullDamaged?.Invoke(dotDamage);
                 Changed?.Invoke();
             }
             ApplyTransientMultipliers();

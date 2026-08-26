@@ -137,10 +137,11 @@ namespace Desktopirates.Tests
         }
 
         [Test]
-        public void BossCompassArtworkCompensatesForItsRightHeavyDrawing()
+        public void BossCompassArtworkRotatesAroundTheAuthoredHub()
         {
-            Assert.That(BossCompassModel.NeedleArtworkOffsetX, Is.LessThan(0f));
-            Assert.That(Mathf.Abs(BossCompassModel.NeedleArtworkOffsetX), Is.LessThanOrEqualTo(3f));
+            Assert.That(BossCompassModel.NeedleArtworkPivot.x, Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(BossCompassModel.NeedleArtworkPivot.y, Is.EqualTo(0.375f).Within(0.001f));
+            Assert.That(BossCompassModel.NeedleArtworkPivot, Is.Not.EqualTo(BossCompassModel.CenterAnchor));
         }
     }
 }

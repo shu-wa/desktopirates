@@ -28,5 +28,13 @@ namespace Desktopirates.Tests
         {
             Assert.That(EnemyHudModel.GetBarWidth(188f, health, maximum), Is.EqualTo(expectedWidth).Within(0.01f));
         }
+
+        [Test]
+        public void IdentityPlateClearsTheShipSilhouette()
+        {
+            Assert.That(EnemyHudModel.GetVerticalOffset(false), Is.GreaterThanOrEqualTo(2.7f));
+            Assert.That(EnemyHudModel.GetVerticalOffset(true), Is.GreaterThan(EnemyHudModel.GetVerticalOffset(false)));
+            Assert.That(UiLayoutMetrics.EnemyHudTopSafeInset, Is.GreaterThan(UiLayoutMetrics.HudCardHeight * 2f));
+        }
     }
 }

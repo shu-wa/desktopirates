@@ -60,7 +60,8 @@ namespace Desktopirates
         }
 
         public static Texture2D LoadGeneratedTelegraph()
-            => Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_telegraph_pixel_v01");
+            => Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_telegraph_pixel_v02")
+                ?? Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/ui_telegraph_pixel_v01");
 
         public static Texture2D LoadInventoryIcon(SalvagePartKind kind, int size = 64)
         {

@@ -195,7 +195,7 @@ namespace Desktopirates
                 state.AutoCollectWrecks = (autoFlags & 2) != 0;
                 state.AutoCollectTreasures = (autoFlags & 4) != 0;
                 state.AutoEncounterPolicy = (AutoEncounterPolicy)Mathf.Clamp(reader.ReadByte(), 0, (int)AutoEncounterPolicy.Observe);
-                state.AutoDestinationMode = (AutoDestinationMode)Mathf.Clamp(reader.ReadByte(), 0, (int)AutoDestinationMode.BossHarbor);
+                state.AutoDestinationMode = (AutoDestinationMode)Mathf.Clamp(reader.ReadByte(), 0, (int)AutoDestinationMode.NearestHarbor);
             }
             return state;
         }

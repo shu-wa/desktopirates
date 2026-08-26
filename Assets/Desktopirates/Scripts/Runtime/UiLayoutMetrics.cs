@@ -17,5 +17,6 @@ namespace Desktopirates
         public const float NavigationChartCenterX = 0f;
         public const float EnemyPlateWidth = 218f;
         public const float EnemyPlateHeight = 52f;
+        public const float EnemyHudTopSafeInset = 210f;
     }
 }

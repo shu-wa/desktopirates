@@ -39,6 +39,9 @@ namespace Desktopirates
         public string InteractionPrompt { get; private set; }
         public bool AttackMode { get; private set; }
         public event Action<string> Message;
+        public event Action<EnemyDamageNotice> EnemyDamaged;
+        public event Action<PlayerDamageNotice> PlayerDamaged;
+        public event Action<LootNotice> LootCollected;
         public event Action PortRequested;
         public event Action StateChanged;
 
@@ -65,6 +68,7 @@ namespace Desktopirates
             if (playerConditions != null)
             {
                 playerConditions.Message += value => Message?.Invoke(value);
+                playerConditions.HullDamaged += amount => PlayerDamaged?.Invoke(new PlayerDamageNotice(amount, ShipStatus.Burning));
                 playerConditions.Changed += () => StateChanged?.Invoke();
                 playerConditions.HullDepleted += RescueTow;
             }
@@ -255,9 +259,7 @@ namespace Desktopirates
             ShipStatus inflicted = RollEnemyStatus(attacker);
             if (inflicted != ShipStatus.None && playerConditions != null)
                 playerConditions.ApplyStatus(inflicted, 12f, attacker.Boss == BossKind.Poseidon ? 1.25f * BossMutationModel.StatusPotency(attacker.BossMutation) : BossMutationModel.StatusPotency(attacker.BossMutation));
-            Message?.Invoke(inflicted == ShipStatus.None
-                ? $"ENEMY HIT  -{damage} HULL"
-                : $"ENEMY HIT  -{damage}  {ShipStatusRuntime.GetName(inflicted)}");
+            PlayerDamaged?.Invoke(new PlayerDamageNotice(damage, inflicted));
             StateChanged?.Invoke();
             if (state.Hull == 0) RescueTow();
         }
@@ -326,25 +328,27 @@ namespace Desktopirates
             int gold = item.Reward + (item.Kind == PoiKind.Treasure ? 18 : 0);
             state.Gold += gold;
             state.Captain.GoldEarned += gold;
-            string cargo = string.Empty;
+            int supplies = 0;
+            SalvageDrop[] collectedDrops = Array.Empty<SalvageDrop>();
             if (item.Kind == PoiKind.Wreck)
             {
                 state.Captain.WrecksSalvaged++;
-                state.Supplies += 1 + item.Reward % 3;
+                supplies = 1 + item.Reward % 3;
+                state.Supplies += supplies;
                 RevealLocalChart(item.LogicalPosition);
                 SalvageDrop[] drops = SalvageInventory.RollWreck(item.Id, item.Reward);
                 foreach (SalvageDrop drop in drops) state.AddPart(drop.Kind, drop.Amount);
-                cargo = $"  {SalvageInventory.GetDisplayName(drops[0].Kind)} +{drops[0].Amount}  {SalvageInventory.GetDisplayName(drops[1].Kind)} +{drops[1].Amount}";
+                collectedDrops = drops;
             }
             else if (item.Kind == PoiKind.Treasure)
             {
                 state.Captain.TreasuresFound++;
                 SalvageDrop drop = SalvageInventory.RollTreasure(item.Id);
                 state.AddPart(drop.Kind, drop.Amount);
-                cargo = $"  {SalvageInventory.GetDisplayName(drop.Kind)} +{drop.Amount}";
+                collectedDrops = new[] { drop };
             }
             Resolve(item);
-            Message?.Invoke(item.Kind == PoiKind.Wreck ? $"WRECK SALVAGED  {gold}G{cargo}" : $"TREASURE FOUND  {gold}G{cargo}");
+            LootCollected?.Invoke(new LootNotice(item.Kind, gold, supplies, collectedDrops));
         }
 
         private bool PlayerInSafeHarbor()
@@ -407,16 +411,13 @@ namespace Desktopirates
             bool willSink = target.Health <= 0;
             target.IsUnderFire = true;
             target.IsSinking = willSink;
-            Message?.Invoke(GameLocalization.Choose(
-                $"{salvo.ArcName} AUTO SALVO — {firingSlots.Count} GUNS — FIRE!",
-                $"{salvo.ArcName} 自動斉射 — {firingSlots.Count}門 — FIRE!"));
-
             Action impact = () =>
             {
                 string statuses = ApplyPlayerRoundStatuses(target, salvoEntropy);
-                Message?.Invoke(willSink
-                    ? $"DIRECT HIT — {damage}  SINKING!"
-                    : string.IsNullOrEmpty(statuses) ? $"DIRECT HIT — {damage} DAMAGE" : $"DIRECT HIT — {damage}  {statuses}");
+                Vector3 worldPosition = target.Visual != null
+                    ? target.Visual.position + Vector3.up * 0.24f
+                    : new Vector3(target.LogicalPosition.x, 0.54f, target.LogicalPosition.y);
+                EnemyDamaged?.Invoke(new EnemyDamageNotice(worldPosition, damage, willSink, statuses));
             };
             Action completed = () =>
             {

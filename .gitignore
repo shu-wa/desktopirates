@@ -49,6 +49,9 @@ outputs/RuntimeCapture-Map-Centered-v04.png
 outputs/*BossCompass*
 outputs/*AutoVoyage*
 outputs/*AutoSailing*
+outputs/*NotificationV02*
+outputs/*.log
+outputs/*.xml
 __pycache__/
 
 # Blender's rolling backup files stay local; authored .blend sources are tracked.

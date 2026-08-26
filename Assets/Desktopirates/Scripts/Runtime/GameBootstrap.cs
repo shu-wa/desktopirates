@@ -139,6 +139,8 @@ namespace Desktopirates
             seaRegions.Initialize(canvas, state, boat, ocean, inventory, menu);
             SpeedGaugeController speedGauge = gameObject.AddComponent<SpeedGaugeController>();
             speedGauge.Initialize(canvas, boat, inventory, menu);
+            NotificationController notifications = gameObject.AddComponent<NotificationController>();
+            notifications.Initialize(canvas, camera, poiSystem, menu);
             CreateMenuCircle(canvas, dayNight, overlay, menu);
             RuntimeScreenshotController screenshot = gameObject.AddComponent<RuntimeScreenshotController>();
             screenshot.TryStartFromCommandLine();

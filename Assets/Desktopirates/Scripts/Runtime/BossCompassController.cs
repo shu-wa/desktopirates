@@ -6,8 +6,11 @@ namespace Desktopirates
     public static class BossCompassModel
     {
         public const int PurchaseCost = 240;
-        public const float NeedleArtworkOffsetX = -2f;
         public static readonly Vector2 CenterAnchor = new Vector2(0.5f, 0.5f);
+        // The brass hub in compass_north_v02 is below the texture's geometric centre.
+        // Make that authored hub the RectTransform pivot so it remains nailed to the
+        // dial centre at every bearing instead of orbiting around it.
+        public static readonly Vector2 NeedleArtworkPivot = new Vector2(0.5f, 0.375f);
 
         public static void CenterNeedleOnDial(RectTransform needle)
         {
@@ -76,13 +79,13 @@ namespace Desktopirates
             BossCompassModel.CenterNeedleOnDial(needle);
             needle.sizeDelta = new Vector2(54f, 54f);
 
-            // The authored arrow's visual weight sits slightly right of its texture centre.
-            // Offset only the artwork; the parent pivot remains exactly at the dial centre.
+            // Rotate around the artwork's brass hub, not the PNG's geometric centre.
             var needleObject = new GameObject("Boss Bearing Needle Artwork", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
             needleObject.transform.SetParent(needle, false);
             RectTransform needleArtwork = needleObject.GetComponent<RectTransform>();
-            needleArtwork.anchorMin = needleArtwork.anchorMax = needleArtwork.pivot = BossCompassModel.CenterAnchor;
-            needleArtwork.anchoredPosition = new Vector2(BossCompassModel.NeedleArtworkOffsetX, 0f);
+            needleArtwork.anchorMin = needleArtwork.anchorMax = BossCompassModel.CenterAnchor;
+            needleArtwork.pivot = BossCompassModel.NeedleArtworkPivot;
+            needleArtwork.anchoredPosition = Vector2.zero;
             needleArtwork.sizeDelta = new Vector2(54f, 54f);
             RawImage needleImage = needleObject.GetComponent<RawImage>();
             needleImage.texture = UiTextureFactory.LoadCompassArrow();

@@ -4,6 +4,11 @@ namespace Desktopirates
 {
     public static class EnemyHudModel
     {
+        public const float EnemyVerticalOffset = 2.70f;
+        public const float BossVerticalOffset = 3.40f;
+
+        public static float GetVerticalOffset(bool boss) => boss ? BossVerticalOffset : EnemyVerticalOffset;
+
         public static float GetHealthRatio(int health, int maxHealth)
             => Mathf.Clamp01(Mathf.Max(0, health) / (float)Mathf.Max(1, maxHealth));
 

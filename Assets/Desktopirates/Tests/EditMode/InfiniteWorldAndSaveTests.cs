@@ -30,6 +30,23 @@ namespace Desktopirates.Tests
             Assert.That(events.Exists(item => item.Kind == PoiKind.Port), Is.True);
         }
 
+        [Test]
+        public void InfiniteLandmarksLeaveRoomForLongAutopilotPassages()
+        {
+            var events = new List<GeneratedEventData>();
+            int ordinaryEvents = 0;
+            int chunks = 0;
+            for (int y = 20; y < 40; y++)
+            for (int x = 20; x < 40; x++)
+            {
+                WorldGenerator.GenerateChunk(GameState.DefaultWorldSeed, x, y, events);
+                ordinaryEvents += events.FindAll(item => item.Boss == BossKind.None).Count;
+                chunks++;
+            }
+            float average = ordinaryEvents / (float)chunks;
+            Assert.That(average, Is.InRange(0.50f, 0.92f));
+        }
+
         [TestCase(0f, 0f, 0, 0)]
         [TestCase(18f, 18f, 1, 1)]
         [TestCase(-0.01f, -0.01f, -1, -1)]
@@ -669,7 +686,7 @@ namespace Desktopirates.Tests
                 AutoCollectWrecks = false,
                 AutoCollectTreasures = true,
                 AutoEncounterPolicy = AutoEncounterPolicy.Fight,
-                AutoDestinationMode = AutoDestinationMode.BossHarbor
+                AutoDestinationMode = AutoDestinationMode.NearestHarbor
             };
 
             GameState restored = CompactSaveCodec.Deserialize(CompactSaveCodec.Serialize(state));
@@ -678,7 +695,7 @@ namespace Desktopirates.Tests
             Assert.That(restored.AutoCollectWrecks, Is.False);
             Assert.That(restored.AutoCollectTreasures, Is.True);
             Assert.That(restored.AutoEncounterPolicy, Is.EqualTo(AutoEncounterPolicy.Fight));
-            Assert.That(restored.AutoDestinationMode, Is.EqualTo(AutoDestinationMode.BossHarbor));
+            Assert.That(restored.AutoDestinationMode, Is.EqualTo(AutoDestinationMode.NearestHarbor));
         }
 
         [Test]

@@ -42,6 +42,15 @@ namespace Desktopirates.Tests
                 new HashSet<ulong>(), true, true, out GeneratedEventData landmark);
             Assert.That(found, Is.True);
             Assert.That(landmark.Kind, Is.Not.EqualTo(PoiKind.Enemy));
+            Assert.That(landmark.Kind, Is.Not.EqualTo(PoiKind.Port), "Landmark mode must never invoke the harbor pilot.");
+        }
+
+        [Test]
+        public void HarborSearchIsASeparateDestinationMode()
+        {
+            Assert.That(AutoVoyageModel.TryFindNearestHarbor(GameState.DefaultWorldSeed, new Vector2(70f, -35f),
+                out GeneratedEventData harbor), Is.True);
+            Assert.That(harbor.Kind, Is.EqualTo(PoiKind.Port));
         }
 
         [Test]

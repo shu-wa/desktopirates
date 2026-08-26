@@ -7,7 +7,7 @@ namespace Desktopirates
     {
         private static readonly Color Locked = new Color(0.18f, 0.23f, 0.24f, 0.72f);
         private static readonly Color Available = new Color(0.55f, 0.67f, 0.66f, 0.88f);
-        private static readonly Color Active = Color.white;
+        private static readonly Color Active = new Color(1f, 0.78f, 0.30f, 1f);
         private BoatController boat;
         private InventoryController inventory;
         private MenuController menu;
@@ -32,8 +32,8 @@ namespace Desktopirates
 
             RectTransform root = CreateRect("Compact Engine Telegraph", canvas);
             gaugeRoot = root.gameObject;
-            root.anchoredPosition = new Vector2(0f, -724f);
-            root.sizeDelta = new Vector2(420f, 96f);
+            root.anchoredPosition = new Vector2(0f, -691f);
+            root.sizeDelta = new Vector2(456f, 130f);
             RawImage background = root.gameObject.AddComponent<RawImage>();
             background.texture = UiTextureFactory.LoadGeneratedTelegraph();
             background.color = Color.white;
@@ -42,15 +42,15 @@ namespace Desktopirates
             for (int i = 0; i < segments.Length; i++)
             {
                 RectTransform rect = CreateRect($"Telegraph Segment {i + 1}", root);
-                rect.anchoredPosition = new Vector2(-132f + i * 37.5f, 13f);
-                rect.sizeDelta = new Vector2(26f, 26f);
+                rect.anchoredPosition = new Vector2(-160f + i * 44.5f, 11f);
+                rect.sizeDelta = new Vector2(21f, 21f);
                 segments[i] = rect.gameObject.AddComponent<RawImage>();
                 segments[i].raycastTarget = false;
             }
 
             RectTransform motionTrack = CreateRect("Actual Speed Track", root);
-            motionTrack.anchoredPosition = new Vector2(0f, -25f);
-            motionTrack.sizeDelta = new Vector2(280f, 6f);
+            motionTrack.anchoredPosition = new Vector2(0f, -24f);
+            motionTrack.sizeDelta = new Vector2(280f, 8f);
             Image trackImage = motionTrack.gameObject.AddComponent<Image>();
             trackImage.color = new Color(0.025f, 0.09f, 0.11f, 1f); trackImage.raycastTarget = false;
             RectTransform motionFill = CreateRect("Actual Speed Fill", motionTrack);
@@ -58,10 +58,10 @@ namespace Desktopirates
             motionBar = motionFill.gameObject.AddComponent<Image>(); motionBar.type = Image.Type.Filled; motionBar.fillMethod = Image.FillMethod.Horizontal;
             motionBar.color = UiTheme.Mint; motionBar.raycastTarget = false;
 
-            stateLabel = CreateText("Speed State", root, font, 15, new Vector2(-204f, -18f), new Vector2(92f, 22f));
+            stateLabel = CreateText("Speed State", root, font, 14, new Vector2(-198f, -25f), new Vector2(80f, 34f));
             stateLabel.color = UiTheme.Brass;
             UiTheme.StyleText(stateLabel, 16);
-            stepLabel = CreateText("Speed Step Hint", root, font, 12, new Vector2(204f, -18f), new Vector2(92f, 22f));
+            stepLabel = CreateText("Speed Step Hint", root, font, 12, new Vector2(198f, -25f), new Vector2(80f, 34f));
             stepLabel.color = UiTheme.SecondaryText;
             UiTheme.StyleText(stepLabel, 13);
             Refresh(true);
@@ -95,14 +95,14 @@ namespace Desktopirates
             float normalized = SpeedGaugeModel.GetActualNeedle01(boat.Speed, boat.MaxSpeed);
             motionBar.fillAmount = normalized;
             motionBar.color = boat.IsCoasting ? UiTheme.Brass : UiTheme.Mint;
-            stateLabel.text = SpeedGaugeModel.GetMotionLabel(step, max, boat.Speed, boat.TargetSpeed);
+            stateLabel.text = $"{SpeedGaugeModel.GetMotionLabel(step, max, boat.Speed, boat.TargetSpeed)}\n{boat.Speed:0.0} kn";
             if (boat.IsCoasting)
             {
-                stepLabel.text = step == 0 ? $"DRIFT {boat.Speed:0.0}" : $"SLOW {step}/{max}";
+                stepLabel.text = step == 0 ? "ORDER 0\nDRIFT" : $"ORDER {step}/{max}\nSLOWING";
             }
             else
             {
-                stepLabel.text = step == 0 ? "W AHEAD" : $"W+ {step}/{max} S-";
+                stepLabel.text = step == 0 ? "W  AHEAD\nS  STOP" : $"ORDER {step}/{max}\nW＋  S−";
             }
         }
 

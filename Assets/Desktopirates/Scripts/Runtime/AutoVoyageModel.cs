@@ -16,7 +16,8 @@ namespace Desktopirates
         FreeRoam,
         NearestLandmark,
         BossSignal,
-        BossHarbor
+        BossHarbor,
+        NearestHarbor
     }
 
     /// <summary>Pure navigation decisions shared by the runtime pilot and EditMode tests.</summary>
@@ -59,10 +60,13 @@ namespace Desktopirates
             bool includeWrecks, bool includeTreasure, out GeneratedEventData nearest)
         {
             return TryFindNearest(seed, origin, LandmarkSearchRadius, resolved, candidate =>
-                candidate.Kind == PoiKind.Port
-                || (includeWrecks && candidate.Kind == PoiKind.Wreck)
+                (includeWrecks && candidate.Kind == PoiKind.Wreck)
                 || (includeTreasure && candidate.Kind == PoiKind.Treasure), out nearest);
         }
+
+        public static bool TryFindNearestHarbor(int seed, Vector2 origin, out GeneratedEventData harbor)
+            => TryFindNearest(seed, origin, LandmarkSearchRadius, null,
+                candidate => candidate.Kind == PoiKind.Port, out harbor);
 
         public static bool TryFindBossHarbor(int seed, Vector2 origin, ISet<ulong> resolved,
             out GeneratedEventData boss, out GeneratedEventData harbor)
