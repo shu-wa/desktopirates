@@ -34,7 +34,7 @@ def configure_flat_materials():
     for material in bpy.data.materials:
         color = tuple(material.diffuse_color)
         material.use_nodes = True
-        principled = material.node_tree.nodes.get("Principled BSDF")
+        principled = next((node for node in material.node_tree.nodes if node.type == "BSDF_PRINCIPLED"), None)
         if principled:
             principled.inputs["Base Color"].default_value = color
             principled.inputs["Roughness"].default_value = 0.84
@@ -47,7 +47,9 @@ def configure_textured_material(material_name: str, texture_path: Path, tint):
     material.use_nodes = True
     nodes = material.node_tree.nodes
     links = material.node_tree.links
-    principled = nodes.get("Principled BSDF")
+    principled = next((node for node in nodes if node.type == "BSDF_PRINCIPLED"), None)
+    if principled is None:
+        return
     image = nodes.new("ShaderNodeTexImage")
     image.interpolation = "Closest"
     image.extension = "REPEAT"

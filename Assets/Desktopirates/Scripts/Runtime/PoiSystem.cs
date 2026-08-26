@@ -280,7 +280,7 @@ namespace Desktopirates
 
         private string BuildPrompt(PoiRecord item, float distance)
         {
-            if (player.IsAutoNavigating) return GameLocalization.Choose("HARBOR PILOT — AUTO-DOCKING…", "HARBOR PILOT — 自動接岸中…");
+            if (player.IsDocking) return GameLocalization.Choose("HARBOR PILOT — AUTO-DOCKING…", "HARBOR PILOT — 自動接岸中…");
             if (player.IsMoored) return item != null && item.Kind == PoiKind.Port ? GameLocalization.Choose("F  PORT SERVICES", "F  港湾サービス") : string.Empty;
             if (item != null && item.Kind == PoiKind.Enemy && distance <= GetLongestCannonRange())
             {
@@ -306,7 +306,7 @@ namespace Desktopirates
         {
             if (item.Kind == PoiKind.Port)
             {
-                if (distance > 3.4f || player.IsAutoNavigating) return;
+                if (distance > 3.4f || player.IsDocking) return;
                 if (player.IsMoored)
                 {
                     PortRequested?.Invoke();
@@ -349,7 +349,7 @@ namespace Desktopirates
 
         private bool PlayerInSafeHarbor()
         {
-            if (player.IsAutoNavigating || player.IsMoored) return true;
+            if (player.IsDocking || player.IsMoored) return true;
             foreach (PoiRecord item in items)
                 if (!item.Resolved && item.Kind == PoiKind.Port && Vector2.Distance(item.LogicalPosition, player.LogicalPosition) < 2.8f) return true;
             return false;
@@ -365,17 +365,24 @@ namespace Desktopirates
 
         private void ToggleAttackMode()
         {
-            if (player.IsAutoNavigating || player.IsMoored) return;
-            AttackMode = !AttackMode;
-            Message?.Invoke(AttackMode
-                ? GameLocalization.Choose("ATTACK MODE — BATTERIES WILL FIRE AUTOMATICALLY", "ATTACK MODE — 各砲台が自動砲撃します")
-                : GameLocalization.Choose("WATCH MODE — FIRE CONTROL SAFE", "WATCH MODE — 砲撃を停止しました"));
+            if (player.IsDocking || player.IsMoored) return;
+            SetAttackMode(!AttackMode, true);
+        }
+
+        public void SetAttackMode(bool enabled, bool announce = true)
+        {
+            if (AttackMode == enabled) return;
+            AttackMode = enabled;
+            if (announce)
+                Message?.Invoke(AttackMode
+                    ? GameLocalization.Choose("ATTACK MODE — BATTERIES WILL FIRE AUTOMATICALLY", "ATTACK MODE — 各砲台が自動砲撃します")
+                    : GameLocalization.Choose("WATCH MODE — FIRE CONTROL SAFE", "WATCH MODE — 砲撃を停止しました"));
             StateChanged?.Invoke();
         }
 
         private void TryAutomaticFire(bool previewOverride = false)
         {
-            if ((!AttackMode && !previewOverride) || player.IsAutoNavigating || player.IsMoored) return;
+            if ((!AttackMode && !previewOverride) || player.IsDocking || player.IsMoored) return;
             PoiRecord target = FindAutomaticTarget(out float best);
             if (target == null) return;
             float bearing = ShipCustomizationModel.GetRelativeBearing(player.HeadingDegrees, player.LogicalPosition, target.LogicalPosition);
@@ -486,6 +493,54 @@ namespace Desktopirates
                 if (ShipCustomizationModel.HasCannon(state, (CannonSlot)i))
                     range = Mathf.Max(range, CannonUpgradeModel.GetRange(state, (CannonSlot)i));
             return range;
+        }
+
+        public PoiRecord FindNearestActiveEnemy(float range)
+        {
+            PoiRecord nearest = null;
+            float bestDistanceSquared = range * range;
+            foreach (PoiRecord item in items)
+            {
+                if (item.Resolved || item.IsSinking || item.Kind != PoiKind.Enemy) continue;
+                float distanceSquared = (item.LogicalPosition - player.LogicalPosition).sqrMagnitude;
+                if (distanceSquared >= bestDistanceSquared) continue;
+                bestDistanceSquared = distanceSquared;
+                nearest = item;
+            }
+            return nearest;
+        }
+
+        public bool TryAutoCollectNearby(bool wrecks, bool treasures)
+        {
+            if ((!wrecks && !treasures) || player.IsDocking || player.IsMoored) return false;
+            PoiRecord nearest = null;
+            float bestDistance = AutoVoyageModel.AutoCollectRange;
+            foreach (PoiRecord item in items)
+            {
+                if (item.Resolved || (item.Kind != PoiKind.Wreck && item.Kind != PoiKind.Treasure)) continue;
+                if ((item.Kind == PoiKind.Wreck && !wrecks) || (item.Kind == PoiKind.Treasure && !treasures)) continue;
+                float distance = Vector2.Distance(item.LogicalPosition, player.LogicalPosition);
+                if (distance > bestDistance) continue;
+                bestDistance = distance;
+                nearest = item;
+            }
+            if (nearest == null) return false;
+            Interact(nearest, Mathf.Min(bestDistance, SalvageRange));
+            return nearest.Resolved;
+        }
+
+        public bool TryAutoDock(ulong portId)
+        {
+            if (player.IsDocking || player.IsMoored) return false;
+            foreach (PoiRecord item in items)
+            {
+                if (item.Resolved || item.Id != portId || item.Kind != PoiKind.Port) continue;
+                float distance = Vector2.Distance(item.LogicalPosition, player.LogicalPosition);
+                if (distance > AutoVoyageModel.PortPilotRange) return false;
+                Interact(item, distance);
+                return player.IsDocking;
+            }
+            return false;
         }
 
         private void BeginStatusSinking(PoiRecord target)

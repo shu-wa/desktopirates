@@ -661,6 +661,27 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void AutoVoyageOrdersRoundTripInCompactSave()
+        {
+            var state = new GameState
+            {
+                AutoVoyageEnabled = true,
+                AutoCollectWrecks = false,
+                AutoCollectTreasures = true,
+                AutoEncounterPolicy = AutoEncounterPolicy.Fight,
+                AutoDestinationMode = AutoDestinationMode.BossHarbor
+            };
+
+            GameState restored = CompactSaveCodec.Deserialize(CompactSaveCodec.Serialize(state));
+
+            Assert.That(restored.AutoVoyageEnabled, Is.True);
+            Assert.That(restored.AutoCollectWrecks, Is.False);
+            Assert.That(restored.AutoCollectTreasures, Is.True);
+            Assert.That(restored.AutoEncounterPolicy, Is.EqualTo(AutoEncounterPolicy.Fight));
+            Assert.That(restored.AutoDestinationMode, Is.EqualTo(AutoDestinationMode.BossHarbor));
+        }
+
+        [Test]
         public void HigherRankPerksGiveStrongerEffectsAndStatusChance()
         {
             var low = new GameState { Crew = 1 };

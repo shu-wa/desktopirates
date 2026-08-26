@@ -40,6 +40,8 @@ namespace Desktopirates
             GameState state = preview ? new GameState() : saves.LoadOrNew();
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--compass-preview"))
                 state.BossCompassOwned = true;
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--auto-preview" || argument == "--auto-sailing-preview"))
+                state.BossCompassOwned = true;
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--inventory-preview"))
             {
                 state.Food = 28;
@@ -122,12 +124,15 @@ namespace Desktopirates
             dayNight.Initialize(ocean, sun);
 
             RectTransform canvas = CreateCanvas();
+            camera.gameObject.AddComponent<PixelWorldRenderer>();
             EnemyHudController enemyHud = gameObject.AddComponent<EnemyHudController>();
             enemyHud.Initialize(canvas, camera, poiSystem);
             InventoryController inventory = gameObject.AddComponent<InventoryController>();
             inventory.Initialize(canvas, state);
             MenuController menu = gameObject.AddComponent<MenuController>();
             menu.Initialize(canvas, overlay, state, saves, boat, poiSystem, inventory, null);
+            AutoVoyageController autoVoyage = gameObject.AddComponent<AutoVoyageController>();
+            autoVoyage.Initialize(canvas, state, boat, poiSystem, menu, saves);
             BossCompassController bossCompass = gameObject.AddComponent<BossCompassController>();
             bossCompass.Initialize(canvas, state, boat, cameraRig, inventory, menu);
             SeaRegionController seaRegions = gameObject.AddComponent<SeaRegionController>();

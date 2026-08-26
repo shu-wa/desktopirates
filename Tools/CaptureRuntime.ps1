@@ -20,6 +20,8 @@ param(
     [string]$DirectionStartOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Direction-0.png'),
     [string]$DirectionRotatedOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-Direction-90.png'),
     [string]$CompassOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-BossCompass.png'),
+    [string]$AutoOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-AutoVoyage.png'),
+    [string]$AutoSailingOutput = (Join-Path $PSScriptRoot '..\RuntimeCapture-AutoSailing.png'),
     [switch]$ShipyardOnly,
     [switch]$MapOnly,
     [switch]$CombatOnly,
@@ -32,6 +34,8 @@ param(
     [switch]$PortEscapeCruiseOnly,
     [switch]$DirectionOnly,
     [switch]$CompassOnly,
+    [switch]$AutoOnly,
+    [switch]$AutoSailingOnly,
     [switch]$InventoryOnly
 )
 
@@ -124,6 +128,8 @@ try {
     elseif ($PortEscapeCruiseOnly) { $launch.ArgumentList = '--port-preview' }
     elseif ($DirectionOnly) { $launch.ArgumentList = '--voyage-preview' }
     elseif ($CompassOnly) { $launch.ArgumentList = '--compass-preview' }
+    elseif ($AutoOnly) { $launch.ArgumentList = '--auto-preview' }
+    elseif ($AutoSailingOnly) { $launch.ArgumentList = '--auto-sailing-preview' }
     elseif ($InventoryOnly) { $launch.ArgumentList = '--inventory-preview' }
     $game = Start-Process @launch
     for ($i = 0; $i -lt 60 -and $game.MainWindowHandle -eq 0; $i++) {
@@ -183,6 +189,8 @@ try {
         return
     }
     if ($CompassOnly) { Save-WindowCapture $game.MainWindowHandle $CompassOutput; return }
+    if ($AutoOnly) { Save-WindowCapture $game.MainWindowHandle $AutoOutput; return }
+    if ($AutoSailingOnly) { Save-WindowCapture $game.MainWindowHandle $AutoSailingOutput; return }
     if ($InventoryOnly) { Save-WindowCapture $game.MainWindowHandle $InventoryOutput; return }
 
     # Click the Menu Circle at the top-center of the 720 x 760 overlay.

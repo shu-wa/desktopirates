@@ -43,7 +43,7 @@ def reset_scene() -> None:
         mat.roughness = 0.82
         if name == "GlassGlow_v03":
             mat.use_nodes = True
-            principled = mat.node_tree.nodes.get("Principled BSDF")
+            principled = next((node for node in mat.node_tree.nodes if node.type == "BSDF_PRINCIPLED"), None)
             if principled:
                 principled.inputs["Base Color"].default_value = color
                 principled.inputs["Emission Color"].default_value = color
@@ -142,13 +142,15 @@ def create_lofted_hull(name: str, length: float, width: float, depth: float):
 
     # Cambered deck follows the same shear instead of floating as a rectangular box.
     deck_vertices = []
-    for y_ratio, beam_ratio, sheer in stations[:-1]:
+    # Cap every station, including the narrow raked bow. Omitting the final station
+    # left an open wedge through which Unity's animated ocean could be seen.
+    for y_ratio, beam_ratio, sheer in stations:
         y = length * y_ratio
         half = width * 0.47 * beam_ratio
-        z = depth * (0.49 + sheer)
-        deck_vertices.extend([(-half, y, z), (0.0, y, z + depth * 0.045), (half, y, z)])
+        z = depth * (0.53 + sheer)
+        deck_vertices.extend([(-half, y, z), (0.0, y, z + depth * 0.055), (half, y, z)])
     deck_faces = []
-    for station in range(len(stations) - 2):
+    for station in range(len(stations) - 1):
         a = station * 3
         b = (station + 1) * 3
         deck_faces.extend([(a, b, b + 1, a + 1), (a + 1, b + 1, b + 2, a + 2)])
@@ -175,7 +177,9 @@ def create_billow_sail(name, mast_y, center_z, width, height, sail_material, tri
             else:
                 taper = 0.88 + 0.12 * v
                 x = width * (u - 0.5) * taper
-            billow = -0.025 - math.sin(math.pi * u) * math.sin(math.pi * v) * 0.075
+            # Wind fills the canvas toward the bow. The former negative offset made
+            # every sail read as if the ship were travelling stern-first in Unity.
+            billow = 0.055 + math.sin(math.pi * u) * math.sin(math.pi * v) * 0.090
             vertices.append((x, mast_y + billow, z))
     faces = []
     stride = columns + 1
@@ -190,6 +194,9 @@ def create_billow_sail(name, mast_y, center_z, width, height, sail_material, tri
     bpy.context.collection.objects.link(obj)
     solidify = obj.modifiers.new("Sail cloth thickness", "SOLIDIFY")
     solidify.thickness = 0.018
+    # Extrude equally to both sides; the default one-sided extrusion pushed the
+    # smallest upper sails back across the mast despite the forward billow.
+    solidify.offset = 0.0
     return finish(obj, sail_material)
 
 

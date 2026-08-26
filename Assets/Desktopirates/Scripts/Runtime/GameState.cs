@@ -28,6 +28,11 @@ namespace Desktopirates
         public int CannonMountMask;
         public int SpareCannons;
         public bool BossCompassOwned;
+        public bool AutoVoyageEnabled;
+        public bool AutoCollectWrecks = true;
+        public bool AutoCollectTreasures = true;
+        public AutoEncounterPolicy AutoEncounterPolicy = AutoEncounterPolicy.Avoid;
+        public AutoDestinationMode AutoDestinationMode = AutoDestinationMode.NearestLandmark;
         public readonly HashSet<long> ExploredChunks = new HashSet<long>();
         public readonly HashSet<ulong> ResolvedEvents = new HashSet<ulong>();
         private readonly int[] salvageParts = new int[SalvageInventory.PartKindCount];

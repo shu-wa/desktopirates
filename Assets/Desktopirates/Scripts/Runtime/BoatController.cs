@@ -13,7 +13,9 @@ namespace Desktopirates
         public float TargetSpeed => CruiseModel.GetTargetSpeed(CruiseStep, State != null ? State.EngineLevel : 0) * (State != null ? ShipCustomizationModel.GetSpeedMultiplier(State) : 1f);
         public float MaxSpeed => CruiseModel.GetMaxSpeed(State != null ? State.EngineLevel : 0) * (State != null ? ShipCustomizationModel.GetSpeedMultiplier(State) : 1f);
         public bool IsCoasting => CruiseModel.IsCoasting(Speed, TargetSpeed);
-        public bool IsAutoNavigating { get; private set; }
+        public bool IsDocking { get; private set; }
+        public bool IsVoyageAutopilot { get; private set; }
+        public bool IsAutoNavigating => IsDocking || IsVoyageAutopilot;
         public bool IsMoored { get; private set; }
         public Transform Visual => boatVisual;
         public GameState State { get; private set; }
@@ -24,6 +26,8 @@ namespace Desktopirates
         private Vector2 dockBerth;
         private int dockingLeg;
         private Action dockingCompleted;
+        private Vector2 voyageTarget;
+        private int voyageCruiseStep;
 
         public void Initialize(Transform visual, GameState state)
         {
@@ -40,7 +44,7 @@ namespace Desktopirates
         {
             if (boatVisual == null) return;
 
-            if (IsAutoNavigating)
+            if (IsDocking)
             {
                 AdvanceDocking(Time.deltaTime);
                 return;
@@ -50,6 +54,12 @@ namespace Desktopirates
                 Speed = 0f;
                 CruiseStep = 0;
                 ApplyVisual(Time.deltaTime);
+                return;
+            }
+
+            if (IsVoyageAutopilot)
+            {
+                AdvanceVoyageAutopilot(Time.deltaTime);
                 return;
             }
 
@@ -85,18 +95,19 @@ namespace Desktopirates
         {
             boatVisual.localRotation = Quaternion.Euler(0f, HeadingDegrees, 0f);
             wakePulse += deltaTime * (2f + Mathf.Max(0f, Speed));
-            boatVisual.localPosition = new Vector3(0f, 0.28f + Mathf.Sin(wakePulse) * 0.025f, 0f);
+            boatVisual.localPosition = new Vector3(0f, 0.36f + Mathf.Sin(wakePulse) * 0.022f, 0f);
         }
 
         public void BeginDocking(Vector2 portPosition, Action completed)
         {
-            if (IsAutoNavigating) return;
+            if (IsDocking) return;
+            DisengageVoyageAutopilot(false);
             dockApproach = DockingModel.GetApproach(portPosition);
             dockBerth = DockingModel.GetBerth(portPosition);
             dockingLeg = Vector2.Distance(LogicalPosition, dockApproach) <= 0.25f ? 1 : 0;
             dockingCompleted = completed;
             IsMoored = false;
-            IsAutoNavigating = true;
+            IsDocking = true;
             CruiseStep = 0;
         }
 
@@ -126,7 +137,7 @@ namespace Desktopirates
                 {
                     HeadingDegrees = DockingModel.FinalHeading;
                     Speed = 0f;
-                    IsAutoNavigating = false;
+                    IsDocking = false;
                     IsMoored = true;
                     Action completed = dockingCompleted;
                     dockingCompleted = null;
@@ -141,13 +152,47 @@ namespace Desktopirates
 
         public void HoldAtMooring()
         {
-            IsAutoNavigating = false;
+            IsDocking = false;
+            IsVoyageAutopilot = false;
             IsMoored = true;
             CruiseStep = 0;
             Speed = 0f;
         }
 
         public void ReleaseMooring() => IsMoored = false;
+
+        public void SetVoyageCourse(Vector2 target, int cruiseStep)
+        {
+            if (IsDocking || IsMoored) return;
+            voyageTarget = target;
+            voyageCruiseStep = Mathf.Clamp(cruiseStep, 1, MaxCruiseStep);
+            IsVoyageAutopilot = true;
+        }
+
+        public void DisengageVoyageAutopilot(bool stopEngines = true)
+        {
+            IsVoyageAutopilot = false;
+            if (stopEngines) CruiseStep = 0;
+        }
+
+        private void AdvanceVoyageAutopilot(float deltaTime)
+        {
+            Vector2 direction = voyageTarget - LogicalPosition;
+            if (direction.sqrMagnitude <= AutoVoyageModel.WaypointArrivalDistance * AutoVoyageModel.WaypointArrivalDistance)
+            {
+                CruiseStep = 0;
+                Advance(deltaTime, 0f);
+                return;
+            }
+
+            float desiredHeading = Mathf.Atan2(direction.x, direction.y) * Mathf.Rad2Deg;
+            float error = Mathf.DeltaAngle(HeadingDegrees, desiredHeading);
+            float steering = AutoVoyageModel.GetSteeringInput(HeadingDegrees, desiredHeading);
+            CruiseStep = Mathf.Abs(error) > AutoVoyageModel.SlowTurnAngle
+                ? Mathf.Min(1, voyageCruiseStep)
+                : Mathf.Clamp(voyageCruiseStep, 1, MaxCruiseStep);
+            Advance(deltaTime, steering);
+        }
 
         public void IncreaseCruiseStep() => CruiseStep = CruiseModel.ChangeStep(CruiseStep, 1, State != null ? State.EngineLevel : 0);
 
@@ -160,7 +205,8 @@ namespace Desktopirates
 
         public void TowTo(Vector2 position)
         {
-            IsAutoNavigating = false;
+            IsDocking = false;
+            IsVoyageAutopilot = false;
             IsMoored = false;
             dockingCompleted = null;
             LogicalPosition = position;

@@ -47,6 +47,8 @@ outputs/*EnemyV04*
 outputs/RuntimeCapture-EnemyTypes-*-v04.png
 outputs/RuntimeCapture-Map-Centered-v04.png
 outputs/*BossCompass*
+outputs/*AutoVoyage*
+outputs/*AutoSailing*
 __pycache__/
 
 # Blender's rolling backup files stay local; authored .blend sources are tracked.

@@ -93,7 +93,26 @@ namespace Desktopirates
         private Sprite panelSprite;
         private Sprite pillSprite;
         private Sprite diamondSprite;
-        public bool IsModalOpen => (menuRoot != null && menuRoot.activeSelf) || (captainLogRoot != null && captainLogRoot.activeSelf) || (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf) || mapRoot != null;
+        private Func<bool> externalModalOpen;
+        private Action closeExternalModal;
+        public bool IsExternalModalOpen => externalModalOpen != null && externalModalOpen();
+        public bool IsModalOpen => (menuRoot != null && menuRoot.activeSelf) || (captainLogRoot != null && captainLogRoot.activeSelf) || (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf) || mapRoot != null || IsExternalModalOpen;
+
+        public void RegisterExternalModal(Func<bool> isOpen, Action close)
+        {
+            externalModalOpen = isOpen;
+            closeExternalModal = close;
+        }
+
+        public void PrepareExternalModal()
+        {
+            menuRoot.SetActive(false);
+            captainLogRoot.SetActive(false);
+            portRoot.SetActive(false);
+            shipyardRoot.SetActive(false);
+            inventory?.Close();
+            CloseMap();
+        }
 
         public void Initialize(RectTransform canvasRoot, WindowsOverlayController windowOverlay, GameState gameState, SaveSystem saveSystem, BoatController player, PoiSystem poiSystem, InventoryController cargoInventory, GameObject compassDisplay)
         {
@@ -163,7 +182,8 @@ namespace Desktopirates
             bool persistentStatusPanel = (inventory != null && inventory.IsOpen)
                 || (portRoot != null && portRoot.activeSelf)
                 || (shipyardRoot != null && shipyardRoot.activeSelf)
-                || mapRoot != null;
+                || mapRoot != null
+                || IsExternalModalOpen;
             hudRoot.SetActive(normalNavigation || persistentStatusPanel);
             bool dockPanelOpen = (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf);
             hudRoot.transform.localScale = Vector3.one * (dockPanelOpen ? 0.70f : 1f);
@@ -182,6 +202,11 @@ namespace Desktopirates
             }
             if (Input.GetKeyDown(KeyCode.Escape))
             {
+                if (IsExternalModalOpen)
+                {
+                    closeExternalModal?.Invoke();
+                    return;
+                }
                 bool menuOpen = menuRoot != null && menuRoot.activeSelf;
                 bool anotherPanelOpen = (captainLogRoot != null && captainLogRoot.activeSelf)
                     || (portRoot != null && portRoot.activeSelf)
@@ -1093,6 +1118,7 @@ namespace Desktopirates
             shipyardRoot.SetActive(false);
             inventory?.Close();
             CloseMap();
+            closeExternalModal?.Invoke();
         }
 
         private void Autosave() => saves.Save(state);

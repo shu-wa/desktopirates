@@ -6,6 +6,7 @@ namespace Desktopirates
     public static class BossCompassModel
     {
         public const int PurchaseCost = 240;
+        public const float NeedleArtworkOffsetX = -2f;
         public static readonly Vector2 CenterAnchor = new Vector2(0.5f, 0.5f);
 
         public static void CenterNeedleOnDial(RectTransform needle)
@@ -69,11 +70,20 @@ namespace Desktopirates
             plate.color = Color.white;
             plate.raycastTarget = false;
 
-            var needleObject = new GameObject("Boss Bearing Needle", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
-            needleObject.transform.SetParent(dial, false);
-            needle = needleObject.GetComponent<RectTransform>();
+            var needlePivotObject = new GameObject("Boss Bearing Pivot", typeof(RectTransform));
+            needlePivotObject.transform.SetParent(dial, false);
+            needle = needlePivotObject.GetComponent<RectTransform>();
             BossCompassModel.CenterNeedleOnDial(needle);
             needle.sizeDelta = new Vector2(54f, 54f);
+
+            // The authored arrow's visual weight sits slightly right of its texture centre.
+            // Offset only the artwork; the parent pivot remains exactly at the dial centre.
+            var needleObject = new GameObject("Boss Bearing Needle Artwork", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+            needleObject.transform.SetParent(needle, false);
+            RectTransform needleArtwork = needleObject.GetComponent<RectTransform>();
+            needleArtwork.anchorMin = needleArtwork.anchorMax = needleArtwork.pivot = BossCompassModel.CenterAnchor;
+            needleArtwork.anchoredPosition = new Vector2(BossCompassModel.NeedleArtworkOffsetX, 0f);
+            needleArtwork.sizeDelta = new Vector2(54f, 54f);
             RawImage needleImage = needleObject.GetComponent<RawImage>();
             needleImage.texture = UiTextureFactory.LoadCompassArrow();
             needleImage.color = new Color(1f, 0.48f, 0.12f, 1f);

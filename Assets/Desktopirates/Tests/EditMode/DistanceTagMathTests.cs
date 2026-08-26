@@ -135,5 +135,12 @@ namespace Desktopirates.Tests
                 Object.DestroyImmediate(objectUnderTest);
             }
         }
+
+        [Test]
+        public void BossCompassArtworkCompensatesForItsRightHeavyDrawing()
+        {
+            Assert.That(BossCompassModel.NeedleArtworkOffsetX, Is.LessThan(0f));
+            Assert.That(Mathf.Abs(BossCompassModel.NeedleArtworkOffsetX), Is.LessThanOrEqualTo(3f));
+        }
     }
 }

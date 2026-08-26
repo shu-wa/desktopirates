@@ -10,7 +10,7 @@ namespace Desktopirates
 {
     public static class CompactSaveCodec
     {
-        private const byte Version = 9;
+        private const byte Version = 10;
         private const int Version4RoleCount = 4;
         private const int Version4PerkCount = 14;
         private const int Version5RoleCount = 5;
@@ -67,6 +67,13 @@ namespace Desktopirates
                     writer.Write((byte)state.GetCannonRangeLevel(slot));
                     writer.Write((byte)state.GetCannonRound(slot));
                 }
+                byte autoFlags = 0;
+                if (state.AutoVoyageEnabled) autoFlags |= 1;
+                if (state.AutoCollectWrecks) autoFlags |= 2;
+                if (state.AutoCollectTreasures) autoFlags |= 4;
+                writer.Write(autoFlags);
+                writer.Write((byte)state.AutoEncounterPolicy);
+                writer.Write((byte)state.AutoDestinationMode);
             }
 
             raw.Position = 0;
@@ -180,6 +187,15 @@ namespace Desktopirates
                     state.SetCannonRangeLevel(slot, reader.ReadByte());
                     state.SetCannonRound(slot, (CannonRoundKind)reader.ReadByte());
                 }
+            }
+            if (version >= 10)
+            {
+                byte autoFlags = reader.ReadByte();
+                state.AutoVoyageEnabled = (autoFlags & 1) != 0;
+                state.AutoCollectWrecks = (autoFlags & 2) != 0;
+                state.AutoCollectTreasures = (autoFlags & 4) != 0;
+                state.AutoEncounterPolicy = (AutoEncounterPolicy)Mathf.Clamp(reader.ReadByte(), 0, (int)AutoEncounterPolicy.Observe);
+                state.AutoDestinationMode = (AutoDestinationMode)Mathf.Clamp(reader.ReadByte(), 0, (int)AutoDestinationMode.BossHarbor);
             }
             return state;
         }
