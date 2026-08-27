@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -118,7 +119,18 @@ namespace Desktopirates
         }
 
         public static Texture2D LoadScreenBackground(string screen)
-            => Resources.Load<Texture2D>($"Textures/UI/ConceptV05/Screens/{screen}_background_v05");
+        {
+            if (string.Equals(screen, "shipyard", StringComparison.OrdinalIgnoreCase))
+            {
+                Texture2D authoredShipyard = Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/shipyard_background_v06");
+                if (authoredShipyard != null) return authoredShipyard;
+            }
+            return Resources.Load<Texture2D>($"Textures/UI/ConceptV05/Screens/{screen}_background_v05");
+        }
+
+        public static Texture2D LoadShipyardCannonOverlay()
+            => Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/shipyard_cannon_topdown_v06")
+               ?? LoadPortIcon("hardpoint_cannon");
 
         public static Sprite LoadPanelSprite(int size = 128)
         {

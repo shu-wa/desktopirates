@@ -17,8 +17,10 @@ namespace Desktopirates
         public bool IsVoyageAutopilot { get; private set; }
         public bool IsAutoNavigating => IsDocking || IsVoyageAutopilot;
         public bool IsMoored { get; private set; }
+        public int DockedBerthIndex { get; private set; } = -1;
         public Transform Visual => boatVisual;
         public GameState State { get; private set; }
+        public event Action MooringReleased;
 
         private Transform boatVisual;
         private float wakePulse;
@@ -28,6 +30,7 @@ namespace Desktopirates
         private Action dockingCompleted;
         private Vector2 voyageTarget;
         private int voyageCruiseStep;
+        private bool voyageAllowsEngineStop;
 
         public void Initialize(Transform visual, GameState state)
         {
@@ -99,13 +102,17 @@ namespace Desktopirates
         }
 
         public void BeginDocking(Vector2 portPosition, Action completed)
+            => BeginDocking(portPosition, DockingModel.DefaultBerthIndex, completed);
+
+        public void BeginDocking(Vector2 portPosition, int berthIndex, Action completed)
         {
             if (IsDocking) return;
             DisengageVoyageAutopilot(false);
-            dockApproach = DockingModel.GetApproach(portPosition);
-            dockBerth = DockingModel.GetBerth(portPosition);
+            dockApproach = DockingModel.GetApproach(portPosition, berthIndex);
+            dockBerth = DockingModel.GetBerth(portPosition, berthIndex);
             dockingLeg = Vector2.Distance(LogicalPosition, dockApproach) <= 0.25f ? 1 : 0;
             dockingCompleted = completed;
+            DockedBerthIndex = Mathf.Clamp(berthIndex, 0, DockingModel.BerthCount - 1);
             IsMoored = false;
             IsDocking = true;
             CruiseStep = 0;
@@ -159,19 +166,28 @@ namespace Desktopirates
             Speed = 0f;
         }
 
-        public void ReleaseMooring() => IsMoored = false;
+        public void ReleaseMooring()
+        {
+            bool heldBerth = IsMoored || IsDocking || DockedBerthIndex >= 0;
+            IsMoored = false;
+            IsDocking = false;
+            DockedBerthIndex = -1;
+            if (heldBerth) MooringReleased?.Invoke();
+        }
 
-        public void SetVoyageCourse(Vector2 target, int cruiseStep)
+        public void SetVoyageCourse(Vector2 target, int cruiseStep, bool allowEngineStop = false)
         {
             if (IsDocking || IsMoored) return;
             voyageTarget = target;
-            voyageCruiseStep = Mathf.Clamp(cruiseStep, 1, MaxCruiseStep);
+            voyageAllowsEngineStop = allowEngineStop;
+            voyageCruiseStep = Mathf.Clamp(cruiseStep, allowEngineStop ? 0 : 1, MaxCruiseStep);
             IsVoyageAutopilot = true;
         }
 
         public void DisengageVoyageAutopilot(bool stopEngines = true)
         {
             IsVoyageAutopilot = false;
+            voyageAllowsEngineStop = false;
             if (stopEngines) CruiseStep = 0;
         }
 
@@ -188,9 +204,11 @@ namespace Desktopirates
             float desiredHeading = Mathf.Atan2(direction.x, direction.y) * Mathf.Rad2Deg;
             float error = Mathf.DeltaAngle(HeadingDegrees, desiredHeading);
             float steering = AutoVoyageModel.GetSteeringInput(HeadingDegrees, desiredHeading);
-            CruiseStep = Mathf.Abs(error) > AutoVoyageModel.SlowTurnAngle
-                ? Mathf.Min(1, voyageCruiseStep)
-                : Mathf.Clamp(voyageCruiseStep, 1, MaxCruiseStep);
+            CruiseStep = voyageAllowsEngineStop
+                ? Mathf.Clamp(voyageCruiseStep, 0, MaxCruiseStep)
+                : Mathf.Abs(error) > AutoVoyageModel.SlowTurnAngle
+                    ? Mathf.Min(1, voyageCruiseStep)
+                    : Mathf.Clamp(voyageCruiseStep, 1, MaxCruiseStep);
             Advance(deltaTime, steering);
         }
 
@@ -203,8 +221,16 @@ namespace Desktopirates
             if (boatVisual != null && State != null) ProceduralSceneFactory.ApplyPlayerCustomization(boatVisual, State);
         }
 
+        public void ResolveCollision(Vector2 displacement)
+        {
+            if (State == null || IsDocking || IsMoored || displacement.sqrMagnitude <= 0f) return;
+            LogicalPosition += displacement;
+            State.PlayerPosition = LogicalPosition;
+        }
+
         public void TowTo(Vector2 position)
         {
+            bool heldBerth = IsMoored || IsDocking || DockedBerthIndex >= 0;
             IsDocking = false;
             IsVoyageAutopilot = false;
             IsMoored = false;
@@ -213,6 +239,8 @@ namespace Desktopirates
             State.PlayerPosition = position;
             CruiseStep = 0;
             Speed = 0f;
+            DockedBerthIndex = -1;
+            if (heldBerth) MooringReleased?.Invoke();
         }
     }
 }

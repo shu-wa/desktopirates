@@ -286,11 +286,42 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void HarborOffersThreeExclusiveBerths()
+        {
+            var registry = new HarborBerthRegistry();
+            const ulong port = 9001UL;
+            Assert.That(DockingModel.BerthCount, Is.EqualTo(3));
+            Assert.That(registry.TryReserve(port, 11UL, out int first), Is.True);
+            Assert.That(registry.TryReserve(port, 12UL, out int second), Is.True);
+            Assert.That(registry.TryReserve(port, 13UL, out int third), Is.True);
+            Assert.That(new HashSet<int> { first, second, third }.Count, Is.EqualTo(3));
+            Assert.That(registry.TryReserve(port, 14UL, out _), Is.False);
+            registry.Release(port, 12UL);
+            Assert.That(registry.TryReserve(port, 14UL, out int reopened), Is.True);
+            Assert.That(reopened, Is.EqualTo(second));
+        }
+
+        [Test]
+        public void HullCollisionFootprintGrowsWithShipSize()
+        {
+            float raft = ShipCollisionModel.GetPlayerRadius(0);
+            float large = ShipCollisionModel.GetPlayerRadius(ShipProgressionModel.TierCount - 1);
+            Assert.That(large, Is.GreaterThan(raft));
+            Assert.That(ShipCollisionModel.TryGetSeparation(Vector2.zero, raft, Vector2.right * 0.2f,
+                ShipCollisionModel.GetEnemyRadius(EnemyArchetype.Ironclad, BossKind.None), out Vector2 playerMove, out Vector2 enemyMove), Is.True);
+            Assert.That(playerMove.x, Is.LessThan(0f));
+            Assert.That(enemyMove.x, Is.GreaterThan(0f));
+        }
+
+        [Test]
         public void CannonFlightTimeIsReadableAndBoundedAtDesktopScale()
         {
             Assert.That(CombatVfxMath.GetProjectileDuration(0.1f), Is.EqualTo(0.28f).Within(0.001f));
             Assert.That(CombatVfxMath.GetProjectileDuration(3f), Is.InRange(0.35f, 0.45f));
             Assert.That(CombatVfxMath.GetProjectileDuration(99f), Is.EqualTo(0.68f).Within(0.001f));
+            Assert.That(CombatVfxMath.ProjectileScale, Is.GreaterThanOrEqualTo(0.14f));
+            Assert.That(CombatVfxMath.TracerStartWidth, Is.GreaterThan(CombatVfxMath.TracerEndWidth));
+            Assert.That(CombatVfxMath.TracerLifetime, Is.GreaterThan(0.25f));
         }
 
         [Test]

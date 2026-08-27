@@ -53,6 +53,9 @@ namespace Desktopirates
         private CombatVfxController combatVfx;
         private PlayerShipConditionController playerConditions;
         private readonly List<CannonSlot> firingSlots = new List<CannonSlot>();
+        private readonly HarborBerthRegistry harborBerths = new HarborBerthRegistry();
+        private const ulong PlayerVesselId = 1UL;
+        private ulong playerReservedPortId;
         private int centerChunkX = int.MinValue;
         private int centerChunkY = int.MinValue;
         private readonly float[] cannonReadyAt = new float[ShipCustomizationModel.CannonSlotCount];
@@ -63,6 +66,7 @@ namespace Desktopirates
         {
             player = boat;
             state = gameState;
+            player.MooringReleased += ReleasePlayerBerth;
             combatVfx = effects;
             playerConditions = conditions;
             if (playerConditions != null)
@@ -85,6 +89,7 @@ namespace Desktopirates
         {
             if (player == null) return;
             RefreshChunks(false);
+            ResolveShipCollisions();
 
             PoiRecord closest = null;
             float closestDistance = float.MaxValue;
@@ -249,6 +254,35 @@ namespace Desktopirates
             }
         }
 
+        private void ResolveShipCollisions()
+        {
+            float playerRadius = ShipCollisionModel.GetPlayerRadius(state.ShipLevel);
+            for (int i = 0; i < items.Count; i++)
+            {
+                PoiRecord enemy = items[i];
+                if (enemy.Resolved || enemy.IsSinking || enemy.Kind != PoiKind.Enemy) continue;
+                float enemyRadius = ShipCollisionModel.GetEnemyRadius(enemy.EnemyArchetype, enemy.Boss);
+                if (ShipCollisionModel.TryGetSeparation(player.LogicalPosition, playerRadius, enemy.LogicalPosition, enemyRadius,
+                    out Vector2 playerMove, out Vector2 enemyMove))
+                {
+                    if (player.IsDocking || player.IsMoored) enemyMove -= playerMove;
+                    else player.ResolveCollision(playerMove);
+                    enemy.LogicalPosition += enemyMove;
+                }
+
+                for (int j = i + 1; j < items.Count; j++)
+                {
+                    PoiRecord other = items[j];
+                    if (other.Resolved || other.IsSinking || other.Kind != PoiKind.Enemy) continue;
+                    float otherRadius = ShipCollisionModel.GetEnemyRadius(other.EnemyArchetype, other.Boss);
+                    if (!ShipCollisionModel.TryGetSeparation(enemy.LogicalPosition, enemyRadius, other.LogicalPosition, otherRadius,
+                        out Vector2 enemySeparation, out Vector2 otherSeparation)) continue;
+                    enemy.LogicalPosition += enemySeparation;
+                    other.LogicalPosition += otherSeparation;
+                }
+            }
+        }
+
         private void ApplyEnemyHit(PoiRecord attacker)
         {
             int damage = attacker == null ? 1 : attacker.Boss != BossKind.None
@@ -314,14 +348,20 @@ namespace Desktopirates
                     PortRequested?.Invoke();
                     return;
                 }
-                player.BeginDocking(item.LogicalPosition, () =>
+                if (!harborBerths.TryReserve(item.Id, PlayerVesselId, out int berthIndex))
+                {
+                    Message?.Invoke(GameLocalization.Choose("HARBOR FULL — ALL BERTHS OCCUPIED", "港内満船 — 空きバースがありません"));
+                    return;
+                }
+                playerReservedPortId = item.Id;
+                player.BeginDocking(item.LogicalPosition, berthIndex, () =>
                 {
                     state.Captain.PortCalls++;
                     Message?.Invoke("係留完了 — 港内は安全です");
                     PortRequested?.Invoke();
                     StateChanged?.Invoke();
                 });
-                Message?.Invoke("水先案内人が操船を引き継ぎました");
+                Message?.Invoke(GameLocalization.Choose($"HARBOR PILOT — BERTH {berthIndex + 1} RESERVED", $"水先案内人 — バース{berthIndex + 1}へ入港します"));
                 return;
             }
             if (distance > SalvageRange || item.Kind == PoiKind.Enemy) return;
@@ -514,20 +554,27 @@ namespace Desktopirates
         public bool TryAutoCollectNearby(bool wrecks, bool treasures)
         {
             if ((!wrecks && !treasures) || player.IsDocking || player.IsMoored) return false;
-            PoiRecord nearest = null;
-            float bestDistance = AutoVoyageModel.AutoCollectRange;
+            if (!TryGetAutoCollectTarget(wrecks, treasures, AutoVoyageModel.AutoCollectRange, out PoiRecord nearest, out float bestDistance)) return false;
+            if (bestDistance > SalvageRange) return false;
+            Interact(nearest, bestDistance);
+            return nearest.Resolved;
+        }
+
+        public bool TryGetAutoCollectTarget(bool wrecks, bool treasures, float range, out PoiRecord nearest, out float distance)
+        {
+            nearest = null;
+            distance = Mathf.Max(0f, range);
+            if ((!wrecks && !treasures) || player == null || player.IsDocking || player.IsMoored) return false;
             foreach (PoiRecord item in items)
             {
                 if (item.Resolved || (item.Kind != PoiKind.Wreck && item.Kind != PoiKind.Treasure)) continue;
                 if ((item.Kind == PoiKind.Wreck && !wrecks) || (item.Kind == PoiKind.Treasure && !treasures)) continue;
-                float distance = Vector2.Distance(item.LogicalPosition, player.LogicalPosition);
-                if (distance > bestDistance) continue;
-                bestDistance = distance;
+                float candidateDistance = Vector2.Distance(item.LogicalPosition, player.LogicalPosition);
+                if (candidateDistance > distance) continue;
+                distance = candidateDistance;
                 nearest = item;
             }
-            if (nearest == null) return false;
-            Interact(nearest, Mathf.Min(bestDistance, SalvageRange));
-            return nearest.Resolved;
+            return nearest != null;
         }
 
         public bool TryAutoDock(ulong portId)
@@ -542,6 +589,19 @@ namespace Desktopirates
                 return player.IsDocking;
             }
             return false;
+        }
+
+        public bool TryReserveHarborBerth(ulong portId, ulong vesselId, out int berthIndex)
+            => harborBerths.TryReserve(portId, vesselId, out berthIndex);
+
+        public void ReleaseHarborBerth(ulong portId, ulong vesselId)
+            => harborBerths.Release(portId, vesselId);
+
+        private void ReleasePlayerBerth()
+        {
+            if (playerReservedPortId == 0UL) return;
+            harborBerths.Release(playerReservedPortId, PlayerVesselId);
+            playerReservedPortId = 0UL;
         }
 
         private void BeginStatusSinking(PoiRecord target)

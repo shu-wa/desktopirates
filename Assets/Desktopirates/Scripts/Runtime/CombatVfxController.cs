@@ -10,6 +10,11 @@ namespace Desktopirates
     {
         public const float BurningDuration = 5f;
         public const float SinkingDuration = 3f;
+        public const float ProjectileScale = 0.15f;
+        public const float TracerLifetime = 0.32f;
+        public const float TracerStartWidth = 0.105f;
+        public const float TracerEndWidth = 0.025f;
+        public const float MuzzleCoreLifetime = 0.16f;
 
         public static float GetProjectileDuration(float distance)
             => Mathf.Clamp(distance / 7.5f, 0.28f, 0.68f);
@@ -26,6 +31,7 @@ namespace Desktopirates
         private Material flame;
         private Material smoke;
         private Material shot;
+        private Material tracer;
 
         public void Initialize(Transform worldRoot)
         {
@@ -34,7 +40,8 @@ namespace Desktopirates
             ember = MakeMaterial("Ember", new Color(1f, 0.38f, 0.05f));
             flame = MakeMaterial("Flame", new Color(1f, 0.72f, 0.12f));
             smoke = MakeMaterial("Powder Smoke", new Color(0.44f, 0.48f, 0.46f));
-            shot = MakeMaterial("Cannon Ball", new Color(0.07f, 0.08f, 0.075f));
+            shot = MakeMaterial("Cannon Ball", new Color(0.13f, 0.14f, 0.12f));
+            tracer = MakeMaterial("Ballistic Tracer", new Color(1f, 0.66f, 0.18f));
         }
 
         public void PlayPlayerSalvo(
@@ -111,7 +118,8 @@ namespace Desktopirates
         private IEnumerator ProjectileRoutine(Vector3 start, Transform target, float duration, float delay)
         {
             if (delay > 0f) yield return new WaitForSeconds(delay);
-            GameObject ball = MakeBlock("Cannon Ball", start, Vector3.one * 0.095f, shot);
+            GameObject ball = MakeBlock("Cannon Ball", start, Vector3.one * CombatVfxMath.ProjectileScale, shot);
+            TrailRenderer trail = CreateProjectileTrail(ball.transform);
             Vector3 destination = target != null ? target.position + Vector3.up * 0.22f : start;
             for (float elapsed = 0f; elapsed < duration && ball != null; elapsed += Time.deltaTime)
             {
@@ -121,6 +129,12 @@ namespace Desktopirates
                 point.y += Mathf.Sin(t * Mathf.PI) * 0.42f;
                 ball.transform.position = point;
                 yield return null;
+            }
+            if (trail != null)
+            {
+                trail.emitting = false;
+                trail.transform.SetParent(effectRoot, true);
+                Destroy(trail.gameObject, CombatVfxMath.TracerLifetime);
             }
             if (ball != null) Destroy(ball);
         }
@@ -153,6 +167,7 @@ namespace Desktopirates
         private void EmitMuzzle(Vector3 position, Vector3 direction)
         {
             Vector3 flat = new Vector3(direction.x, 0.12f, direction.z).normalized;
+            StartCoroutine(MuzzleCore(position + flat * 0.035f, flat));
             for (int i = 0; i < 4; i++)
             {
                 Vector3 fan = Quaternion.Euler(0f, -18f + i * 12f, 0f) * flat;
@@ -160,6 +175,43 @@ namespace Desktopirates
             }
             for (int i = 0; i < 3; i++)
                 StartCoroutine(BlockParticle(position + flat * 0.06f, flat * (0.18f + i * 0.07f) + Vector3.up * 0.18f, 0.78f + i * 0.1f, Vector3.one * (0.18f + i * 0.04f), smoke, true));
+        }
+
+        private IEnumerator MuzzleCore(Vector3 position, Vector3 direction)
+        {
+            GameObject core = MakeBlock("Hardpoint Muzzle Burst", position, Vector3.one * 0.12f, flame);
+            core.transform.rotation = Quaternion.LookRotation(direction.sqrMagnitude > 0.001f ? direction : Vector3.forward);
+            for (float elapsed = 0f; elapsed < CombatVfxMath.MuzzleCoreLifetime && core != null; elapsed += Time.deltaTime)
+            {
+                float t = Mathf.Clamp01(elapsed / CombatVfxMath.MuzzleCoreLifetime);
+                core.transform.position += direction * Time.deltaTime * 0.44f;
+                core.transform.localScale = new Vector3(
+                    Mathf.Lerp(0.12f, 0.035f, t),
+                    Mathf.Lerp(0.12f, 0.035f, t),
+                    Mathf.Lerp(0.18f, 0.40f, Mathf.Sin(t * Mathf.PI)));
+                yield return null;
+            }
+            if (core != null) Destroy(core);
+        }
+
+        private TrailRenderer CreateProjectileTrail(Transform projectile)
+        {
+            GameObject trailObject = new GameObject("Cannon Ball Trajectory");
+            trailObject.transform.SetParent(projectile, false);
+            trailObject.transform.localPosition = Vector3.zero;
+            TrailRenderer trailRenderer = trailObject.AddComponent<TrailRenderer>();
+            trailRenderer.sharedMaterial = tracer;
+            trailRenderer.time = CombatVfxMath.TracerLifetime;
+            trailRenderer.startWidth = CombatVfxMath.TracerStartWidth;
+            trailRenderer.endWidth = CombatVfxMath.TracerEndWidth;
+            trailRenderer.minVertexDistance = 0.035f;
+            trailRenderer.alignment = LineAlignment.View;
+            trailRenderer.textureMode = LineTextureMode.Stretch;
+            trailRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            trailRenderer.receiveShadows = false;
+            trailRenderer.generateLightingData = false;
+            trailRenderer.emitting = true;
+            return trailRenderer;
         }
 
         private void EmitImpact(Vector3 position)

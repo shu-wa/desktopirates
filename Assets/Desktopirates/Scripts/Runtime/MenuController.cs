@@ -62,7 +62,7 @@ namespace Desktopirates
         private Text engineUpgradeText;
         private Text shipyardSummary;
         private readonly Text[] cannonSlotTexts = new Text[ShipCustomizationModel.CannonSlotCount];
-        private readonly RawImage[] cannonSlotIcons = new RawImage[ShipCustomizationModel.CannonSlotCount];
+        private readonly RawImage[] shipyardDeckCannons = new RawImage[ShipCustomizationModel.CannonSlotCount];
         private Text capacityUpgradeText;
         private Text propulsionUpgradeText;
         private Text armorUpgradeText;
@@ -481,26 +481,34 @@ namespace Desktopirates
             rect.sizeDelta = new Vector2(620f, 640f);
             RawImage back = shipyardRoot.AddComponent<RawImage>(); back.texture = UiTextureFactory.LoadScreenBackground("shipyard"); back.color = Color.white; back.raycastTarget = false;
             CreateText(shipyardRoot.transform, "SHIPYARD", new Vector2(0f, 230f), new Vector2(260f, 30f), 22, TextAnchor.MiddleCenter).color = Brass;
-            shipyardSummary = CreateText(shipyardRoot.transform, "Shipyard Summary", new Vector2(0f, 196f), new Vector2(540f, 38f), 12, TextAnchor.MiddleCenter);
+            shipyardSummary = CreateText(shipyardRoot.transform, "Shipyard Summary", new Vector2(0f, 196f), new Vector2(552f, 44f), 12, TextAnchor.MiddleCenter);
             shipyardSummary.color = new Color(0.78f, 0.91f, 0.90f, 1f);
+            shipyardSummary.resizeTextForBestFit = true; shipyardSummary.resizeTextMinSize = 9; shipyardSummary.resizeTextMaxSize = 12;
 
             CreateSizedButton(shipyardRoot.transform, "GUN DECK", new Vector2(-172f, 156f), new Vector2(160f, 36f), () => ShowShipyardPage(0));
             CreateSizedButton(shipyardRoot.transform, "SYSTEMS", new Vector2(0f, 156f), new Vector2(160f, 36f), () => ShowShipyardPage(1));
             CreateSizedButton(shipyardRoot.transform, "CREW", new Vector2(172f, 156f), new Vector2(160f, 36f), () => ShowShipyardPage(2));
 
             shipyardGunsPage = CreateUiObject("Gun Deck Page", shipyardRoot.transform).gameObject;
+            CreateShipyardDeckCannon(CannonSlot.Bow, new Vector2(0f, 50f), 0f);
+            CreateShipyardDeckCannon(CannonSlot.PortFore, new Vector2(-57f, 24f), 90f);
+            CreateShipyardDeckCannon(CannonSlot.StarboardFore, new Vector2(57f, 24f), -90f);
+            CreateShipyardDeckCannon(CannonSlot.PortAft, new Vector2(-59f, -45f), 90f);
+            CreateShipyardDeckCannon(CannonSlot.StarboardAft, new Vector2(59f, -45f), -90f);
+            CreateShipyardDeckCannon(CannonSlot.Stern, new Vector2(0f, -88f), 180f);
             CreateCannonSlotButton(CannonSlot.Bow, new Vector2(0f, 106f));
             CreateCannonSlotButton(CannonSlot.PortFore, new Vector2(-184f, 35f));
             CreateCannonSlotButton(CannonSlot.StarboardFore, new Vector2(184f, 35f));
             CreateCannonSlotButton(CannonSlot.PortAft, new Vector2(-184f, -45f));
             CreateCannonSlotButton(CannonSlot.StarboardAft, new Vector2(184f, -45f));
             CreateCannonSlotButton(CannonSlot.Stern, new Vector2(0f, -128f));
-            selectedCannonSummary = CreateText(shipyardGunsPage.transform, "Selected Cannon Summary", new Vector2(-62f, -202f), new Vector2(370f, 42f), 12, TextAnchor.MiddleCenter);
+            selectedCannonSummary = CreateText(shipyardGunsPage.transform, "Selected Cannon Summary", new Vector2(-69f, -202f), new Vector2(350f, 42f), 12, TextAnchor.MiddleCenter);
             selectedCannonSummary.color = UiTheme.PrimaryText; UiTheme.StyleText(selectedCannonSummary, 12);
-            cannonMountActionText = CreateSizedButton(shipyardGunsPage.transform, "MOUNT / STORE", new Vector2(224f, -202f), new Vector2(142f, 40f), () => ToggleCannon(selectedCannonSlot)).GetComponentInChildren<Text>();
-            cannonDamageSlotText = CreateSizedButton(shipyardGunsPage.transform, "DAMAGE", new Vector2(-210f, -250f), new Vector2(128f, 40f), () => UpgradeSelectedCannon(0)).GetComponentInChildren<Text>();
-            cannonReloadSlotText = CreateSizedButton(shipyardGunsPage.transform, "RELOAD", new Vector2(-70f, -250f), new Vector2(128f, 40f), () => UpgradeSelectedCannon(1)).GetComponentInChildren<Text>();
-            cannonRangeSlotText = CreateSizedButton(shipyardGunsPage.transform, "RANGE", new Vector2(70f, -250f), new Vector2(128f, 40f), () => UpgradeSelectedCannon(2)).GetComponentInChildren<Text>();
+            selectedCannonSummary.resizeTextForBestFit = true; selectedCannonSummary.resizeTextMinSize = 9; selectedCannonSummary.resizeTextMaxSize = 12;
+            cannonMountActionText = CreateSizedButton(shipyardGunsPage.transform, "MOUNT / STORE", new Vector2(221f, -202f), new Vector2(148f, 40f), () => ToggleCannon(selectedCannonSlot)).GetComponentInChildren<Text>();
+            cannonDamageSlotText = CreateSizedButton(shipyardGunsPage.transform, "DMG", new Vector2(-210f, -250f), new Vector2(128f, 40f), () => UpgradeSelectedCannon(0)).GetComponentInChildren<Text>();
+            cannonReloadSlotText = CreateSizedButton(shipyardGunsPage.transform, "RLD", new Vector2(-70f, -250f), new Vector2(128f, 40f), () => UpgradeSelectedCannon(1)).GetComponentInChildren<Text>();
+            cannonRangeSlotText = CreateSizedButton(shipyardGunsPage.transform, "RNG", new Vector2(70f, -250f), new Vector2(128f, 40f), () => UpgradeSelectedCannon(2)).GetComponentInChildren<Text>();
             cannonAmmoText = CreateSizedButton(shipyardGunsPage.transform, "AMMO", new Vector2(210f, -250f), new Vector2(128f, 40f), CycleSelectedCannonRound).GetComponentInChildren<Text>();
 
             shipyardSystemsPage = CreateUiObject("Ship Systems Page", shipyardRoot.transform).gameObject;
@@ -541,9 +549,36 @@ namespace Desktopirates
 
         private void CreateCannonSlotButton(CannonSlot slot, Vector2 position)
         {
-            Button button = CreateSizedButton(shipyardGunsPage.transform, ShipCustomizationModel.GetDefinition(slot).ShortName, position, new Vector2(156f, 64f), () => SelectCannonSlot(slot));
-            cannonSlotTexts[(int)slot] = button.GetComponentInChildren<Text>();
-            cannonSlotIcons[(int)slot] = AddButtonIcon(button.transform, UiTextureFactory.LoadPortIcon("hardpoint_empty"), new Vector2(-56f, 0f), 38f);
+            RectTransform rect = CreateUiObject($"{slot} Hardpoint", shipyardGunsPage.transform);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(132f, 58f);
+            Image image = rect.gameObject.AddComponent<Image>();
+            image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill", 18f);
+            image.type = Image.Type.Sliced;
+            image.color = new Color(0.035f, 0.085f, 0.11f, 0.92f);
+            Button button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.onClick.AddListener(() => SelectCannonSlot(slot));
+            Text label = CreateText(rect, ShipCustomizationModel.GetDefinition(slot).ShortName, Vector2.zero, new Vector2(116f, 52f), 13, TextAnchor.MiddleCenter);
+            label.color = UiTheme.PrimaryText;
+            UiTheme.StyleText(label, 13);
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 9;
+            label.resizeTextMaxSize = 13;
+            cannonSlotTexts[(int)slot] = label;
+        }
+
+        private void CreateShipyardDeckCannon(CannonSlot slot, Vector2 position, float rotation)
+        {
+            RectTransform rect = CreateUiObject($"{slot} Equipped Cannon", shipyardGunsPage.transform);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(42f, 42f);
+            rect.localEulerAngles = new Vector3(0f, 0f, rotation);
+            RawImage image = rect.gameObject.AddComponent<RawImage>();
+            image.texture = UiTextureFactory.LoadShipyardCannonOverlay();
+            image.color = Color.white;
+            image.raycastTarget = false;
+            shipyardDeckCannons[(int)slot] = image;
         }
 
         private void SelectCannonSlot(CannonSlot slot)
@@ -782,22 +817,22 @@ namespace Desktopirates
                     : $"{definition.ShortName}\n{status}";
                 cannonSlotTexts[i].color = slot == selectedCannonSlot ? UiTheme.Mint
                     : mounted ? new Color(1f, 0.76f, 0.28f) : new Color(0.62f, 0.76f, 0.76f);
-                if (cannonSlotIcons[i] != null) cannonSlotIcons[i].texture = UiTextureFactory.LoadPortIcon(ShipCustomizationModel.HasCannon(state, slot) ? "hardpoint_cannon" : "hardpoint_empty");
+                if (shipyardDeckCannons[i] != null) shipyardDeckCannons[i].gameObject.SetActive(mounted);
             }
             bool selectedMounted = ShipCustomizationModel.HasCannon(state, selectedCannonSlot);
             CannonRoundProfile round = CannonUpgradeModel.GetProfile(state.GetCannonRound(selectedCannonSlot));
             if (selectedCannonSummary != null)
                 selectedCannonSummary.text = selectedMounted
-                    ? $"{ShipCustomizationModel.GetDefinition(selectedCannonSlot).ShortName}  {GameLocalization.Text(round.Name)}   DMG {CannonUpgradeModel.GetDamage(state, selectedCannonSlot)}   RNG {CannonUpgradeModel.GetRange(state, selectedCannonSlot):0.0}   {CannonUpgradeModel.GetReloadSeconds(state, selectedCannonSlot):0.00}s"
+                    ? $"{ShipCustomizationModel.GetDefinition(selectedCannonSlot).ShortName} • {GameLocalization.Text(round.Name)}\nDMG {CannonUpgradeModel.GetDamage(state, selectedCannonSlot)}   RNG {CannonUpgradeModel.GetRange(state, selectedCannonSlot):0.0}   RLD {CannonUpgradeModel.GetReloadSeconds(state, selectedCannonSlot):0.00}s"
                     : GameLocalization.Choose("Select an empty mount or install a cannon.", "空き砲座を選び、砲台を搭載できます");
             if (cannonMountActionText != null) cannonMountActionText.text = selectedMounted
                 ? GameLocalization.Choose("STORE", "倉庫へ")
                 : state.SpareCannons > 0
                     ? GameLocalization.Choose($"MOUNT x{state.SpareCannons}", $"搭載 予備{state.SpareCannons}")
                     : GameLocalization.Choose($"BUY {ShipCustomizationModel.CannonPrice}G", $"購入 {ShipCustomizationModel.CannonPrice}G");
-            if (cannonDamageSlotText != null) cannonDamageSlotText.text = CannonSlotUpgradeLabel("DAMAGE", state.GetCannonDamageLevel(selectedCannonSlot));
-            if (cannonReloadSlotText != null) cannonReloadSlotText.text = CannonSlotUpgradeLabel("RELOAD", state.GetCannonReloadLevel(selectedCannonSlot));
-            if (cannonRangeSlotText != null) cannonRangeSlotText.text = CannonSlotUpgradeLabel("RANGE", state.GetCannonRangeLevel(selectedCannonSlot));
+            if (cannonDamageSlotText != null) cannonDamageSlotText.text = CannonSlotUpgradeLabel("DMG", state.GetCannonDamageLevel(selectedCannonSlot));
+            if (cannonReloadSlotText != null) cannonReloadSlotText.text = CannonSlotUpgradeLabel("RLD", state.GetCannonReloadLevel(selectedCannonSlot));
+            if (cannonRangeSlotText != null) cannonRangeSlotText.text = CannonSlotUpgradeLabel("RNG", state.GetCannonRangeLevel(selectedCannonSlot));
             if (cannonAmmoText != null) cannonAmmoText.text = $"{GameLocalization.Text("AMMO")}\n{GameLocalization.Text(round.Name)}";
             int cap = ShipCustomizationModel.GetUpgradeCap(state);
             capacityUpgradeText.text = UpgradeLabel("CAPACITY", state.CapacityLevel, ShipCustomizationModel.GetCapacityUpgradeCost(state.CapacityLevel), cap);

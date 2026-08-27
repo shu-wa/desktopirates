@@ -36,6 +36,16 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void SalvagePilotStopsEnginesAndTurnsOnInertia()
+        {
+            Assert.That(AutoVoyageModel.GetSalvageCruiseStep(3.2f, 78f, 0.72f, 4), Is.Zero,
+                "A moving hull should coast through a tight salvage turn instead of changing between min and max speed.");
+            Assert.That(AutoVoyageModel.GetSalvageCruiseStep(3.2f, 78f, 0.05f, 4), Is.EqualTo(1),
+                "A nearly stopped hull needs one dead-slow pulse to restore rudder flow.");
+            Assert.That(AutoVoyageModel.GetSalvageCruiseStep(PoiSystem.SalvageRange, 0f, 0.8f, 4), Is.Zero);
+        }
+
+        [Test]
         public void LandmarkSearchUsesTheInfiniteWorldGenerator()
         {
             bool found = AutoVoyageModel.TryFindNearestLandmark(GameState.DefaultWorldSeed, Vector2.zero,

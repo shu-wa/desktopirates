@@ -79,6 +79,19 @@ namespace Desktopirates
                 state.Crew = ShipProgressionModel.Get(state.ShipLevel).MaxCrew;
                 state.CapacityLevel = ShipCustomizationModel.GetUpgradeCap(state);
             }
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--shipyard-preview"))
+            {
+                state.ShipLevel = 3;
+                state.MaxHull = ShipProgressionModel.GetMaxHull(state);
+                state.Hull = state.MaxHull;
+                state.Gold = 2400;
+                state.Crew = 8;
+                state.SpareCannons = 2;
+                state.CannonMountMask = (1 << (int)CannonSlot.Bow)
+                    | (1 << (int)CannonSlot.PortFore)
+                    | (1 << (int)CannonSlot.StarboardAft);
+                state.SetRoleCrew(CrewRole.Cannons, 3);
+            }
             ProvisionController provisions = gameObject.AddComponent<ProvisionController>();
             provisions.Initialize(state, saves);
             Camera camera = CreateCamera();

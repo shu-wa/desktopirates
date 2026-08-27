@@ -8,7 +8,7 @@ namespace Desktopirates
         public const float CameraOrthographicSize = 8.25f;
         public const float PlayerModelScale = 1.67f;
         public const float EnemyModelScale = 1.51f;
-        public const float HarborModelScale = 1.14f;
+        public const float HarborModelScale = 1.48f;
         public const float WreckModelScale = 1.65f;
         public const float TreasureModelScale = 1.71f;
         public const float GangAdmiralModelScale = 1.46f;

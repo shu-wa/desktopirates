@@ -101,7 +101,22 @@ namespace Desktopirates
                 return;
             }
 
-            pois.TryAutoCollectNearby(state.AutoCollectWrecks, state.AutoCollectTreasures);
+            bool collected = pois.TryAutoCollectNearby(state.AutoCollectWrecks, state.AutoCollectTreasures);
+            if (!collected && pois.TryGetAutoCollectTarget(state.AutoCollectWrecks, state.AutoCollectTreasures,
+                AutoVoyageModel.AutoCollectAcquireRange, out PoiRecord salvage, out float salvageDistance))
+            {
+                Vector2 delta = salvage.LogicalPosition - boat.LogicalPosition;
+                float desiredHeading = Mathf.Atan2(delta.x, delta.y) * Mathf.Rad2Deg;
+                float headingError = Mathf.DeltaAngle(boat.HeadingDegrees, desiredHeading);
+                int salvageStep = AutoVoyageModel.GetSalvageCruiseStep(salvageDistance, headingError, boat.Speed, boat.MaxCruiseStep);
+                boat.SetVoyageCourse(salvage.LogicalPosition, salvageStep, true);
+                string order = salvageStep == 0
+                    ? GameLocalization.Choose("STOP • COASTING TURN", "STOP • 惰性旋回")
+                    : GameLocalization.Choose("DEAD SLOW APPROACH", "微速接近");
+                runtimeStatus = GameLocalization.Choose($"SALVAGE → {salvage.Kind.ToString().ToUpperInvariant()}  {salvageDistance:0.0}m • {order}",
+                    $"回収 → {(salvage.Kind == PoiKind.Wreck ? "残骸" : "宝物")}  {salvageDistance:0.0}m • {order}");
+                return;
+            }
             PoiRecord enemy = pois.FindNearestActiveEnemy(AutoVoyageModel.EnemyAwarenessRange);
             if (enemy != null && enemy.Boss != BossKind.None && enemy.Id == courseId
                 && state.AutoDestinationMode == AutoDestinationMode.BossSignal

@@ -198,7 +198,7 @@ namespace Desktopirates.Tests
             Assert.That(verticalOceanCoverage, Is.GreaterThanOrEqualTo(WorldPresentationMetrics.MinimumOceanVerticalCoverage));
             Assert.That(WorldPresentationMetrics.PlayerModelScale, Is.GreaterThan(1f));
             Assert.That(WorldPresentationMetrics.CameraOrthographicSize, Is.EqualTo(8.25f).Within(0.001f));
-            Assert.That(WorldPresentationMetrics.HarborModelScale, Is.InRange(1.10f, 1.20f));
+            Assert.That(WorldPresentationMetrics.HarborModelScale, Is.InRange(1.40f, 1.60f));
             Assert.That(WorldPresentationMetrics.WreckModelScale, Is.GreaterThan(1f));
             Assert.That(WorldPresentationMetrics.TreasureModelScale, Is.GreaterThan(1f));
         }

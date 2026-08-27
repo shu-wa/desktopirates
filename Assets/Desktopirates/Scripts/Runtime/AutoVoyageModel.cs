@@ -25,6 +25,9 @@ namespace Desktopirates
     {
         public const float WaypointArrivalDistance = 0.85f;
         public const float AutoCollectRange = 2.10f;
+        public const float AutoCollectAcquireRange = 5.40f;
+        public const float SalvageCoastTurnAngle = 38f;
+        public const float SalvageRudderFlowSpeed = 0.16f;
         public const float EnemyAwarenessRange = 6.6f;
         public const float EscapeLegDistance = 8.5f;
         public const float CombatOrbitRadius = 2.15f;
@@ -35,6 +38,20 @@ namespace Desktopirates
 
         public static float GetSteeringInput(float currentHeading, float desiredHeading)
             => Mathf.Clamp(Mathf.DeltaAngle(currentHeading, desiredHeading) / 34f, -1f, 1f);
+
+        /// <summary>
+        /// Salvage uses the ship's inertia instead of alternating full and minimum power.
+        /// A short step-one pulse restores rudder flow only after the hull has almost stopped.
+        /// </summary>
+        public static int GetSalvageCruiseStep(float distance, float headingError, float speed, int maxCruiseStep)
+        {
+            if (distance <= PoiSystem.SalvageRange) return 0;
+            if (Mathf.Abs(headingError) >= SalvageCoastTurnAngle)
+                return speed > SalvageRudderFlowSpeed ? 0 : 1;
+            if (distance <= 2.75f)
+                return speed > 0.58f ? 0 : 1;
+            return Mathf.Clamp(distance > 4.1f ? 2 : 1, 1, Mathf.Max(1, maxCruiseStep));
+        }
 
         public static Vector2 GetEscapeWaypoint(Vector2 player, Vector2 enemy)
         {
