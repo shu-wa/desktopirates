@@ -40,6 +40,9 @@ namespace Desktopirates
     /// <summary>Records foam at sailed world coordinates, then reprojects it around the centered ship.</summary>
     public sealed class ShipWakeTrailController : MonoBehaviour
     {
+        public const int MaxActiveSegments = 48;
+        public const int MaxPooledSegments = 48;
+
         private sealed class WakeSegment
         {
             public Vector2 LogicalPosition;
@@ -51,6 +54,7 @@ namespace Desktopirates
         }
 
         private readonly List<WakeSegment> segments = new List<WakeSegment>();
+        private readonly Stack<WakeSegment> pooledSegments = new Stack<WakeSegment>();
         private BoatController boat;
         private Material material;
         private Mesh wakeMesh;
@@ -112,8 +116,8 @@ namespace Desktopirates
                 float opacity = WakeTrailMath.GetOpacity(age, WakeTrailMath.Lifetime);
                 if (opacity <= 0f && age >= WakeTrailMath.Lifetime)
                 {
-                    Destroy(segment.Visual.gameObject);
                     segments.RemoveAt(i);
+                    Recycle(segment);
                     continue;
                 }
 
@@ -137,24 +141,50 @@ namespace Desktopirates
 
         private void Emit(Vector2 logicalPosition, float headingDegrees, float speedRatio)
         {
-            var visualObject = new GameObject("Recorded Wake Segment", typeof(MeshFilter), typeof(MeshRenderer));
-            visualObject.transform.SetParent(transform, false);
-            visualObject.transform.localRotation = Quaternion.Euler(0f, headingDegrees, 0f);
-            MeshFilter filter = visualObject.GetComponent<MeshFilter>();
-            filter.sharedMesh = wakeMesh;
-            MeshRenderer renderer = visualObject.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = material;
-            segments.Add(new WakeSegment
+            if (segments.Count >= MaxActiveSegments)
             {
-                LogicalPosition = logicalPosition,
-                BornAt = Time.time,
-                Strength = Mathf.Lerp(0.18f, 0.38f, Mathf.Clamp01(speedRatio)),
-                Visual = visualObject.transform,
-                Renderer = renderer
-            });
+                WakeSegment oldest = segments[0];
+                segments.RemoveAt(0);
+                Recycle(oldest);
+            }
+
+            WakeSegment segment;
+            GameObject visualObject;
+            if (pooledSegments.Count > 0)
+            {
+                segment = pooledSegments.Pop();
+                visualObject = segment.Visual.gameObject;
+                visualObject.SetActive(true);
+            }
+            else
+            {
+                visualObject = new GameObject("Recorded Wake Segment", typeof(MeshFilter), typeof(MeshRenderer));
+                visualObject.transform.SetParent(transform, false);
+                MeshFilter filter = visualObject.GetComponent<MeshFilter>();
+                filter.sharedMesh = wakeMesh;
+                MeshRenderer renderer = visualObject.GetComponent<MeshRenderer>();
+                renderer.sharedMaterial = material;
+                segment = new WakeSegment { Visual = visualObject.transform, Renderer = renderer };
+            }
+
+            visualObject.transform.localRotation = Quaternion.Euler(0f, headingDegrees, 0f);
+            segment.LogicalPosition = logicalPosition;
+            segment.BornAt = Time.time;
+            segment.Strength = Mathf.Lerp(0.18f, 0.38f, Mathf.Clamp01(speedRatio));
+            segment.Renderer.enabled = true;
+            segments.Add(segment);
             float variation = Mathf.Sin(++emissionSerial * 12.9898f);
             visualObject.transform.localRotation = Quaternion.Euler(0f, headingDegrees + variation * 3.5f, 0f);
             visualObject.transform.localScale = new Vector3(0.88f + Mathf.Abs(variation) * 0.18f, 1f, 0.78f + Mathf.Abs(Mathf.Cos(emissionSerial * 2.17f)) * 0.24f);
+        }
+
+        private void Recycle(WakeSegment segment)
+        {
+            if (segment == null || segment.Visual == null) return;
+            segment.Renderer.enabled = false;
+            segment.Visual.gameObject.SetActive(false);
+            if (pooledSegments.Count < MaxPooledSegments) pooledSegments.Push(segment);
+            else Destroy(segment.Visual.gameObject);
         }
 
         private static Mesh CreateWakeMesh(int shipLevel)

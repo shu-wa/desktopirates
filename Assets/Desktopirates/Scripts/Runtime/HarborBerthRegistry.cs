@@ -11,6 +11,9 @@ namespace Desktopirates
         private readonly Dictionary<ulong, ulong[]> occupiedByPort = new Dictionary<ulong, ulong[]>();
 
         public bool TryReserve(ulong portId, ulong vesselId, out int berthIndex)
+            => TryReserve(portId, vesselId, (int)(vesselId % (ulong)DockingModel.BerthCount), out berthIndex);
+
+        public bool TryReserve(ulong portId, ulong vesselId, int preferredBerthIndex, out int berthIndex)
         {
             berthIndex = -1;
             if (portId == 0UL || vesselId == 0UL) return false;
@@ -27,7 +30,9 @@ namespace Desktopirates
                 return true;
             }
 
-            int preferred = (int)(vesselId % (ulong)DockingModel.BerthCount);
+            int preferred = DockingModel.IsValidBerth(preferredBerthIndex)
+                ? preferredBerthIndex
+                : (int)(vesselId % (ulong)DockingModel.BerthCount);
             for (int offset = 0; offset < berths.Length; offset++)
             {
                 int candidate = (preferred + offset) % berths.Length;

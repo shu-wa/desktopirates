@@ -5,9 +5,11 @@ namespace Desktopirates
     /// <summary>Shared, pure rules for the runtime window around the infinite world.</summary>
     public static class WorldStreamingModel
     {
-        // Local chart radius is 4.5 chunks. Loading four full chunks around the player
-        // keeps every near-chart landmark ready before it reaches the circular sea view.
-        public const int LoadRadius = 4;
+        // The chart queries WorldGenerator directly and does not need instantiated POIs.
+        // One adjacent chunk in every direction is enough to cover the 6.25-unit sea disc
+        // even while the player crosses an 18-unit chunk boundary: 9 live chunks instead
+        // of 81, without changing the deterministic infinite map.
+        public const int LoadRadius = 1;
 
         public static Vector2Int GetCenterChunk(Vector2 worldPosition)
             => new Vector2Int(

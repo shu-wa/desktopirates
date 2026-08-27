@@ -13,6 +13,10 @@ namespace Desktopirates
         private const string EnemySailTexture = "Textures/Models/v04/EnemySail_RaggedPatch_Pixel_v04";
         private const string HarborStoneTexture = "Textures/Models/v02/HarborStone_Pixel_v02";
         private const string HarborWoodTexture = "Textures/Models/v02/HarborWood_Pixel_v02";
+        private const string GangAdmiralTexture = "Textures/Bosses/boss_gang_admiral_v01";
+        private const string GhostShipTexture = "Textures/Bosses/boss_ghost_ship_v01";
+        private const string KrakenTexture = "Textures/Bosses/boss_kraken_v01";
+        private const string PoseidonTexture = "Textures/Bosses/boss_poseidon_v01";
 
         private static readonly Dictionary<string, Material> Materials = new Dictionary<string, Material>();
 
@@ -69,23 +73,60 @@ namespace Desktopirates
 
         public static bool TryCreateBoss(Transform parent, BossKind boss, out Transform model)
         {
-            string path;
-            float scale;
-            switch (boss)
-            {
-                case BossKind.GangAdmiral: path = "Models/Bosses/gang_admiral_v02"; scale = WorldPresentationMetrics.GangAdmiralModelScale; break;
-                case BossKind.GhostShip: path = "Models/Bosses/ghost_ship_v02"; scale = WorldPresentationMetrics.GhostShipModelScale; break;
-                case BossKind.Kraken: path = "Models/Bosses/kraken_v02"; scale = WorldPresentationMetrics.KrakenModelScale; break;
-                case BossKind.Poseidon: path = "Models/Bosses/poseidon_v02"; scale = WorldPresentationMetrics.PoseidonModelScale; break;
-                default: model = null; return false;
-            }
+            string path = GetBossResourcePath(boss);
+            float scale = GetBossScale(boss);
+            if (string.IsNullOrEmpty(path)) { model = null; return false; }
             model = Instantiate(path, parent, $"Authored Boss {boss}");
             if (model == null) return false;
             model.localScale = Vector3.one * scale;
-            if (boss == BossKind.GangAdmiral || boss == BossKind.GhostShip) ApplyShipMaterials(model, true);
+            if (boss == BossKind.GangAdmiral || boss == BossKind.GhostShip) ApplyBossShipMaterials(model, boss);
             else ApplyBossMaterials(model, boss);
             return true;
         }
+
+        /// <summary>Forces one boss model and its large authored texture into native caches.</summary>
+        public static bool PrewarmBossAssets(BossKind boss)
+        {
+            string modelPath = GetBossResourcePath(boss);
+            string texturePath = GetBossTexturePath(boss);
+            if (string.IsNullOrEmpty(modelPath) || string.IsNullOrEmpty(texturePath)) return false;
+            GameObject prefab = Resources.Load<GameObject>(modelPath);
+            Texture2D texture = Resources.Load<Texture2D>(texturePath);
+            if (prefab == null || texture == null) return false;
+            texture.filterMode = FilterMode.Point;
+            texture.wrapMode = TextureWrapMode.Repeat;
+            texture.GetNativeTexturePtr();
+            foreach (MeshFilter filter in prefab.GetComponentsInChildren<MeshFilter>(true))
+                if (filter.sharedMesh != null) filter.sharedMesh.UploadMeshData(false);
+            return true;
+        }
+
+        public static string GetBossResourcePath(BossKind boss) => boss switch
+        {
+            BossKind.GangAdmiral => "Models/Bosses/gang_admiral_v02",
+            BossKind.GhostShip => "Models/Bosses/ghost_ship_v02",
+            BossKind.Kraken => "Models/Bosses/kraken_v02",
+            BossKind.Poseidon => "Models/Bosses/poseidon_v02",
+            _ => string.Empty
+        };
+
+        public static string GetBossTexturePath(BossKind boss) => boss switch
+        {
+            BossKind.GangAdmiral => GangAdmiralTexture,
+            BossKind.GhostShip => GhostShipTexture,
+            BossKind.Kraken => KrakenTexture,
+            BossKind.Poseidon => PoseidonTexture,
+            _ => string.Empty
+        };
+
+        private static float GetBossScale(BossKind boss) => boss switch
+        {
+            BossKind.GangAdmiral => WorldPresentationMetrics.GangAdmiralModelScale,
+            BossKind.GhostShip => WorldPresentationMetrics.GhostShipModelScale,
+            BossKind.Kraken => WorldPresentationMetrics.KrakenModelScale,
+            BossKind.Poseidon => WorldPresentationMetrics.PoseidonModelScale,
+            _ => 1f
+        };
 
         private static Transform Instantiate(string resourcePath, Transform parent, string name)
         {
@@ -122,6 +163,29 @@ namespace Desktopirates
                     renderer.sharedMaterial = GetTextured(HarborWoodTexture, Color.white);
                 else
                     renderer.sharedMaterial = GetTextured(enemy ? EnemyHullTexture : HullTexture, enemy ? GetEnemyHullTint(archetype) : Color.white);
+            }
+        }
+
+        private static void ApplyBossShipMaterials(Transform root, BossKind boss)
+        {
+            string texturePath = GetBossTexturePath(boss);
+            Color hullTint = boss == BossKind.GhostShip ? new Color(0.42f, 0.66f, 0.62f) : new Color(0.88f, 0.61f, 0.34f);
+            Color sailTint = boss == BossKind.GhostShip ? new Color(0.54f, 0.82f, 0.78f) : new Color(0.72f, 0.18f, 0.12f);
+            foreach (MeshRenderer renderer in root.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                string part = renderer.gameObject.name.ToLowerInvariant();
+                if (part.Contains("sail") || part.Contains("flag") || part.Contains("pennant"))
+                    renderer.sharedMaterial = GetTextured(texturePath, sailTint);
+                else if (part.Contains("deck") || part.Contains("crate"))
+                    renderer.sharedMaterial = GetTextured(DeckTexture, boss == BossKind.GhostShip ? new Color(0.48f, 0.68f, 0.63f) : Color.white);
+                else if (part.Contains("brass") || part.Contains("gilded") || part.Contains("crest") || part.Contains("figurehead"))
+                    renderer.sharedMaterial = GetFlat("Brass", new Color(0.92f, 0.52f, 0.08f));
+                else if (part.Contains("cannon") || part.Contains("gunport") || part.Contains("anchor") || part.Contains("iron"))
+                    renderer.sharedMaterial = GetFlat("Iron", new Color(0.075f, 0.08f, 0.075f));
+                else if (part.Contains("lantern") || part.Contains("window") || part.Contains("glow"))
+                    renderer.sharedMaterial = GetFlat(boss + " Glow", boss == BossKind.GhostShip ? new Color(0.16f, 0.94f, 0.78f) : new Color(1f, 0.32f, 0.04f), true);
+                else
+                    renderer.sharedMaterial = GetTextured(texturePath, hullTint);
             }
         }
 
@@ -182,7 +246,7 @@ namespace Desktopirates
 
         private static void ApplyBossMaterials(Transform root, BossKind boss)
         {
-            string texturePath = boss == BossKind.Kraken ? "Textures/Bosses/boss_kraken_v01" : "Textures/Bosses/boss_poseidon_v01";
+            string texturePath = GetBossTexturePath(boss);
             Color tint = boss == BossKind.Kraken ? new Color(0.58f, 0.48f, 0.72f) : new Color(0.68f, 0.86f, 0.82f);
             foreach (MeshRenderer renderer in root.GetComponentsInChildren<MeshRenderer>(true))
             {

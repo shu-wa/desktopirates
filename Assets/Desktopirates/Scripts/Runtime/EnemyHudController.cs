@@ -15,6 +15,10 @@ namespace Desktopirates
             public Text HealthValue;
             public RectTransform HealthBar;
             public Image Health;
+            public int LastLevel = int.MinValue;
+            public int LastHealth = int.MinValue;
+            public int LastMaxHealth = int.MinValue;
+            public string LastName;
         }
 
         private const float HealthBarWidth = 188f;
@@ -53,20 +57,24 @@ namespace Desktopirates
             {
                 if (enemy.Kind != PoiKind.Enemy || enemy.Resolved || enemy.Visual == null) continue;
                 seen.Add(enemy.Id);
+                bool visible = enemy.Visual.gameObject.activeInHierarchy;
+                if (!visible)
+                {
+                    if (plates.TryGetValue(enemy.Id, out Plate hiddenPlate) && hiddenPlate.Root.activeSelf)
+                        hiddenPlate.Root.SetActive(false);
+                    continue;
+                }
                 if (!plates.TryGetValue(enemy.Id, out Plate plate))
                 {
                     plate = CreatePlate(enemy);
                     plates.Add(enemy.Id, plate);
                 }
 
-                bool visible = enemy.Visual.gameObject.activeInHierarchy;
-                Vector3 screen = visible
-                    ? worldCamera.WorldToScreenPoint(enemy.Visual.position + Vector3.up * EnemyHudModel.GetVerticalOffset(enemy.Boss != BossKind.None))
-                    : Vector3.back;
+                Vector3 screen = worldCamera.WorldToScreenPoint(enemy.Visual.position + Vector3.up * EnemyHudModel.GetVerticalOffset(enemy.Boss != BossKind.None));
                 // If the mast reaches under the top dashboard, keep the plate pinned just
                 // below that dashboard instead of hiding it as an off-screen element.
                 visible &= screen.z > 0f && screen.x >= 0f && screen.x <= Screen.width && screen.y >= 0f;
-                plate.Root.SetActive(visible);
+                if (plate.Root.activeSelf != visible) plate.Root.SetActive(visible);
                 if (!visible) continue;
 
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas, screen, null, out Vector2 local);
@@ -77,15 +85,22 @@ namespace Desktopirates
                     canvas.rect.yMax - UiLayoutMetrics.EnemyHudTopSafeInset);
                 rect.anchoredPosition = local;
 
-                plate.Identity.text = $"LV {enemy.Level:00}  {enemy.DisplayName}";
-                plate.Identity.color = enemy.Boss == BossKind.None ? UiTheme.PrimaryText : UiTheme.Warning;
-                plate.HealthValue.text = EnemyHudModel.GetHealthLabel(enemy.Health, enemy.MaxHealth);
-                float ratio = EnemyHudModel.GetHealthRatio(enemy.Health, enemy.MaxHealth);
-                plate.HealthBar.sizeDelta = new Vector2(EnemyHudModel.GetBarWidth(HealthBarWidth, enemy.Health, enemy.MaxHealth), 7f);
-                plate.Health.color = ratio <= 0.25f ? UiTheme.Danger : enemy.Boss == BossKind.None ? UiTheme.Mint : UiTheme.Warning;
-                plate.Background.color = enemy.Boss == BossKind.None
-                    ? new Color(0.008f, 0.035f, 0.052f, 0.90f)
-                    : new Color(0.075f, 0.035f, 0.020f, 0.92f);
+                if (plate.LastLevel != enemy.Level || plate.LastName != enemy.DisplayName)
+                {
+                    plate.LastLevel = enemy.Level;
+                    plate.LastName = enemy.DisplayName;
+                    plate.Identity.text = $"LV {enemy.Level:00}  {enemy.DisplayName}";
+                    plate.Identity.color = enemy.Boss == BossKind.None ? UiTheme.PrimaryText : UiTheme.Warning;
+                }
+                if (plate.LastHealth != enemy.Health || plate.LastMaxHealth != enemy.MaxHealth)
+                {
+                    plate.LastHealth = enemy.Health;
+                    plate.LastMaxHealth = enemy.MaxHealth;
+                    plate.HealthValue.text = EnemyHudModel.GetHealthLabel(enemy.Health, enemy.MaxHealth);
+                    float ratio = EnemyHudModel.GetHealthRatio(enemy.Health, enemy.MaxHealth);
+                    plate.HealthBar.sizeDelta = new Vector2(EnemyHudModel.GetBarWidth(HealthBarWidth, enemy.Health, enemy.MaxHealth), 7f);
+                    plate.Health.color = ratio <= 0.25f ? UiTheme.Danger : enemy.Boss == BossKind.None ? UiTheme.Mint : UiTheme.Warning;
+                }
             }
 
             stale.Clear();
@@ -109,7 +124,9 @@ namespace Desktopirates
             // Enemy information needs contrast, not another ornamental brass frame.
             // One quiet translucent backing keeps the name and HP legible over white foam.
             background.sprite = null;
-            background.color = new Color(0.008f, 0.035f, 0.052f, 0.90f);
+            background.color = enemy.Boss == BossKind.None
+                ? new Color(0.008f, 0.035f, 0.052f, 0.90f)
+                : new Color(0.075f, 0.035f, 0.020f, 0.92f);
             background.raycastTarget = false;
 
             Text identity = CreateText(root, "Enemy Identity", new Vector2(-38f, 10f), new Vector2(126f, 21f), 13, TextAnchor.MiddleLeft);

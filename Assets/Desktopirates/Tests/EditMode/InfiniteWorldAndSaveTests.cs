@@ -76,6 +76,28 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void RuntimeOnlyInstantiatesTheNineChunksThatCanReachTheSeaDisc()
+        {
+            int liveChunkCount = (WorldStreamingModel.LoadRadius * 2 + 1) * (WorldStreamingModel.LoadRadius * 2 + 1);
+            Assert.That(WorldStreamingModel.LoadRadius, Is.EqualTo(1));
+            Assert.That(liveChunkCount, Is.EqualTo(9));
+            Assert.That(WorldGenerator.ChunkSize, Is.GreaterThan(OceanDisc.Radius * 2f),
+                "One adjacent chunk must still cover the whole visible disc at a chunk boundary.");
+            Assert.That(PoiSystem.VisibleRadius, Is.LessThan(OceanDisc.Radius));
+            Assert.That(PoiSystem.EnemySimulationRadius, Is.GreaterThan(PoiSystem.VisibleRadius));
+        }
+
+        [Test]
+        public void RepeatingVisualEffectsUseBoundedPoolsAndThrottledOceanGeometry()
+        {
+            Assert.That(OceanDisc.GeometryUpdateInterval, Is.GreaterThanOrEqualTo(1f / 20f));
+            Assert.That(OceanDisc.NormalUpdateInterval, Is.GreaterThanOrEqualTo(0.15f));
+            Assert.That(ShipWakeTrailController.MaxActiveSegments, Is.LessThanOrEqualTo(64));
+            Assert.That(CombatVfxController.MaxPooledBlocks, Is.InRange(48, 128));
+            Assert.That(CombatVfxController.MaxPooledTrails, Is.LessThanOrEqualTo(24));
+        }
+
+        [Test]
         public void ExplorationChartKeepsPlayerCenteredAndNorthUp()
         {
             Vector2 center = new Vector2(73f, -41f);
@@ -283,6 +305,33 @@ namespace Desktopirates.Tests
             Assert.That(Vector2.Distance(approach, port), Is.GreaterThan(Vector2.Distance(berth, port)));
             Assert.That(DockingModel.GetHeading(approach, berth), Is.EqualTo(DockingModel.FinalHeading).Within(0.001f));
             Assert.That(DockingModel.GetPilotSpeed(0.2f, true), Is.LessThan(DockingModel.GetPilotSpeed(2f, false)));
+        }
+
+        [Test]
+        public void HarborPilotBypassesTheQuayWhenApproachingFromTheNorth()
+        {
+            Vector2 port = new Vector2(18f, -7f);
+            var route = new Vector2[DockingModel.MaxRouteWaypoints];
+            int count = DockingModel.BuildRoute(port, port + Vector2.up * 4f, DockingModel.DefaultBerthIndex, route);
+
+            Assert.That(count, Is.EqualTo(4));
+            Assert.That(Mathf.Abs(route[0].x - port.x), Is.GreaterThan(4f));
+            Assert.That(route[1].x, Is.EqualTo(route[0].x).Within(0.001f));
+            Assert.That(route[2], Is.EqualTo(DockingModel.GetApproach(port)));
+            Assert.That(route[3], Is.EqualTo(DockingModel.GetBerth(port)));
+        }
+
+        [Test]
+        public void HarborPilotReentryRecognizesTheCurrentBerthAndRegistryPrefersIt()
+        {
+            Vector2 port = new Vector2(-11f, 23f);
+            Vector2 berth = DockingModel.GetBerth(port, 2);
+            Assert.That(DockingModel.GetNearestBerthIndex(port, berth + new Vector2(0.1f, -0.05f)), Is.EqualTo(2));
+            Assert.That(DockingModel.IsAtBerth(berth + Vector2.right * 0.3f, port, 2), Is.True);
+
+            var registry = new HarborBerthRegistry();
+            Assert.That(registry.TryReserve(99UL, 1UL, 2, out int reserved), Is.True);
+            Assert.That(reserved, Is.EqualTo(2));
         }
 
         [Test]

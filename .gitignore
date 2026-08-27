@@ -25,6 +25,9 @@ ArtSource/ConceptArt/
 Assets/Desktopirates/Art/Concept/
 Assets/Desktopirates/Art/Concept.meta
 outputs/concept-art-*.png
+# AI working images/prompts are local references; only the runtime-ready texture is shipped.
+ArtSource/UI/Generated/Shipyard/shipyard_background_v07_source.png
+ArtSource/UI/Generated/Shipyard/shipyard_background_v07_prompt.md
 /TestResults/
 outputs/RuntimeInternal-*.png
 outputs/RuntimeCapture-Authored-*.png

@@ -7,6 +7,8 @@ namespace Desktopirates
     public sealed class OceanDisc : MonoBehaviour
     {
         public const float Radius = 6.25f;
+        public const float GeometryUpdateInterval = 1f / 15f;
+        public const float NormalUpdateInterval = 0.20f;
 
         private Mesh mesh;
         private Vector3[] baseVertices;
@@ -16,6 +18,8 @@ namespace Desktopirates
         private MaterialPropertyBlock propertyBlock;
         private BoatController boat;
         private int topVertexCount;
+        private float nextGeometryUpdate;
+        private float nextNormalUpdate;
 
         public Vector2 VoyageTextureOffset { get; private set; }
 
@@ -29,6 +33,7 @@ namespace Desktopirates
         {
             mesh = BuildMesh(12, 64);
             mesh.name = "Procedural Ocean Disc";
+            mesh.MarkDynamic();
             GetComponent<MeshFilter>().sharedMesh = mesh;
 
             Material template = Resources.Load<Material>("OceanMaterial");
@@ -56,19 +61,27 @@ namespace Desktopirates
         {
             if (mesh == null || baseVertices == null) return;
             float time = Time.time;
-            for (int i = 0; i < topVertexCount; i++)
+            if (time >= nextGeometryUpdate)
             {
-                Vector3 vertex = baseVertices[i];
-                float radial = Mathf.Clamp01(new Vector2(vertex.x, vertex.z).magnitude / Radius);
-                float wave = Mathf.Sin(vertex.x * 2.1f + time * 1.35f) * 0.055f;
-                wave += Mathf.Sin(vertex.z * 2.8f - time * 1.05f) * 0.035f;
-                wave *= Mathf.SmoothStep(1f, 0.35f, radial);
-                vertex.y += wave;
-                animatedVertices[i] = vertex;
-            }
+                nextGeometryUpdate = time + GeometryUpdateInterval;
+                for (int i = 0; i < topVertexCount; i++)
+                {
+                    Vector3 vertex = baseVertices[i];
+                    float radial = Mathf.Clamp01(new Vector2(vertex.x, vertex.z).magnitude / Radius);
+                    float wave = Mathf.Sin(vertex.x * 2.1f + time * 1.35f) * 0.055f;
+                    wave += Mathf.Sin(vertex.z * 2.8f - time * 1.05f) * 0.035f;
+                    wave *= Mathf.SmoothStep(1f, 0.35f, radial);
+                    vertex.y += wave;
+                    animatedVertices[i] = vertex;
+                }
 
-            mesh.vertices = animatedVertices;
-            if (Time.frameCount % 4 == 0) mesh.RecalculateNormals();
+                mesh.vertices = animatedVertices;
+                if (time >= nextNormalUpdate)
+                {
+                    nextNormalUpdate = time + NormalUpdateInterval;
+                    mesh.RecalculateNormals();
+                }
+            }
 
             if (boat != null && meshRenderer != null)
             {

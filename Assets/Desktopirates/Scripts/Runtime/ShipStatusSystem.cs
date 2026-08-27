@@ -239,6 +239,9 @@ namespace Desktopirates
             new Color(0.58f, 0.24f, 0.04f)
         };
 
+        private static readonly Sprite[] SharedIcons = new Sprite[ShipStatusRuntime.StatusCount];
+        private static readonly Material[] SharedMaterials = new Material[ShipStatusRuntime.StatusCount];
+
         private ShipStatusRuntime conditions;
         private Transform iconRoot;
         private readonly SpriteRenderer[] icons = new SpriteRenderer[ShipStatusRuntime.StatusCount];
@@ -257,8 +260,9 @@ namespace Desktopirates
                 var iconObject = new GameObject($"{(ShipStatus)i} Badge", typeof(SpriteRenderer));
                 iconObject.transform.SetParent(iconRoot, false);
                 SpriteRenderer renderer = iconObject.GetComponent<SpriteRenderer>();
-                if (texture != null)
-                    renderer.sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), Vector2.one * 0.5f, texture.width);
+                if (texture != null && SharedIcons[i] == null)
+                    SharedIcons[i] = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), Vector2.one * 0.5f, texture.width);
+                renderer.sprite = SharedIcons[i];
                 renderer.sortingOrder = 40;
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
@@ -271,7 +275,8 @@ namespace Desktopirates
                 Collider collider = accent.GetComponent<Collider>();
                 if (collider != null) Destroy(collider);
                 MeshRenderer mesh = accent.GetComponent<MeshRenderer>();
-                mesh.sharedMaterial = MakeMaterial(EffectColors[i]);
+                if (SharedMaterials[i] == null) SharedMaterials[i] = MakeMaterial(EffectColors[i]);
+                mesh.sharedMaterial = SharedMaterials[i];
                 mesh.shadowCastingMode = ShadowCastingMode.Off;
                 mesh.receiveShadows = false;
                 accents[i] = accent.transform;
@@ -289,8 +294,8 @@ namespace Desktopirates
             for (int i = 0; i < icons.Length; i++)
             {
                 bool active = conditions.IsActive((ShipStatus)i);
-                icons[i].gameObject.SetActive(active);
-                accents[i].gameObject.SetActive(active);
+                if (icons[i].gameObject.activeSelf != active) icons[i].gameObject.SetActive(active);
+                if (accents[i].gameObject.activeSelf != active) accents[i].gameObject.SetActive(active);
                 if (!active) continue;
                 icons[i].transform.localPosition = new Vector3((activeIndex - (activeCount - 1) * 0.5f) * 0.56f, 0f, 0f);
                 icons[i].transform.localScale = Vector3.one * 0.50f;

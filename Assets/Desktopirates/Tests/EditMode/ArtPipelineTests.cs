@@ -244,6 +244,32 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void EveryBossUsesItsAuthoredModelAndDedicatedTexture()
+        {
+            var parent = new GameObject("Boss Asset Roster Test Root").transform;
+            try
+            {
+                for (int value = (int)BossKind.GangAdmiral; value <= (int)BossKind.Poseidon; value++)
+                {
+                    BossKind kind = (BossKind)value;
+                    string modelPath = AuthoredModelLibrary.GetBossResourcePath(kind);
+                    string texturePath = AuthoredModelLibrary.GetBossTexturePath(kind);
+                    Assert.That(Resources.Load<GameObject>(modelPath), Is.Not.Null, kind + " model");
+                    Texture2D expectedTexture = Resources.Load<Texture2D>(texturePath);
+                    Assert.That(expectedTexture, Is.Not.Null, kind + " texture");
+                    Assert.That(AuthoredModelLibrary.TryCreateBoss(parent, kind, out Transform boss), Is.True, kind.ToString());
+                    Assert.That(System.Array.Exists(boss.GetComponentsInChildren<MeshRenderer>(true),
+                        renderer => renderer.sharedMaterial != null && renderer.sharedMaterial.mainTexture == expectedTexture), Is.True,
+                        kind + " must display its dedicated authored texture");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent.gameObject);
+            }
+        }
+
+        [Test]
         public void EnemyFleetV04_UsesEightDistinctReadableSilhouettes()
         {
             var parent = new GameObject("Enemy Fleet v04 Test Root").transform;

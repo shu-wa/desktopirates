@@ -62,6 +62,10 @@ namespace Desktopirates
         private Text engineUpgradeText;
         private Text shipyardSummary;
         private readonly Text[] cannonSlotTexts = new Text[ShipCustomizationModel.CannonSlotCount];
+        private readonly Image[] cannonSlotBackplates = new Image[ShipCustomizationModel.CannonSlotCount];
+        private readonly Image[] cannonSlotFrames = new Image[ShipCustomizationModel.CannonSlotCount];
+        private readonly RawImage[] cannonSlotCardIcons = new RawImage[ShipCustomizationModel.CannonSlotCount];
+        private readonly Image[] shipyardDeckMountRings = new Image[ShipCustomizationModel.CannonSlotCount];
         private readonly RawImage[] shipyardDeckCannons = new RawImage[ShipCustomizationModel.CannonSlotCount];
         private Text capacityUpgradeText;
         private Text propulsionUpgradeText;
@@ -88,6 +92,13 @@ namespace Desktopirates
         private readonly Text[] crewRoleTexts = new Text[CrewManagementModel.RoleCount];
         private readonly Text[] crewPerkTexts = new Text[CrewManagementModel.RoleCount];
         private float toastUntil;
+        private int displayedHull = int.MinValue;
+        private int displayedMaxHull = int.MinValue;
+        private int displayedGold = int.MinValue;
+        private int displayedCrew = int.MinValue;
+        private int displayedMass = int.MinValue;
+        private int displayedCapacity = int.MinValue;
+        private string displayedPrompt;
         private Font font;
         private Font englishFont;
         private Font japaneseFont;
@@ -170,11 +181,31 @@ namespace Desktopirates
             // moored with W/S disabled after its docking controls are no longer visible.
             if (boat != null && boat.IsMoored && portRoot != null && !portRoot.activeSelf && shipyardRoot != null && !shipyardRoot.activeSelf)
                 boat.ReleaseMooring();
-            hullValue.text = $"{state.Hull}/{state.MaxHull}";
-            goldValue.text = $"{state.Gold} G";
-            crewValue.text = state.Crew.ToString();
+            if (displayedHull != state.Hull || displayedMaxHull != state.MaxHull)
+            {
+                displayedHull = state.Hull;
+                displayedMaxHull = state.MaxHull;
+                hullValue.text = $"{state.Hull}/{state.MaxHull}";
+            }
+            if (displayedGold != state.Gold)
+            {
+                displayedGold = state.Gold;
+                goldValue.text = $"{state.Gold} G";
+            }
+            if (displayedCrew != state.Crew)
+            {
+                displayedCrew = state.Crew;
+                crewValue.text = state.Crew.ToString();
+            }
             float loadRatio = ShipCustomizationModel.GetLoadRatio(state);
-            loadValue.text = $"{ShipCustomizationModel.GetMass(state):0}/{ShipCustomizationModel.GetCapacity(state):0}";
+            int massDisplay = Mathf.RoundToInt(ShipCustomizationModel.GetMass(state));
+            int capacityDisplay = Mathf.RoundToInt(ShipCustomizationModel.GetCapacity(state));
+            if (displayedMass != massDisplay || displayedCapacity != capacityDisplay)
+            {
+                displayedMass = massDisplay;
+                displayedCapacity = capacityDisplay;
+                loadValue.text = $"{massDisplay}/{capacityDisplay}";
+            }
             hullBar.fillAmount = state.Hull / (float)Mathf.Max(1, state.MaxHull);
             loadBar.fillAmount = Mathf.Clamp01(loadRatio);
             hullBar.color = state.Hull <= state.MaxHull * 0.3f ? UiTheme.Danger : UiTheme.Mint;
@@ -187,14 +218,21 @@ namespace Desktopirates
                 || (shipyardRoot != null && shipyardRoot.activeSelf)
                 || mapRoot != null
                 || IsExternalModalOpen;
-            hudRoot.SetActive(normalNavigation || persistentStatusPanel);
+            bool hudVisible = normalNavigation || persistentStatusPanel;
+            if (hudRoot.activeSelf != hudVisible) hudRoot.SetActive(hudVisible);
             bool dockPanelOpen = (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf);
-            hudRoot.transform.localScale = Vector3.one * (dockPanelOpen ? 0.70f : 1f);
-            if (persistentStatusPanel) hudRoot.transform.SetAsLastSibling();
+            Vector3 targetHudScale = Vector3.one * (dockPanelOpen ? 0.70f : 1f);
+            if (hudRoot.transform.localScale != targetHudScale) hudRoot.transform.localScale = targetHudScale;
+            if (persistentStatusPanel && hudRoot.transform.GetSiblingIndex() != hudRoot.transform.parent.childCount - 1) hudRoot.transform.SetAsLastSibling();
             inventory?.SetLauncherVisible(normalNavigation);
             if (compassRoot != null) compassRoot.SetActive(normalNavigation);
-            prompt.text = pois.InteractionPrompt;
-            prompt.transform.parent.gameObject.SetActive(normalNavigation && !string.IsNullOrEmpty(prompt.text));
+            if (displayedPrompt != pois.InteractionPrompt)
+            {
+                displayedPrompt = pois.InteractionPrompt;
+                prompt.text = displayedPrompt;
+            }
+            bool promptVisible = normalNavigation && !string.IsNullOrEmpty(displayedPrompt);
+            if (prompt.transform.parent.gameObject.activeSelf != promptVisible) prompt.transform.parent.gameObject.SetActive(promptVisible);
             toast.transform.parent.gameObject.SetActive((inventory == null || !inventory.IsOpen) && Time.unscaledTime < toastUntil);
             if (mapRoot != null && Time.unscaledTime >= nextMapLiveUpdate) UpdateLiveMap();
             if (captainLogRoot != null && captainLogRoot.activeSelf) RefreshCaptainLog();
@@ -491,10 +529,10 @@ namespace Desktopirates
 
             shipyardGunsPage = CreateUiObject("Gun Deck Page", shipyardRoot.transform).gameObject;
             CreateShipyardDeckCannon(CannonSlot.Bow, new Vector2(0f, 50f), 0f);
-            CreateShipyardDeckCannon(CannonSlot.PortFore, new Vector2(-57f, 24f), 90f);
-            CreateShipyardDeckCannon(CannonSlot.StarboardFore, new Vector2(57f, 24f), -90f);
-            CreateShipyardDeckCannon(CannonSlot.PortAft, new Vector2(-59f, -45f), 90f);
-            CreateShipyardDeckCannon(CannonSlot.StarboardAft, new Vector2(59f, -45f), -90f);
+            CreateShipyardDeckCannon(CannonSlot.PortFore, new Vector2(-68f, 22f), 90f);
+            CreateShipyardDeckCannon(CannonSlot.StarboardFore, new Vector2(68f, 22f), -90f);
+            CreateShipyardDeckCannon(CannonSlot.PortAft, new Vector2(-70f, -47f), 90f);
+            CreateShipyardDeckCannon(CannonSlot.StarboardAft, new Vector2(70f, -47f), -90f);
             CreateShipyardDeckCannon(CannonSlot.Stern, new Vector2(0f, -88f), 180f);
             CreateCannonSlotButton(CannonSlot.Bow, new Vector2(0f, 106f));
             CreateCannonSlotButton(CannonSlot.PortFore, new Vector2(-184f, 35f));
@@ -551,15 +589,33 @@ namespace Desktopirates
         {
             RectTransform rect = CreateUiObject($"{slot} Hardpoint", shipyardGunsPage.transform);
             rect.anchoredPosition = position;
-            rect.sizeDelta = new Vector2(132f, 58f);
+            rect.sizeDelta = new Vector2(148f, 64f);
             Image image = rect.gameObject.AddComponent<Image>();
             image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill", 18f);
             image.type = Image.Type.Sliced;
             image.color = new Color(0.035f, 0.085f, 0.11f, 0.92f);
+            cannonSlotBackplates[(int)slot] = image;
             Button button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(() => SelectCannonSlot(slot));
-            Text label = CreateText(rect, ShipCustomizationModel.GetDefinition(slot).ShortName, Vector2.zero, new Vector2(116f, 52f), 13, TextAnchor.MiddleCenter);
+            RectTransform frameRect = CreateUiObject($"{slot} Hardpoint Border", rect);
+            frameRect.anchorMin = Vector2.zero;
+            frameRect.anchorMax = Vector2.one;
+            frameRect.offsetMin = Vector2.zero;
+            frameRect.offsetMax = Vector2.zero;
+            Image frame = frameRect.gameObject.AddComponent<Image>();
+            frame.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tab_frame", 14f, true);
+            frame.type = Image.Type.Sliced;
+            frame.raycastTarget = false;
+            cannonSlotFrames[(int)slot] = frame;
+            RectTransform iconRect = CreateUiObject($"{slot} Card Cannon", rect);
+            iconRect.anchoredPosition = new Vector2(-48f, 0f);
+            iconRect.sizeDelta = new Vector2(44f, 44f);
+            RawImage icon = iconRect.gameObject.AddComponent<RawImage>();
+            icon.texture = UiTextureFactory.LoadShipyardCannonOverlay();
+            icon.raycastTarget = false;
+            cannonSlotCardIcons[(int)slot] = icon;
+            Text label = CreateText(rect, ShipCustomizationModel.GetDefinition(slot).ShortName, new Vector2(22f, 0f), new Vector2(94f, 56f), 13, TextAnchor.MiddleCenter);
             label.color = UiTheme.PrimaryText;
             UiTheme.StyleText(label, 13);
             label.resizeTextForBestFit = true;
@@ -570,9 +626,17 @@ namespace Desktopirates
 
         private void CreateShipyardDeckCannon(CannonSlot slot, Vector2 position, float rotation)
         {
+            RectTransform ringRect = CreateUiObject($"{slot} Deck Mount", shipyardGunsPage.transform);
+            ringRect.anchoredPosition = position;
+            ringRect.sizeDelta = new Vector2(64f, 64f);
+            Image ring = ringRect.gameObject.AddComponent<Image>();
+            ring.sprite = UiTextureFactory.LoadShipyardMountRing();
+            ring.preserveAspect = true;
+            ring.raycastTarget = false;
+            shipyardDeckMountRings[(int)slot] = ring;
             RectTransform rect = CreateUiObject($"{slot} Equipped Cannon", shipyardGunsPage.transform);
             rect.anchoredPosition = position;
-            rect.sizeDelta = new Vector2(42f, 42f);
+            rect.sizeDelta = new Vector2(54f, 54f);
             rect.localEulerAngles = new Vector3(0f, 0f, rotation);
             RawImage image = rect.gameObject.AddComponent<RawImage>();
             image.texture = UiTextureFactory.LoadShipyardCannonOverlay();
@@ -817,6 +881,28 @@ namespace Desktopirates
                     : $"{definition.ShortName}\n{status}";
                 cannonSlotTexts[i].color = slot == selectedCannonSlot ? UiTheme.Mint
                     : mounted ? new Color(1f, 0.76f, 0.28f) : new Color(0.62f, 0.76f, 0.76f);
+                if (cannonSlotBackplates[i] != null)
+                    cannonSlotBackplates[i].color = slot == selectedCannonSlot
+                        ? new Color(0.05f, 0.30f, 0.31f, 0.98f)
+                        : mounted ? new Color(0.16f, 0.105f, 0.035f, 0.96f)
+                        : unlocked ? new Color(0.025f, 0.075f, 0.095f, 0.92f)
+                        : new Color(0.018f, 0.028f, 0.035f, 0.78f);
+                if (cannonSlotFrames[i] != null)
+                    cannonSlotFrames[i].color = slot == selectedCannonSlot
+                        ? new Color(0.34f, 1f, 0.82f, 1f)
+                        : mounted ? new Color(1f, 0.69f, 0.22f, 0.95f)
+                        : unlocked ? new Color(0.54f, 0.67f, 0.66f, 0.74f)
+                        : new Color(0.34f, 0.37f, 0.37f, 0.42f);
+                if (cannonSlotCardIcons[i] != null)
+                    cannonSlotCardIcons[i].color = mounted ? Color.white
+                        : unlocked ? new Color(0.55f, 0.72f, 0.72f, 0.52f)
+                        : new Color(0.28f, 0.32f, 0.32f, 0.24f);
+                if (shipyardDeckMountRings[i] != null)
+                    shipyardDeckMountRings[i].color = slot == selectedCannonSlot
+                        ? new Color(0.38f, 1f, 0.83f, 1f)
+                        : mounted ? Color.white
+                        : unlocked ? new Color(0.50f, 0.66f, 0.66f, 0.45f)
+                        : new Color(0.26f, 0.28f, 0.28f, 0.20f);
                 if (shipyardDeckCannons[i] != null) shipyardDeckCannons[i].gameObject.SetActive(mounted);
             }
             bool selectedMounted = ShipCustomizationModel.HasCannon(state, selectedCannonSlot);

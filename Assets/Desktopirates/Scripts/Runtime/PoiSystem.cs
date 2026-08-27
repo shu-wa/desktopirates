@@ -33,7 +33,11 @@ namespace Desktopirates
 
     public sealed class PoiSystem : MonoBehaviour
     {
-        public const float VisibleRadius = 6.8f;
+        // Keep world geometry inside the circular ocean rather than relying only on the
+        // camera's rectangular frustum. Markers take over just before a POI leaves the disc.
+        public const float VisibleRadius = 5.95f;
+        public const float EnemySimulationRadius = 8.5f;
+        public const float CollisionSimulationRadius = 7.25f;
         public const float SalvageRange = 1.70f;
         public IReadOnlyList<PoiRecord> Items => items;
         public string InteractionPrompt { get; private set; }
@@ -53,6 +57,7 @@ namespace Desktopirates
         private CombatVfxController combatVfx;
         private PlayerShipConditionController playerConditions;
         private readonly List<CannonSlot> firingSlots = new List<CannonSlot>();
+        private readonly List<PoiRecord> collisionCandidates = new List<PoiRecord>();
         private readonly HarborBerthRegistry harborBerths = new HarborBerthRegistry();
         private const ulong PlayerVesselId = 1UL;
         private ulong playerReservedPortId;
@@ -79,6 +84,8 @@ namespace Desktopirates
             RefreshChunks(true);
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--combat-preview")) StartCoroutine(CombatPreviewRoutine());
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--dock-preview")) StartCoroutine(DockPreviewRoutine());
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--dock-north-preview")) StartCoroutine(DockNorthPreviewRoutine());
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--dock-reentry-preview")) StartCoroutine(DockReentryPreviewRoutine());
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--boss-preview")) StartCoroutine(BossPreviewRoutine());
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--enemy-types-preview-a")) StartCoroutine(EnemyTypesPreviewRoutine(0));
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--enemy-types-preview-b")) StartCoroutine(EnemyTypesPreviewRoutine(4));
@@ -92,11 +99,17 @@ namespace Desktopirates
             ResolveShipCollisions();
 
             PoiRecord closest = null;
-            float closestDistance = float.MaxValue;
+            float closestDistanceSquared = float.MaxValue;
+            float visibleRadiusSquared = VisibleRadius * VisibleRadius;
+            float simulationRadiusSquared = EnemySimulationRadius * EnemySimulationRadius;
+            bool harborSafe = PlayerInSafeHarbor();
             foreach (PoiRecord item in items)
             {
                 if (item.Resolved) continue;
-                if (item.Kind == PoiKind.Enemy && !item.IsSinking)
+                Vector2 relative = item.LogicalPosition - player.LogicalPosition;
+                float distanceSquared = relative.sqrMagnitude;
+                bool simulateEnemy = distanceSquared <= simulationRadiusSquared || item.IsUnderFire || item.IsSinking;
+                if (item.Kind == PoiKind.Enemy && !item.IsSinking && simulateEnemy)
                 {
                     int dotDamage = item.Conditions.Tick(Time.deltaTime, item.MaxHealth);
                     if (dotDamage > 0) item.Health = Mathf.Max(0, item.Health - dotDamage);
@@ -106,11 +119,11 @@ namespace Desktopirates
                         continue;
                     }
                 }
-                if (item.Kind == PoiKind.Enemy && !item.IsSinking && !item.IsPreview) UpdateEnemy(item);
-                Vector2 relative = item.LogicalPosition - player.LogicalPosition;
-                float distance = relative.magnitude;
-                if (distance < closestDistance) { closest = item; closestDistance = distance; }
-                bool visible = distance <= VisibleRadius;
+                if (item.Kind == PoiKind.Enemy && !item.IsSinking && !item.IsPreview && simulateEnemy) UpdateEnemy(item, harborSafe);
+                relative = item.LogicalPosition - player.LogicalPosition;
+                distanceSquared = relative.sqrMagnitude;
+                if (distanceSquared < closestDistanceSquared) { closest = item; closestDistanceSquared = distanceSquared; }
+                bool visible = distanceSquared <= visibleRadiusSquared;
                 if (item.Visual.gameObject.activeSelf != visible) item.Visual.gameObject.SetActive(visible);
                 if (!visible) continue;
                 if (item.IsSinking)
@@ -124,6 +137,7 @@ namespace Desktopirates
                 if (item.Kind != PoiKind.Enemy && !item.IsSinking) item.Visual.localRotation = Quaternion.identity;
             }
 
+            float closestDistance = closest != null ? Mathf.Sqrt(closestDistanceSquared) : float.MaxValue;
             InteractionPrompt = BuildPrompt(closest, closestDistance);
             if (Input.GetKeyDown(KeyCode.F) && closest != null) Interact(closest, closestDistance);
             if (Input.GetKeyDown(KeyCode.Space)) ToggleAttackMode();
@@ -216,11 +230,10 @@ namespace Desktopirates
             loadedChunks.Clear();
         }
 
-        private void UpdateEnemy(PoiRecord enemy)
+        private void UpdateEnemy(PoiRecord enemy, bool harborSafe)
         {
             Vector2 toPlayer = player.LogicalPosition - enemy.LogicalPosition;
             float distance = toPlayer.magnitude;
-            bool harborSafe = PlayerInSafeHarbor();
             EnemyProfile profile = EnemyArchetypeModel.Get(enemy.EnemyArchetype);
             SeaRegionProfile region = SeaRegionModel.At(state.WorldSeed, enemy.LogicalPosition);
             float frozenSpeed = enemy.Conditions.IsActive(ShipStatus.Frozen) ? 0.55f : 1f;
@@ -256,11 +269,19 @@ namespace Desktopirates
 
         private void ResolveShipCollisions()
         {
-            float playerRadius = ShipCollisionModel.GetPlayerRadius(state.ShipLevel);
-            for (int i = 0; i < items.Count; i++)
+            collisionCandidates.Clear();
+            float simulationRadiusSquared = CollisionSimulationRadius * CollisionSimulationRadius;
+            foreach (PoiRecord item in items)
             {
-                PoiRecord enemy = items[i];
-                if (enemy.Resolved || enemy.IsSinking || enemy.Kind != PoiKind.Enemy) continue;
+                if (item.Resolved || item.IsSinking || item.Kind != PoiKind.Enemy) continue;
+                if ((item.LogicalPosition - player.LogicalPosition).sqrMagnitude > simulationRadiusSquared) continue;
+                collisionCandidates.Add(item);
+            }
+
+            float playerRadius = ShipCollisionModel.GetPlayerRadius(state.ShipLevel);
+            for (int i = 0; i < collisionCandidates.Count; i++)
+            {
+                PoiRecord enemy = collisionCandidates[i];
                 float enemyRadius = ShipCollisionModel.GetEnemyRadius(enemy.EnemyArchetype, enemy.Boss);
                 if (ShipCollisionModel.TryGetSeparation(player.LogicalPosition, playerRadius, enemy.LogicalPosition, enemyRadius,
                     out Vector2 playerMove, out Vector2 enemyMove))
@@ -270,10 +291,9 @@ namespace Desktopirates
                     enemy.LogicalPosition += enemyMove;
                 }
 
-                for (int j = i + 1; j < items.Count; j++)
+                for (int j = i + 1; j < collisionCandidates.Count; j++)
                 {
-                    PoiRecord other = items[j];
-                    if (other.Resolved || other.IsSinking || other.Kind != PoiKind.Enemy) continue;
+                    PoiRecord other = collisionCandidates[j];
                     float otherRadius = ShipCollisionModel.GetEnemyRadius(other.EnemyArchetype, other.Boss);
                     if (!ShipCollisionModel.TryGetSeparation(enemy.LogicalPosition, enemyRadius, other.LogicalPosition, otherRadius,
                         out Vector2 enemySeparation, out Vector2 otherSeparation)) continue;
@@ -348,20 +368,21 @@ namespace Desktopirates
                     PortRequested?.Invoke();
                     return;
                 }
-                if (!harborBerths.TryReserve(item.Id, PlayerVesselId, out int berthIndex))
+                int nearestBerth = DockingModel.GetNearestBerthIndex(item.LogicalPosition, player.LogicalPosition);
+                if (!harborBerths.TryReserve(item.Id, PlayerVesselId, nearestBerth, out int berthIndex))
                 {
                     Message?.Invoke(GameLocalization.Choose("HARBOR FULL — ALL BERTHS OCCUPIED", "港内満船 — 空きバースがありません"));
                     return;
                 }
                 playerReservedPortId = item.Id;
+                Message?.Invoke(GameLocalization.Choose($"HARBOR PILOT — BERTH {berthIndex + 1} RESERVED", $"水先案内人 — バース{berthIndex + 1}へ入港します"));
                 player.BeginDocking(item.LogicalPosition, berthIndex, () =>
                 {
                     state.Captain.PortCalls++;
-                    Message?.Invoke("係留完了 — 港内は安全です");
+                    Message?.Invoke(GameLocalization.Choose("MOORED — HARBOR WATERS ARE SAFE", "係留完了 — 港内は安全です"));
                     PortRequested?.Invoke();
                     StateChanged?.Invoke();
                 });
-                Message?.Invoke(GameLocalization.Choose($"HARBOR PILOT — BERTH {berthIndex + 1} RESERVED", $"水先案内人 — バース{berthIndex + 1}へ入港します"));
                 return;
             }
             if (distance > SalvageRange || item.Kind == PoiKind.Enemy) return;
@@ -691,9 +712,29 @@ namespace Desktopirates
         {
             yield return new WaitForSeconds(3.8f);
             Vector2 portPosition = Vector2.zero;
-            player.TowTo(DockingModel.GetApproach(portPosition) + Vector2.down * 0.55f);
+            player.TowTo(portPosition + Vector2.down * 3.2f);
             RefreshChunks(true);
             PoiRecord port = AddPreviewPoi(0xD0C0A11UL, PoiKind.Port, portPosition, 0);
+            Interact(port, Vector2.Distance(player.LogicalPosition, portPosition));
+        }
+
+        private IEnumerator DockNorthPreviewRoutine()
+        {
+            yield return new WaitForSeconds(0.4f);
+            Vector2 portPosition = Vector2.zero;
+            player.TowTo(portPosition + Vector2.up * 3.2f);
+            RefreshChunks(true);
+            PoiRecord port = AddPreviewPoi(0xD0C0A12UL, PoiKind.Port, portPosition, 0);
+            Interact(port, Vector2.Distance(player.LogicalPosition, portPosition));
+        }
+
+        private IEnumerator DockReentryPreviewRoutine()
+        {
+            yield return new WaitForSeconds(0.4f);
+            Vector2 portPosition = Vector2.zero;
+            player.TowTo(DockingModel.GetBerth(portPosition, DockingModel.DefaultBerthIndex));
+            RefreshChunks(true);
+            PoiRecord port = AddPreviewPoi(0xD0C0A13UL, PoiKind.Port, portPosition, 0);
             Interact(port, Vector2.Distance(player.LogicalPosition, portPosition));
         }
 

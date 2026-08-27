@@ -16,6 +16,7 @@ namespace Desktopirates
         private Color targetTint;
         private float nextSample;
         private float discoveryUntil;
+        private bool showingDiscovery;
 
         public SeaRegionKind Current => current;
 
@@ -73,7 +74,10 @@ namespace Desktopirates
             if (Time.unscaledTime >= nextSample) SampleRegion(false);
             ocean.Tint = Color.Lerp(ocean.Tint, targetTint, 1f - Mathf.Exp(-Time.deltaTime * 1.8f));
             if (badge != null)
-                badge.SetActive((inventory == null || !inventory.IsOpen) && (menu == null || !menu.IsModalOpen));
+            {
+                bool visible = (inventory == null || !inventory.IsOpen) && (menu == null || !menu.IsModalOpen);
+                if (badge.activeSelf != visible) badge.SetActive(visible);
+            }
         }
 
         private void SampleRegion(bool force)
@@ -85,13 +89,18 @@ namespace Desktopirates
             targetTint = profile.OceanTint;
             if (!force && profile.Kind == current)
             {
-                if (Time.unscaledTime >= discoveryUntil) label.text = $"{profile.Name}\n{profile.EffectLabel}";
+                if (showingDiscovery && Time.unscaledTime >= discoveryUntil)
+                {
+                    showingDiscovery = false;
+                    label.text = $"{profile.Name}\n{profile.EffectLabel}";
+                }
                 return;
             }
 
             current = profile.Kind;
             bool first = state.Captain.DiscoverRegion(profile.Kind);
             discoveryUntil = first ? Time.unscaledTime + 4f : 0f;
+            showingDiscovery = first;
             label.text = first ? $"NEW CHART: {profile.Name}\n{profile.EffectLabel}" : $"{profile.Name}\n{profile.EffectLabel}";
         }
     }

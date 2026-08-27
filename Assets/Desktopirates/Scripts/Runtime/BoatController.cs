@@ -24,8 +24,8 @@ namespace Desktopirates
 
         private Transform boatVisual;
         private float wakePulse;
-        private Vector2 dockApproach;
-        private Vector2 dockBerth;
+        private readonly Vector2[] dockRoute = new Vector2[DockingModel.MaxRouteWaypoints];
+        private int dockRouteCount;
         private int dockingLeg;
         private Action dockingCompleted;
         private Vector2 voyageTarget;
@@ -108,22 +108,38 @@ namespace Desktopirates
         {
             if (IsDocking) return;
             DisengageVoyageAutopilot(false);
-            dockApproach = DockingModel.GetApproach(portPosition, berthIndex);
-            dockBerth = DockingModel.GetBerth(portPosition, berthIndex);
-            dockingLeg = Vector2.Distance(LogicalPosition, dockApproach) <= 0.25f ? 1 : 0;
             dockingCompleted = completed;
             DockedBerthIndex = Mathf.Clamp(berthIndex, 0, DockingModel.BerthCount - 1);
             IsMoored = false;
-            IsDocking = true;
             CruiseStep = 0;
+
+            if (DockingModel.IsAtBerth(LogicalPosition, portPosition, DockedBerthIndex))
+            {
+                // Re-entering immediately after casting off should restore the berth in place,
+                // not send the ship back around the entire harbor-pilot route.
+                Speed = 0f;
+                HeadingDegrees = DockingModel.FinalHeading;
+                State.HeadingDegrees = HeadingDegrees;
+                IsMoored = true;
+                Debug.Log($"Harbor pilot: berth {DockedBerthIndex + 1} recaptured in place (no route replay).");
+                Action reentryCompleted = dockingCompleted;
+                dockingCompleted = null;
+                reentryCompleted?.Invoke();
+                return;
+            }
+
+            dockRouteCount = DockingModel.BuildRoute(portPosition, LogicalPosition, DockedBerthIndex, dockRoute);
+            dockingLeg = 0;
+            IsDocking = dockRouteCount > 0;
+            Debug.Log($"Harbor pilot: berth {DockedBerthIndex + 1}, {dockRouteCount} collision-safe route legs.");
         }
 
         private void AdvanceDocking(float deltaTime)
         {
             Vector2 previousPosition = LogicalPosition;
-            Vector2 target = dockingLeg == 0 ? dockApproach : dockBerth;
+            Vector2 target = dockRoute[Mathf.Clamp(dockingLeg, 0, dockRouteCount - 1)];
             float distance = Vector2.Distance(LogicalPosition, target);
-            bool finalLeg = dockingLeg == 1;
+            bool finalLeg = dockingLeg == dockRouteCount - 1;
             float desiredSpeed = DockingModel.GetPilotSpeed(distance, finalLeg);
             Speed = Mathf.MoveTowards(Speed, desiredSpeed, deltaTime * 2.2f);
             float desiredHeading = distance > DockingModel.ArrivalDistance
@@ -138,7 +154,7 @@ namespace Desktopirates
                 LogicalPosition = target;
                 if (!finalLeg)
                 {
-                    dockingLeg = 1;
+                    dockingLeg++;
                 }
                 else if (Mathf.Abs(Mathf.DeltaAngle(HeadingDegrees, DockingModel.FinalHeading)) <= 1.5f)
                 {

@@ -41,6 +41,8 @@ namespace Desktopirates
             }
             markers.Clear();
             markerIds.Clear();
+            if (visibleIndices.Capacity < poiSystem.Items.Count) visibleIndices.Capacity = poiSystem.Items.Count;
+            if (placedMarkerRects.Capacity < VisibleMarkerLimit) placedMarkerRects.Capacity = VisibleMarkerLimit;
             foreach (PoiRecord poi in poiSystem.Items)
             {
                 var markerObject = new GameObject($"{poi.Kind} Direction Tag", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
@@ -70,7 +72,8 @@ namespace Desktopirates
                 return;
             }
             visibleIndices.Clear();
-            for (int i = 0; i < markers.Count; i++) markers[i].gameObject.SetActive(false);
+            for (int i = 0; i < markers.Count; i++)
+                if (markers[i].gameObject.activeSelf) markers[i].gameObject.SetActive(false);
             for (int i = 0; i < poiSystem.Items.Count; i++)
             {
                 PoiRecord poi = poiSystem.Items[i];
@@ -78,13 +81,7 @@ namespace Desktopirates
                 float distance = relative.magnitude;
                 if (!poi.Resolved && distance > PoiSystem.VisibleRadius) visibleIndices.Add(i);
             }
-            visibleIndices.Sort((left, right) =>
-            {
-                float leftDistance = Vector2.SqrMagnitude(poiSystem.Items[left].LogicalPosition - player.LogicalPosition);
-                float rightDistance = Vector2.SqrMagnitude(poiSystem.Items[right].LogicalPosition - player.LogicalPosition);
-                int distanceOrder = leftDistance.CompareTo(rightDistance);
-                return distanceOrder != 0 ? distanceOrder : poiSystem.Items[left].Id.CompareTo(poiSystem.Items[right].Id);
-            });
+            SortVisibleIndicesByDistance();
 
             placedMarkerRects.Clear();
             int count = Mathf.Min(VisibleMarkerLimit, visibleIndices.Count);
@@ -110,6 +107,31 @@ namespace Desktopirates
                 marker.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0.72f, Mathf.InverseLerp(8f, 70f, distance)));
                 placedMarkerRects.Add(DistanceTagMath.MarkerRect(position, pixels, MarkerSeparation));
             }
+        }
+
+        private void SortVisibleIndicesByDistance()
+        {
+            // The live set is intentionally small; insertion sort avoids allocating a new
+            // comparison delegate every rendered frame and is faster for nearly-sorted tags.
+            for (int i = 1; i < visibleIndices.Count; i++)
+            {
+                int value = visibleIndices[i];
+                int destination = i - 1;
+                while (destination >= 0 && CompareMarkerPriority(visibleIndices[destination], value) > 0)
+                {
+                    visibleIndices[destination + 1] = visibleIndices[destination];
+                    destination--;
+                }
+                visibleIndices[destination + 1] = value;
+            }
+        }
+
+        private int CompareMarkerPriority(int left, int right)
+        {
+            float leftDistance = (poiSystem.Items[left].LogicalPosition - player.LogicalPosition).sqrMagnitude;
+            float rightDistance = (poiSystem.Items[right].LogicalPosition - player.LogicalPosition).sqrMagnitude;
+            int distanceOrder = leftDistance.CompareTo(rightDistance);
+            return distanceOrder != 0 ? distanceOrder : poiSystem.Items[left].Id.CompareTo(poiSystem.Items[right].Id);
         }
 
         private bool TryFindClearPosition(Vector2 worldDirection, float pixels, out Vector2 position)

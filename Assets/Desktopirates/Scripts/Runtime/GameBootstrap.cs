@@ -132,6 +132,7 @@ namespace Desktopirates
             poiObject.transform.SetParent(world, false);
             PoiSystem poiSystem = poiObject.GetComponent<PoiSystem>();
             poiSystem.Initialize(boat, state, combatVfx, playerConditions);
+            gameObject.AddComponent<BossAssetWarmupController>();
 
             DayNightVisualController dayNight = gameObject.AddComponent<DayNightVisualController>();
             dayNight.Initialize(ocean, sun);
@@ -164,6 +165,12 @@ namespace Desktopirates
             // Tags may occupy the same rim sector as the top dashboard. Render them
             // beneath authored HUD frames so landmark art never obscures vital values.
             tagObject.transform.SetAsFirstSibling();
+
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--performance-preview"))
+            {
+                for (int i = boat.CruiseStep; i < boat.MaxCruiseStep; i++) boat.IncreaseCruiseStep();
+                gameObject.AddComponent<RuntimePerformanceProbe>().Initialize(boat, poiSystem);
+            }
         }
 
         private static Camera CreateCamera()

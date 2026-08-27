@@ -11,6 +11,8 @@ namespace Desktopirates
     public static class GameLocalization
     {
         private const string PreferenceKey = "game_language";
+        private static bool languageResolved;
+        private static GameLanguage resolvedLanguage;
         private static readonly Dictionary<string, string> Japanese = new Dictionary<string, string>
         {
             { "VOLUME", "音量" }, { "SIZE", "表示サイズ" }, { "MUTE", "消音" }, { "UNMUTE", "消音解除" },
@@ -31,11 +33,27 @@ namespace Desktopirates
         {
             get
             {
+                if (languageResolved) return resolvedLanguage;
                 string[] arguments = Environment.GetCommandLineArgs();
-                if (Array.Exists(arguments, value => value.Equals("--lang=ja", StringComparison.OrdinalIgnoreCase))) return GameLanguage.Japanese;
-                if (Array.Exists(arguments, value => value.Equals("--lang=en", StringComparison.OrdinalIgnoreCase))) return GameLanguage.English;
+                for (int i = 0; i < arguments.Length; i++)
+                {
+                    if (arguments[i].Equals("--lang=ja", StringComparison.OrdinalIgnoreCase))
+                    {
+                        resolvedLanguage = GameLanguage.Japanese;
+                        languageResolved = true;
+                        return resolvedLanguage;
+                    }
+                    if (arguments[i].Equals("--lang=en", StringComparison.OrdinalIgnoreCase))
+                    {
+                        resolvedLanguage = GameLanguage.English;
+                        languageResolved = true;
+                        return resolvedLanguage;
+                    }
+                }
                 int fallback = Application.systemLanguage == SystemLanguage.Japanese ? 1 : 0;
-                return (GameLanguage)Mathf.Clamp(PlayerPrefs.GetInt(PreferenceKey, fallback), 0, 1);
+                resolvedLanguage = (GameLanguage)Mathf.Clamp(PlayerPrefs.GetInt(PreferenceKey, fallback), 0, 1);
+                languageResolved = true;
+                return resolvedLanguage;
             }
         }
 
@@ -47,7 +65,9 @@ namespace Desktopirates
 
         public static void Toggle()
         {
-            PlayerPrefs.SetInt(PreferenceKey, IsJapanese ? 0 : 1);
+            resolvedLanguage = IsJapanese ? GameLanguage.English : GameLanguage.Japanese;
+            languageResolved = true;
+            PlayerPrefs.SetInt(PreferenceKey, (int)resolvedLanguage);
             PlayerPrefs.Save();
         }
     }

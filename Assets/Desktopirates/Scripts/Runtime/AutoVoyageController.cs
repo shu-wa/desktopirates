@@ -45,6 +45,8 @@ namespace Desktopirates
         private float nextRoutePlan;
         private float nextCombatCourse;
         private string runtimeStatus = string.Empty;
+        private bool badgeVisible;
+        private string lastBadgeText;
 
         public bool IsPanelOpen => panelRoot != null && panelRoot.activeSelf;
 
@@ -438,11 +440,18 @@ namespace Desktopirates
         private void UpdateBadge()
         {
             bool visible = state.AutoVoyageEnabled && !boat.IsDocking && !IsPanelOpen && (menu == null || !menu.IsModalOpen);
-            badgeRoot.SetActive(visible);
+            if (badgeVisible != visible)
+            {
+                badgeVisible = visible;
+                badgeRoot.SetActive(visible);
+            }
             if (!visible) return;
-            badgeText.text = string.IsNullOrEmpty(runtimeStatus)
+            string nextText = string.IsNullOrEmpty(runtimeStatus)
                 ? GameLocalization.Choose("AUTO VOYAGE — PLOTTING COURSE", "AUTO VOYAGE — 航路計算中")
                 : runtimeStatus;
+            if (lastBadgeText == nextText) return;
+            lastBadgeText = nextText;
+            badgeText.text = nextText;
         }
 
         private static string ToggleLabel(string label, bool enabled)

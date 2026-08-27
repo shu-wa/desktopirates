@@ -20,6 +20,9 @@ namespace Desktopirates
         private Texture2D inactiveTexture;
         private int lastStep = -1;
         private int lastMax = -1;
+        private int lastSpeedTenth = int.MinValue;
+        private int lastTargetSpeedTenth = int.MinValue;
+        private bool lastCoasting;
 
         public void Initialize(RectTransform canvas, BoatController player, InventoryController cargoInventory, MenuController menuController = null)
         {
@@ -69,7 +72,11 @@ namespace Desktopirates
 
         private void Update()
         {
-            if (gaugeRoot != null) gaugeRoot.SetActive((inventory == null || !inventory.IsOpen) && (menu == null || !menu.IsModalOpen));
+            if (gaugeRoot != null)
+            {
+                bool visible = (inventory == null || !inventory.IsOpen) && (menu == null || !menu.IsModalOpen);
+                if (gaugeRoot.activeSelf != visible) gaugeRoot.SetActive(visible);
+            }
             Refresh(false);
         }
 
@@ -78,7 +85,8 @@ namespace Desktopirates
             if (boat == null) return;
             int step = boat.CruiseStep;
             int max = boat.MaxCruiseStep;
-            if (force || step != lastStep || max != lastMax)
+            bool orderChanged = force || step != lastStep || max != lastMax;
+            if (orderChanged)
             {
                 lastStep = step;
                 lastMax = max;
@@ -95,8 +103,16 @@ namespace Desktopirates
             float normalized = SpeedGaugeModel.GetActualNeedle01(boat.Speed, boat.MaxSpeed);
             motionBar.fillAmount = normalized;
             motionBar.color = boat.IsCoasting ? UiTheme.Brass : UiTheme.Mint;
-            stateLabel.text = $"{SpeedGaugeModel.GetMotionLabel(step, max, boat.Speed, boat.TargetSpeed)}\n{boat.Speed:0.0} kn";
-            if (boat.IsCoasting)
+            int speedTenth = Mathf.RoundToInt(boat.Speed * 10f);
+            int targetSpeedTenth = Mathf.RoundToInt(boat.TargetSpeed * 10f);
+            bool labelChanged = orderChanged || speedTenth != lastSpeedTenth
+                || targetSpeedTenth != lastTargetSpeedTenth || boat.IsCoasting != lastCoasting;
+            if (!labelChanged) return;
+            lastSpeedTenth = speedTenth;
+            lastTargetSpeedTenth = targetSpeedTenth;
+            lastCoasting = boat.IsCoasting;
+            stateLabel.text = $"{SpeedGaugeModel.GetMotionLabel(step, max, boat.Speed, boat.TargetSpeed)}\n{speedTenth / 10f:0.0} kn";
+            if (lastCoasting)
             {
                 stepLabel.text = step == 0 ? "ORDER 0\nDRIFT" : $"ORDER {step}/{max}\nSLOWING";
             }

@@ -26,12 +26,17 @@ namespace Desktopirates
     /// <summary>Small opaque, low-poly combat effects that remain readable in the desktop overlay.</summary>
     public sealed class CombatVfxController : MonoBehaviour
     {
+        public const int MaxPooledBlocks = 96;
+        public const int MaxPooledTrails = 16;
+
         private Transform effectRoot;
         private Material ember;
         private Material flame;
         private Material smoke;
         private Material shot;
         private Material tracer;
+        private readonly Stack<GameObject> pooledBlocks = new Stack<GameObject>();
+        private readonly Stack<TrailRenderer> pooledTrails = new Stack<TrailRenderer>();
 
         public void Initialize(Transform worldRoot)
         {
@@ -134,9 +139,9 @@ namespace Desktopirates
             {
                 trail.emitting = false;
                 trail.transform.SetParent(effectRoot, true);
-                Destroy(trail.gameObject, CombatVfxMath.TracerLifetime);
+                StartCoroutine(RecycleTrailAfterFade(trail));
             }
-            if (ball != null) Destroy(ball);
+            if (ball != null) RecycleBlock(ball);
         }
 
         private IEnumerator SinkRoutine(Transform target)
@@ -191,27 +196,49 @@ namespace Desktopirates
                     Mathf.Lerp(0.18f, 0.40f, Mathf.Sin(t * Mathf.PI)));
                 yield return null;
             }
-            if (core != null) Destroy(core);
+            if (core != null) RecycleBlock(core);
         }
 
         private TrailRenderer CreateProjectileTrail(Transform projectile)
         {
-            GameObject trailObject = new GameObject("Cannon Ball Trajectory");
+            TrailRenderer trailRenderer;
+            GameObject trailObject;
+            if (pooledTrails.Count > 0)
+            {
+                trailRenderer = pooledTrails.Pop();
+                trailObject = trailRenderer.gameObject;
+                trailObject.SetActive(true);
+                trailRenderer.Clear();
+            }
+            else
+            {
+                trailObject = new GameObject("Cannon Ball Trajectory");
+                trailRenderer = trailObject.AddComponent<TrailRenderer>();
+                trailRenderer.sharedMaterial = tracer;
+                trailRenderer.time = CombatVfxMath.TracerLifetime;
+                trailRenderer.startWidth = CombatVfxMath.TracerStartWidth;
+                trailRenderer.endWidth = CombatVfxMath.TracerEndWidth;
+                trailRenderer.minVertexDistance = 0.035f;
+                trailRenderer.alignment = LineAlignment.View;
+                trailRenderer.textureMode = LineTextureMode.Stretch;
+                trailRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                trailRenderer.receiveShadows = false;
+                trailRenderer.generateLightingData = false;
+            }
             trailObject.transform.SetParent(projectile, false);
             trailObject.transform.localPosition = Vector3.zero;
-            TrailRenderer trailRenderer = trailObject.AddComponent<TrailRenderer>();
-            trailRenderer.sharedMaterial = tracer;
-            trailRenderer.time = CombatVfxMath.TracerLifetime;
-            trailRenderer.startWidth = CombatVfxMath.TracerStartWidth;
-            trailRenderer.endWidth = CombatVfxMath.TracerEndWidth;
-            trailRenderer.minVertexDistance = 0.035f;
-            trailRenderer.alignment = LineAlignment.View;
-            trailRenderer.textureMode = LineTextureMode.Stretch;
-            trailRenderer.shadowCastingMode = ShadowCastingMode.Off;
-            trailRenderer.receiveShadows = false;
-            trailRenderer.generateLightingData = false;
             trailRenderer.emitting = true;
             return trailRenderer;
+        }
+
+        private IEnumerator RecycleTrailAfterFade(TrailRenderer trailRenderer)
+        {
+            yield return new WaitForSeconds(CombatVfxMath.TracerLifetime);
+            if (trailRenderer == null) yield break;
+            trailRenderer.Clear();
+            trailRenderer.gameObject.SetActive(false);
+            if (pooledTrails.Count < MaxPooledTrails) pooledTrails.Push(trailRenderer);
+            else Destroy(trailRenderer.gameObject);
         }
 
         private void EmitImpact(Vector3 position)
@@ -237,23 +264,43 @@ namespace Desktopirates
                 block.transform.localScale = size * (grows ? Mathf.Lerp(0.65f, 1.6f, t) : Mathf.Lerp(1f, 0.12f, t));
                 yield return null;
             }
-            if (block != null) Destroy(block);
+            if (block != null) RecycleBlock(block);
         }
 
         private GameObject MakeBlock(string name, Vector3 position, Vector3 scale, Material material)
         {
-            GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            GameObject block;
+            if (pooledBlocks.Count > 0)
+            {
+                block = pooledBlocks.Pop();
+                block.SetActive(true);
+            }
+            else
+            {
+                block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Collider collider = block.GetComponent<Collider>();
+                if (collider != null) Destroy(collider);
+            }
             block.name = name;
             block.transform.SetParent(effectRoot, true);
             block.transform.position = position;
+            block.transform.rotation = Quaternion.identity;
             block.transform.localScale = scale;
-            Collider collider = block.GetComponent<Collider>();
-            if (collider != null) Destroy(collider);
             MeshRenderer renderer = block.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
+            renderer.enabled = true;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             return block;
+        }
+
+        private void RecycleBlock(GameObject block)
+        {
+            if (block == null) return;
+            block.SetActive(false);
+            block.transform.SetParent(effectRoot, false);
+            if (pooledBlocks.Count < MaxPooledBlocks) pooledBlocks.Push(block);
+            else Destroy(block);
         }
 
         private static Transform FindCarriage(Transform ship, CannonSlot slot)

@@ -122,7 +122,7 @@ namespace Desktopirates
         {
             if (string.Equals(screen, "shipyard", StringComparison.OrdinalIgnoreCase))
             {
-                Texture2D authoredShipyard = Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/shipyard_background_v06");
+                Texture2D authoredShipyard = Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/shipyard_background_v07");
                 if (authoredShipyard != null) return authoredShipyard;
             }
             return Resources.Load<Texture2D>($"Textures/UI/ConceptV05/Screens/{screen}_background_v05");
@@ -131,6 +131,17 @@ namespace Desktopirates
         public static Texture2D LoadShipyardCannonOverlay()
             => Resources.Load<Texture2D>("Textures/UI/GeneratedPixel/shipyard_cannon_topdown_v06")
                ?? LoadPortIcon("hardpoint_cannon");
+
+        public static Sprite LoadShipyardMountRing()
+        {
+            const string key = "Runtime/shipyard_mount_ring";
+            if (ConceptSprites.TryGetValue(key, out Sprite cached)) return cached;
+            Texture2D texture = Resources.Load<Texture2D>("Textures/UI/Chrome/panel_circle");
+            if (texture == null) return null;
+            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), Vector2.one * 0.5f, texture.width);
+            ConceptSprites[key] = sprite;
+            return sprite;
+        }
 
         public static Sprite LoadPanelSprite(int size = 128)
         {

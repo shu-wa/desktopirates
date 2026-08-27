@@ -35,6 +35,8 @@ namespace Desktopirates
 
         private IntPtr windowHandle;
         private bool pointerDragging;
+        private int recordedWindowX = int.MinValue;
+        private int recordedWindowY = int.MinValue;
         private Point dragStartCursor;
         private Rect dragStartWindow;
 
@@ -105,7 +107,7 @@ namespace Desktopirates
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             pointerDragging = false;
 #endif
-            SaveWindowPosition();
+            RecordWindowPosition(false);
         }
 
         public void SetWindowScale(float scale)
@@ -126,8 +128,14 @@ namespace Desktopirates
             WindowScale = Mathf.Clamp(PlayerPrefs.GetFloat("window_scale", 1f), MinimumWindowScale, MaximumWindowScale);
             int scaledWidth = Mathf.RoundToInt(WindowWidth * WindowScale);
             int scaledHeight = Mathf.RoundToInt(WindowHeight * WindowScale);
-            Screen.SetResolution(scaledWidth, scaledHeight, FullScreenMode.Windowed);
-            yield return null;
+            // Awake already requested this resolution. Repeating SetResolution one second
+            // later recreated the D3D swap chain and surfaced as an intermittent ~500 ms
+            // hitch several frames after the request had returned.
+            if (Screen.width != scaledWidth || Screen.height != scaledHeight)
+            {
+                Screen.SetResolution(scaledWidth, scaledHeight, FullScreenMode.Windowed);
+                yield return null;
+            }
             yield return new WaitForEndOfFrame();
 
             if (!ApplyOverlayWindowStyle()) yield break;
@@ -238,22 +246,29 @@ namespace Desktopirates
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus) SaveWindowPosition();
+            // A desktop companion loses focus constantly while the user works elsewhere.
+            // Record the position without forcing a synchronous registry/disk flush.
+            if (!hasFocus) RecordWindowPosition(false);
         }
 
         private void OnApplicationQuit()
         {
-            SaveWindowPosition();
+            RecordWindowPosition(true);
         }
 
-        private void SaveWindowPosition()
+        private void RecordWindowPosition(bool flush)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (windowHandle != IntPtr.Zero && GetWindowRect(windowHandle, out Rect rect))
             {
-                PlayerPrefs.SetInt("window_x", rect.Left);
-                PlayerPrefs.SetInt("window_y", rect.Top);
-                PlayerPrefs.Save();
+                if (recordedWindowX != rect.Left || recordedWindowY != rect.Top)
+                {
+                    recordedWindowX = rect.Left;
+                    recordedWindowY = rect.Top;
+                    PlayerPrefs.SetInt("window_x", rect.Left);
+                    PlayerPrefs.SetInt("window_y", rect.Top);
+                }
+                if (flush) PlayerPrefs.Save();
             }
 #endif
         }
