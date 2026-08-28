@@ -54,6 +54,7 @@ namespace Desktopirates
         public const float FeedStride = 48f;
         public const float FeedBaseY = 218f;
         public const float DamageLifetime = 1.35f;
+        public const float OpaqueFeedBackgroundAlpha = 1f;
 
         public static float GetFeedAlpha(float age)
         {

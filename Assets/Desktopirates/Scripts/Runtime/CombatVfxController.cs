@@ -19,6 +19,14 @@ namespace Desktopirates
         public static float GetProjectileDuration(float distance)
             => Mathf.Clamp(distance / 7.5f, 0.28f, 0.68f);
 
+        public static Vector3 GetProjectilePoint(Vector3 start, Vector3 destination, float progress)
+        {
+            float t = Mathf.Clamp01(progress);
+            Vector3 point = Vector3.Lerp(start, destination, t);
+            point.y += Mathf.Sin(t * Mathf.PI) * 0.42f;
+            return point;
+        }
+
         public static float GetSinkProgress(float elapsed)
             => Mathf.Clamp01((elapsed - BurningDuration) / SinkingDuration);
     }
@@ -130,9 +138,9 @@ namespace Desktopirates
             {
                 if (target != null) destination = target.position + Vector3.up * 0.22f;
                 float t = Mathf.Clamp01(elapsed / duration);
-                Vector3 point = Vector3.Lerp(start, destination, t);
-                point.y += Mathf.Sin(t * Mathf.PI) * 0.42f;
-                ball.transform.position = point;
+                // The tracer is parented to this projectile, so it records only this
+                // exact ballistic path rather than drawing a second decorative line.
+                ball.transform.position = CombatVfxMath.GetProjectilePoint(start, destination, t);
                 yield return null;
             }
             if (trail != null)

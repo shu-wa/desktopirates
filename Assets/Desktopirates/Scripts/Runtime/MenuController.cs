@@ -44,6 +44,7 @@ namespace Desktopirates
         private GameObject crewManagementPage;
         private GameObject hudRoot;
         private RectTransform hullStatusCard;
+        private RectTransform goldStatusCard;
         private Text hullValue;
         private Text goldValue;
         private Text crewValue;
@@ -91,9 +92,15 @@ namespace Desktopirates
         private Text portBossCompassText;
         private readonly Text[] crewRoleTexts = new Text[CrewManagementModel.RoleCount];
         private readonly Text[] crewPerkTexts = new Text[CrewManagementModel.RoleCount];
-        private readonly Text[] cannonCrewAssignmentTexts = new Text[ShipCustomizationModel.CannonSlotCount];
-        private readonly Text[] cannonCrewPerkTexts = new Text[ShipCustomizationModel.CannonSlotCount];
-        private readonly Image[] cannonCrewRowBackplates = new Image[ShipCustomizationModel.CannonSlotCount];
+        private readonly RectTransform[] cannonCrewMarkerRects = new RectTransform[ShipCustomizationModel.CannonSlotCount];
+        private readonly Image[] cannonCrewMarkerRings = new Image[ShipCustomizationModel.CannonSlotCount];
+        private readonly RawImage[] cannonCrewMarkerCannons = new RawImage[ShipCustomizationModel.CannonSlotCount];
+        private readonly RawImage[] cannonCrewMarkerBadges = new RawImage[ShipCustomizationModel.CannonSlotCount];
+        private readonly Text[] cannonCrewMarkerLabels = new Text[ShipCustomizationModel.CannonSlotCount];
+        private Text selectedCannonCrewSummary;
+        private Text selectedCannonCrewAssignmentText;
+        private Text selectedCannonCrewPerkText;
+        private CannonSlot selectedCrewCannonSlot = CannonSlot.Bow;
         private float toastUntil;
         private int displayedHull = int.MinValue;
         private int displayedMaxHull = int.MinValue;
@@ -112,6 +119,7 @@ namespace Desktopirates
         private Action closeExternalModal;
         public event Action<string> Message;
         public RectTransform HullStatusCard => hullStatusCard;
+        public RectTransform GoldStatusCard => goldStatusCard;
         public bool IsExternalModalOpen => externalModalOpen != null && externalModalOpen();
         public bool IsModalOpen => (menuRoot != null && menuRoot.activeSelf) || (captainLogRoot != null && captainLogRoot.activeSelf) || (portRoot != null && portRoot.activeSelf) || (shipyardRoot != null && shipyardRoot.activeSelf) || mapRoot != null || IsExternalModalOpen;
 
@@ -455,6 +463,7 @@ namespace Desktopirates
             hullValue = CreateStatusCard(dashboard, "HULL", new Vector2(-spacing * 1.5f, 0f), UiTheme.Mint, out hullBar);
             hullStatusCard = hullValue.transform.parent.parent as RectTransform;
             goldValue = CreateStatusCard(dashboard, "GOLD", new Vector2(-spacing * 0.5f, 0f), UiTheme.Brass, out _);
+            goldStatusCard = goldValue.transform.parent.parent as RectTransform;
             crewValue = CreateStatusCard(dashboard, "CREW", new Vector2(spacing * 0.5f, 0f), UiTheme.SecondaryText, out _);
             loadValue = CreateStatusCard(dashboard, "LOAD", new Vector2(spacing * 1.5f, 0f), UiTheme.Brass, out loadBar);
 
@@ -566,17 +575,45 @@ namespace Desktopirates
 
             crewManagementPage = CreateUiObject("Crew Management Page", shipyardRoot.transform).gameObject;
             Text crewHelp = CreateText(crewManagementPage.transform, "Crew Assignment Help", new Vector2(0f, 137f), new Vector2(540f, 24f), 12, TextAnchor.MiddleCenter);
-            crewHelp.text = GameLocalization.Choose("ASSIGN EACH GUNNER TO A HARDPOINT  •  CLICK PERK TO CHANGE", "砲員は砲台ごとに配置  •  PERKを押して変更");
+            crewHelp.text = GameLocalization.Choose("SELECT A HARDPOINT ON THE DECK PLAN, THEN ASSIGN ITS GUNNER", "船型図の砲座を選び、担当砲員を配置します");
             crewHelp.color = UiTheme.SecondaryText; UiTheme.StyleText(crewHelp, 12);
-            Text cannonTitle = CreateText(crewManagementPage.transform, "CANNON CREW", new Vector2(-145f, 112f), new Vector2(270f, 22f), 14, TextAnchor.MiddleCenter);
+            Text cannonTitle = CreateText(crewManagementPage.transform, "CANNON CREW", new Vector2(-150f, 112f), new Vector2(280f, 22f), 14, TextAnchor.MiddleCenter);
             cannonTitle.text = GameLocalization.Choose("CANNON CREW", "砲台担当"); cannonTitle.color = UiTheme.Brass; UiTheme.StyleText(cannonTitle, 14);
             Text shipCrewTitle = CreateText(crewManagementPage.transform, "SHIP CREW", new Vector2(145f, 112f), new Vector2(270f, 22f), 14, TextAnchor.MiddleCenter);
             shipCrewTitle.text = GameLocalization.Choose("SHIP CREW", "船内配置"); shipCrewTitle.color = UiTheme.Brass; UiTheme.StyleText(shipCrewTitle, 14);
-            for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++) CreateCannonCrewRow((CannonSlot)i, 82f - i * 40f);
-            CreateCrewRoleRow(CrewRole.Helm, 79f);
-            CreateCrewRoleRow(CrewRole.Sails, 25f);
-            CreateCrewRoleRow(CrewRole.Anchor, -29f);
-            CreateCrewRoleRow(CrewRole.Repairer, -83f);
+
+            RectTransform deckPlan = CreateUiObject("Crew Gun Deck Plan", crewManagementPage.transform);
+            deckPlan.anchoredPosition = new Vector2(-150f, -10f);
+            deckPlan.sizeDelta = new Vector2(280f, 238f);
+            Image deckFill = deckPlan.gameObject.AddComponent<Image>();
+            deckFill.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill", 18f);
+            deckFill.type = Image.Type.Sliced;
+            deckFill.color = new Color(0.012f, 0.050f, 0.065f, 0.96f);
+            deckFill.raycastTarget = false;
+            RectTransform schematicRect = CreateUiObject("Top Down Hull Diagram", deckPlan);
+            schematicRect.anchoredPosition = new Vector2(0f, 0f);
+            schematicRect.sizeDelta = new Vector2(132f, 184f);
+            RawImage schematic = schematicRect.gameObject.AddComponent<RawImage>();
+            schematic.texture = UiTextureFactory.LoadConceptTexture("Port", "hull_schematic");
+            schematic.color = new Color(0.72f, 0.85f, 0.80f, 0.52f);
+            schematic.raycastTarget = false;
+            CreateCrewDeckMarker(deckPlan, CannonSlot.Bow, new Vector2(0f, 78f), 0f);
+            CreateCrewDeckMarker(deckPlan, CannonSlot.PortFore, new Vector2(-58f, 36f), 90f);
+            CreateCrewDeckMarker(deckPlan, CannonSlot.StarboardFore, new Vector2(58f, 36f), -90f);
+            CreateCrewDeckMarker(deckPlan, CannonSlot.PortAft, new Vector2(-58f, -31f), 90f);
+            CreateCrewDeckMarker(deckPlan, CannonSlot.StarboardAft, new Vector2(58f, -31f), -90f);
+            CreateCrewDeckMarker(deckPlan, CannonSlot.Stern, new Vector2(0f, -80f), 180f);
+
+            selectedCannonCrewSummary = CreateText(crewManagementPage.transform, "Selected Cannon Crew Summary", new Vector2(-150f, -147f), new Vector2(280f, 38f), 12, TextAnchor.MiddleCenter);
+            selectedCannonCrewSummary.color = UiTheme.PrimaryText; UiTheme.StyleText(selectedCannonCrewSummary, 12);
+            selectedCannonCrewSummary.resizeTextForBestFit = true; selectedCannonCrewSummary.resizeTextMinSize = 9; selectedCannonCrewSummary.resizeTextMaxSize = 12;
+            selectedCannonCrewAssignmentText = CreateCrewOptionButton(crewManagementPage.transform, "ASSIGN GUNNER", new Vector2(-216f, -188f), new Vector2(140f, 38f), () => ToggleCannonCrew(selectedCrewCannonSlot));
+            selectedCannonCrewPerkText = CreateCrewOptionButton(crewManagementPage.transform, "PERK", new Vector2(-79f, -188f), new Vector2(128f, 38f), () => CycleCannonCrewPerk(selectedCrewCannonSlot));
+
+            CreateCrewRoleRow(CrewRole.Helm, 76f);
+            CreateCrewRoleRow(CrewRole.Sails, 20f);
+            CreateCrewRoleRow(CrewRole.Anchor, -36f);
+            CreateCrewRoleRow(CrewRole.Repairer, -92f);
 
             CreateCompactButton(shipyardRoot.transform, "BACK TO PORT", new Vector2(-120f, -300f), () => { shipyardRoot.SetActive(false); portRoot.SetActive(true); RefreshPortStatus(); });
             CreateCompactButton(shipyardRoot.transform, "SAIL", new Vector2(120f, -300f), () => DepartPort(shipyardRoot));
@@ -597,17 +634,47 @@ namespace Desktopirates
             crewPerkTexts[index] = CreateCrewOptionButton(row, "PERK", new Vector2(88f, 0f), new Vector2(86f, 34f), () => CycleRolePerk(role));
         }
 
-        private void CreateCannonCrewRow(CannonSlot slot, float y)
+        private void CreateCrewDeckMarker(Transform parent, CannonSlot slot, Vector2 position, float rotation)
         {
             int index = (int)slot;
-            RectTransform row = CreateUiObject(slot + " Cannon Crew Row", crewManagementPage.transform); row.anchoredPosition = new Vector2(-145f, y); row.sizeDelta = new Vector2(270f, 36f);
-            Image fill = row.gameObject.AddComponent<Image>(); fill.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill", 18f); fill.type = Image.Type.Sliced; fill.color = new Color(0.02f, 0.075f, 0.095f, 0.92f); fill.raycastTarget = false;
-            cannonCrewRowBackplates[index] = fill;
-            AddButtonIcon(row, UiTextureFactory.LoadShipyardCannonOverlay(), new Vector2(-115f, 0f), 30f);
-            Text label = CreateText(row, ShipCustomizationModel.GetDefinition(slot).ShortName, new Vector2(-82f, 0f), new Vector2(42f, 30f), 12, TextAnchor.MiddleCenter);
-            label.color = UiTheme.Brass; UiTheme.StyleText(label, 12);
-            cannonCrewAssignmentTexts[index] = CreateCrewOptionButton(row, "ASSIGN", new Vector2(-27f, 0f), new Vector2(70f, 30f), () => ToggleCannonCrew(slot));
-            cannonCrewPerkTexts[index] = CreateCrewOptionButton(row, "PERK", new Vector2(74f, 0f), new Vector2(120f, 30f), () => CycleCannonCrewPerk(slot));
+            RectTransform marker = CreateUiObject($"{slot} Crew Deck Marker", parent);
+            marker.anchoredPosition = position;
+            marker.sizeDelta = new Vector2(48f, 48f);
+            cannonCrewMarkerRects[index] = marker;
+            Image ring = marker.gameObject.AddComponent<Image>();
+            ring.sprite = UiTextureFactory.LoadShipyardMountRing();
+            ring.color = Color.white;
+            cannonCrewMarkerRings[index] = ring;
+            Button button = marker.gameObject.AddComponent<Button>();
+            button.targetGraphic = ring;
+            button.onClick.AddListener(() => SelectCrewCannonSlot(slot));
+
+            RectTransform cannonRect = CreateUiObject($"{slot} Crew Deck Cannon", marker);
+            cannonRect.sizeDelta = new Vector2(35f, 35f);
+            cannonRect.localRotation = Quaternion.Euler(0f, 0f, rotation);
+            RawImage cannon = cannonRect.gameObject.AddComponent<RawImage>();
+            cannon.texture = UiTextureFactory.LoadShipyardCannonOverlay();
+            cannon.raycastTarget = false;
+            cannonCrewMarkerCannons[index] = cannon;
+
+            RectTransform badgeRect = CreateUiObject($"{slot} Assigned Gunner Badge", marker);
+            badgeRect.anchoredPosition = new Vector2(18f, 17f);
+            badgeRect.sizeDelta = new Vector2(20f, 20f);
+            RawImage badge = badgeRect.gameObject.AddComponent<RawImage>();
+            badge.texture = UiTextureFactory.LoadFramelessPortIcon("hire_crew");
+            badge.color = UiTheme.Mint;
+            badge.raycastTarget = false;
+            cannonCrewMarkerBadges[index] = badge;
+
+            Text label = CreateText(marker, ShipCustomizationModel.GetDefinition(slot).ShortName, new Vector2(0f, -27f), new Vector2(48f, 15f), 10, TextAnchor.MiddleCenter);
+            label.color = UiTheme.Brass; UiTheme.StyleText(label, 10); label.raycastTarget = false;
+            cannonCrewMarkerLabels[index] = label;
+        }
+
+        private void SelectCrewCannonSlot(CannonSlot slot)
+        {
+            selectedCrewCannonSlot = slot;
+            RefreshShipyard();
         }
 
         private Text CreateCrewOptionButton(Transform parent, string label, Vector2 position, Vector2 size, Action action)
@@ -995,25 +1062,53 @@ namespace Desktopirates
                         : new Color(0.26f, 0.28f, 0.28f, 0.20f);
                 if (shipyardDeckCannons[i] != null) shipyardDeckCannons[i].gameObject.SetActive(mounted);
                 if (cannonSlotRects[i] != null) cannonSlotRects[i].localScale = slot == selectedCannonSlot ? Vector3.one * 1.08f : Vector3.one;
-                if (cannonCrewAssignmentTexts[i] != null)
+                if (cannonCrewMarkerRings[i] != null)
                 {
                     bool assigned = state.IsCannonCrewAssigned(slot);
-                    cannonCrewAssignmentTexts[i].text = !mounted
-                        ? (unlocked ? GameLocalization.Choose("NO GUN", "砲台なし") : "LOCKED")
-                        : assigned ? GameLocalization.Choose("ON DUTY", "配置済") : GameLocalization.Choose("ASSIGN", "配置");
-                    cannonCrewAssignmentTexts[i].color = assigned ? UiTheme.Mint : UiTheme.PrimaryText;
-                    CrewPerk cannonPerk = state.GetCannonCrewPerk(slot);
-                    cannonCrewPerkTexts[i].text = !assigned
-                        ? GameLocalization.Choose("PERK —", "PERK —")
-                        : cannonPerk == CrewPerk.None
-                            ? GameLocalization.Choose("NO PERK", "PERKなし")
-                            : $"{CrewManagementModel.GetPerkName(cannonPerk)}  {PerkRankModel.GetLabel(state.GetCannonCrewPerkRank(slot))}";
-                    cannonCrewPerkTexts[i].color = assigned && cannonPerk != CrewPerk.None ? UiTheme.Brass : UiTheme.SecondaryText;
-                    cannonCrewRowBackplates[i].color = assigned
-                        ? new Color(0.035f, 0.20f, 0.19f, 0.98f)
-                        : mounted ? new Color(0.08f, 0.075f, 0.045f, 0.94f)
-                        : new Color(0.015f, 0.045f, 0.055f, 0.76f);
+                    bool selectedForCrew = slot == selectedCrewCannonSlot;
+                    cannonCrewMarkerRings[i].color = selectedForCrew
+                        ? new Color(0.38f, 1f, 0.83f, 1f)
+                        : assigned ? new Color(0.28f, 0.94f, 0.82f, 1f)
+                        : mounted ? new Color(1f, 0.69f, 0.22f, 0.95f)
+                        : unlocked ? new Color(0.52f, 0.68f, 0.68f, 0.52f)
+                        : new Color(0.25f, 0.28f, 0.28f, 0.22f);
+                    cannonCrewMarkerCannons[i].gameObject.SetActive(mounted);
+                    cannonCrewMarkerCannons[i].color = assigned ? Color.white : new Color(0.76f, 0.70f, 0.54f, 0.78f);
+                    cannonCrewMarkerBadges[i].gameObject.SetActive(assigned);
+                    cannonCrewMarkerLabels[i].color = selectedForCrew ? UiTheme.Mint
+                        : assigned ? UiTheme.Mint : mounted ? UiTheme.Brass : UiTheme.SecondaryText;
+                    cannonCrewMarkerRects[i].localScale = selectedForCrew ? Vector3.one * 1.16f : Vector3.one;
                 }
+            }
+
+            bool selectedCrewUnlocked = ShipCustomizationModel.IsHardpointUnlocked(state, selectedCrewCannonSlot);
+            bool selectedCrewMounted = ShipCustomizationModel.HasCannon(state, selectedCrewCannonSlot);
+            bool selectedCrewAssigned = state.IsCannonCrewAssigned(selectedCrewCannonSlot);
+            CannonSlotDefinition crewDefinition = ShipCustomizationModel.GetDefinition(selectedCrewCannonSlot);
+            CrewPerk selectedCrewPerk = state.GetCannonCrewPerk(selectedCrewCannonSlot);
+            string crewMountStatus = !selectedCrewUnlocked ? "LOCKED"
+                : !selectedCrewMounted ? GameLocalization.Choose("NO CANNON", "砲台なし")
+                : selectedCrewAssigned ? GameLocalization.Choose("GUNNER ON DUTY", "砲員 配置済")
+                : GameLocalization.Choose("GUNNER VACANT", "砲員 未配置");
+            if (selectedCannonCrewSummary != null)
+                selectedCannonCrewSummary.text = GameLocalization.Choose(
+                    $"SELECTED  {crewDefinition.ShortName}  •  {crewDefinition.ArcName}\n{crewMountStatus}",
+                    $"選択中  {crewDefinition.ShortName}  •  {crewDefinition.ArcName}\n{crewMountStatus}");
+            if (selectedCannonCrewAssignmentText != null)
+            {
+                selectedCannonCrewAssignmentText.text = !selectedCrewMounted
+                    ? (!selectedCrewUnlocked ? "LOCKED" : GameLocalization.Choose("NO CANNON", "砲台なし"))
+                    : selectedCrewAssigned ? GameLocalization.Choose("REMOVE GUNNER", "配置解除") : GameLocalization.Choose("ASSIGN GUNNER", "砲員を配置");
+                selectedCannonCrewAssignmentText.color = selectedCrewAssigned ? UiTheme.Mint : UiTheme.PrimaryText;
+            }
+            if (selectedCannonCrewPerkText != null)
+            {
+                selectedCannonCrewPerkText.text = !selectedCrewAssigned
+                    ? "PERK —"
+                    : selectedCrewPerk == CrewPerk.None
+                        ? GameLocalization.Choose("NO PERK", "PERKなし")
+                        : $"{CrewManagementModel.GetPerkName(selectedCrewPerk)}  {PerkRankModel.GetLabel(state.GetCannonCrewPerkRank(selectedCrewCannonSlot))}";
+                selectedCannonCrewPerkText.color = selectedCrewAssigned && selectedCrewPerk != CrewPerk.None ? UiTheme.Brass : UiTheme.SecondaryText;
             }
             bool selectedMounted = ShipCustomizationModel.HasCannon(state, selectedCannonSlot);
             CannonRoundProfile round = CannonUpgradeModel.GetProfile(state.GetCannonRound(selectedCannonSlot));

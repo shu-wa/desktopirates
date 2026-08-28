@@ -22,6 +22,8 @@ namespace Desktopirates
         public BossMutation BossMutation;
         public EnemyArchetype EnemyArchetype;
         public float NextFireTime;
+        public float ForwardSpeed;
+        public float HeadingDegrees;
         public bool Resolved;
         public bool IsUnderFire;
         public bool IsSinking;
@@ -46,6 +48,7 @@ namespace Desktopirates
         public event Action<EnemyDamageNotice> EnemyDamaged;
         public event Action<PlayerDamageNotice> PlayerDamaged;
         public event Action<LootNotice> LootCollected;
+        public event Action<int> GoldCollected;
         public event Action PortRequested;
         public event Action StateChanged;
 
@@ -210,6 +213,7 @@ namespace Desktopirates
                         Boss = data.Boss,
                         BossMutation = mutation,
                         EnemyArchetype = data.EnemyArchetype,
+                        HeadingDegrees = VesselMotionModel.GetHeading(player.LogicalPosition - data.Position),
                         NextFireTime = Time.time + 0.8f + (data.Id & 255UL) / 255f * 1.5f,
                         Visual = visual
                     };
@@ -241,20 +245,34 @@ namespace Desktopirates
             float desiredRange = enemy.Boss != BossKind.None ? 1.65f : profile.PreferredRange;
             float pursuitSpeed = 1.15f * profile.SpeedMultiplier * BossMutationModel.SpeedMultiplier(enemy.BossMutation) * region.EnemySpeedMultiplier;
             float aggressionRange = enemy.Boss != BossKind.None ? 8.8f : 7.2f;
+            float maximumSpeed = Mathf.Max(0.01f, pursuitSpeed * frozenSpeed);
+            float targetSpeed = 0f;
+            Vector2 navigationTarget = enemy.LogicalPosition;
             if (!harborSafe && distance < aggressionRange && distance > desiredRange)
-                enemy.LogicalPosition += toPlayer.normalized * Time.deltaTime * pursuitSpeed * frozenSpeed;
+            {
+                targetSpeed = maximumSpeed;
+                navigationTarget = player.LogicalPosition;
+            }
             else if (distance >= aggressionRange)
             {
                 float phase = (float)(enemy.Id & 1023UL) * 0.015f + Time.time * 0.18f;
-                Vector2 patrolTarget = enemy.SpawnPosition + new Vector2(Mathf.Sin(phase), Mathf.Cos(phase)) * 1.2f;
-                enemy.LogicalPosition = Vector2.MoveTowards(enemy.LogicalPosition, patrolTarget, Time.deltaTime * 0.55f * profile.SpeedMultiplier * frozenSpeed);
+                navigationTarget = enemy.SpawnPosition + new Vector2(Mathf.Sin(phase), Mathf.Cos(phase)) * 1.2f;
+                targetSpeed = Mathf.Min(maximumSpeed, 0.55f * profile.SpeedMultiplier * frozenSpeed);
             }
-            Vector2 heading = player.LogicalPosition - enemy.LogicalPosition;
-            if (heading.sqrMagnitude > 0.01f)
+
+            // Enemy hulls obey the same forward-only thrust, quadratic water drag and
+            // speed-dependent rudder authority as the player. Reaching firing range cuts
+            // power; it does not teleport the ship to a stop or let it pivot in place.
+            enemy.ForwardSpeed = CruiseModel.IntegrateForwardSpeed(enemy.ForwardSpeed, targetSpeed, Time.deltaTime);
+            Vector2 course = navigationTarget - enemy.LogicalPosition;
+            if (course.sqrMagnitude > 0.01f)
             {
-                Quaternion targetRotation = Quaternion.Euler(0f, Mathf.Atan2(heading.x, heading.y) * Mathf.Rad2Deg, 0f);
-                enemy.Visual.localRotation = Quaternion.RotateTowards(enemy.Visual.localRotation, targetRotation, Time.deltaTime * 105f * stickyTurn * profile.SpeedMultiplier);
+                float desiredHeading = VesselMotionModel.GetHeading(course);
+                enemy.HeadingDegrees = VesselMotionModel.TurnToward(enemy.HeadingDegrees, desiredHeading,
+                    enemy.ForwardSpeed, maximumSpeed, stickyTurn * profile.SpeedMultiplier, Time.deltaTime);
             }
+            enemy.LogicalPosition += VesselMotionModel.GetForward(enemy.HeadingDegrees) * enemy.ForwardSpeed * Time.deltaTime;
+            enemy.Visual.localRotation = Quaternion.Euler(0f, enemy.HeadingDegrees, 0f);
 
             float fireRange = enemy.Boss != BossKind.None ? 2.85f : profile.FireRange;
             if (!harborSafe && distance < fireRange && Time.time >= enemy.NextFireTime)
@@ -389,6 +407,7 @@ namespace Desktopirates
             int gold = item.Reward + (item.Kind == PoiKind.Treasure ? 18 : 0);
             state.Gold += gold;
             state.Captain.GoldEarned += gold;
+            GoldCollected?.Invoke(gold);
             int supplies = 0;
             SalvageDrop[] collectedDrops = Array.Empty<SalvageDrop>();
             if (item.Kind == PoiKind.Wreck)
@@ -663,6 +682,7 @@ namespace Desktopirates
                 : Mathf.RoundToInt(target.Reward * BossMutationModel.RewardMultiplier(target.BossMutation));
             state.Gold += reward;
             state.Captain.GoldEarned += reward;
+            GoldCollected?.Invoke(reward);
             if (target.Boss == BossKind.None) state.Captain.RecordEnemy(target.EnemyArchetype);
             else state.Captain.RecordBoss(target.Boss, target.BossMutation);
             PerkDrop drop = BossModel.RollPerkDrop(target.Boss, target.Id);
@@ -702,7 +722,10 @@ namespace Desktopirates
 
         private IEnumerator CombatPreviewRoutine()
         {
-            yield return new WaitForSeconds(4.95f);
+            // RuntimeScreenshotController captures at 5.5 real-time seconds. Launching
+            // this QA salvo shortly beforehand records the projectile and its attached
+            // trail in flight instead of only the later impact/sinking state.
+            yield return new WaitForSecondsRealtime(5.05f);
             player.TowTo(Vector2.zero);
             RefreshChunks(true);
             foreach (PoiRecord item in items)
@@ -711,12 +734,14 @@ namespace Desktopirates
                 item.Resolved = true;
                 item.Visual.gameObject.SetActive(false);
             }
-            state.Crew = Mathf.Max(state.Crew, 2);
             state.CannonMountMask |= 1 << (int)CannonSlot.Bow;
+            state.EnsureCannonCrewLayout();
+            state.Crew = Mathf.Max(state.Crew, CrewManagementModel.GetAssignedTotal(state) + 1);
+            state.TryAssignCannonCrew(CannonSlot.Bow);
             player.RefreshCustomizationVisual();
             float radians = player.HeadingDegrees * Mathf.Deg2Rad;
             Vector2 direction = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
-            PoiRecord enemy = AddPreviewPoi(0xD35C70A1UL, PoiKind.Enemy, player.LogicalPosition + direction * 2.35f, 42);
+            PoiRecord enemy = AddPreviewPoi(0xD35C70A1UL, PoiKind.Enemy, player.LogicalPosition + direction * 4.0f, 42);
             enemy.Visual.localScale *= 1.3f;
             enemy.Health = 99;
             enemy.NextFireTime = float.PositiveInfinity;
@@ -839,6 +864,8 @@ namespace Desktopirates
                 Boss = boss,
                 BossMutation = mutation,
                 EnemyArchetype = archetype,
+                IsPreview = true,
+                HeadingDegrees = VesselMotionModel.GetHeading(player.LogicalPosition - position),
                 Visual = visual
             };
             AttachStatusVisual(record);

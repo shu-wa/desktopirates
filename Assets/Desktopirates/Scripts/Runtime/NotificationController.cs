@@ -12,7 +12,7 @@ namespace Desktopirates
         private sealed class FeedItem
         {
             public RectTransform Rect;
-            public CanvasGroup Group;
+            public CanvasGroup ContentGroup;
             public float CreatedAt;
         }
 
@@ -50,6 +50,7 @@ namespace Desktopirates
                 pois.EnemyDamaged += ShowEnemyDamage;
                 pois.PlayerDamaged += ShowPlayerDamage;
                 pois.LootCollected += ShowLoot;
+                pois.GoldCollected += ShowGoldGain;
             }
             if (menu != null) menu.Message += ShowSystem;
             if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--notifications-preview"))
@@ -64,8 +65,10 @@ namespace Desktopirates
                 new SalvageDrop(SalvagePartKind.Timber, 3),
                 new SalvageDrop(SalvagePartKind.Gear, 1)
             }));
+            ShowGoldGain(46);
             yield return new WaitForSecondsRealtime(1.25f);
             ShowPlayerDamage(new PlayerDamageNotice(128, ShipStatus.Burning));
+            ShowGoldGain(46);
             ShowEnemyDamage(new EnemyDamageNotice(new Vector3(1.25f, 0.62f, 0.55f), 384, false, "BURNING"));
         }
 
@@ -94,7 +97,10 @@ namespace Desktopirates
                     feed.RemoveAt(index);
                     continue;
                 }
-                item.Group.alpha = NotificationUiModel.GetFeedAlpha(age);
+                // The notification body remains fully opaque over the Windows chroma-key
+                // area. Only its foreground fades, avoiding a magenta/pink blend at the
+                // circular ocean's right edge.
+                item.ContentGroup.alpha = NotificationUiModel.GetFeedAlpha(age);
             }
 
             for (int index = 0; index < feed.Count; index++)
@@ -147,6 +153,18 @@ namespace Desktopirates
             }
             string status = notice.Status == ShipStatus.None ? string.Empty : $"  {ShipStatusRuntime.GetName(notice.Status)}";
             CreateDamagePopup(local, $"HULL −{notice.Damage}{status}", UiTheme.Danger);
+        }
+
+        private void ShowGoldGain(int amount)
+        {
+            if (amount <= 0) return;
+            Vector2 local = new Vector2(-90f, -212f);
+            if (menu != null && menu.GoldStatusCard != null)
+            {
+                Vector3 cardCenter = canvas.InverseTransformPoint(menu.GoldStatusCard.TransformPoint(Vector3.zero));
+                local = new Vector2(cardCenter.x, cardCenter.y - 58f);
+            }
+            CreateDamagePopup(local, $"GOLD +{amount}", UiTheme.Brass);
         }
 
         private void CreateDamagePopup(Vector2 local, string value, Color color)
@@ -224,7 +242,7 @@ namespace Desktopirates
                 feed.RemoveAt(0);
             }
 
-            var rootObject = new GameObject("Voyage Feed Item", typeof(RectTransform), typeof(CanvasGroup), typeof(CanvasRenderer), typeof(Image));
+            var rootObject = new GameObject("Voyage Feed Item", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             rootObject.transform.SetParent(feedLayer, false);
             RectTransform root = (RectTransform)rootObject.transform;
             root.anchorMin = root.anchorMax = new Vector2(1f, 0f);
@@ -233,21 +251,26 @@ namespace Desktopirates
             root.sizeDelta = new Vector2(304f, 42f);
             Image background = rootObject.GetComponent<Image>();
             background.sprite = null;
-            background.color = new Color(0.008f, 0.032f, 0.048f, 0.94f);
+            background.color = new Color(0.008f, 0.032f, 0.048f, NotificationUiModel.OpaqueFeedBackgroundAlpha);
             background.raycastTarget = false;
 
-            RectTransform accent = CreateRect("Notice Accent", root, new Vector2(-149f, 0f), new Vector2(4f, 42f));
+            RectTransform content = CreateRect("Fading Notice Content", root, Vector2.zero, root.sizeDelta);
+            CanvasGroup contentGroup = content.gameObject.AddComponent<CanvasGroup>();
+            contentGroup.interactable = false;
+            contentGroup.blocksRaycasts = false;
+
+            RectTransform accent = CreateRect("Notice Accent", content, new Vector2(-149f, 0f), new Vector2(4f, 42f));
             Image accentImage = accent.gameObject.AddComponent<Image>();
-            accentImage.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.94f);
+            accentImage.color = new Color(accentColor.r, accentColor.g, accentColor.b, 1f);
             accentImage.raycastTarget = false;
 
-            RectTransform iconRect = CreateRect("Notice Icon", root, new Vector2(-124f, 0f), new Vector2(31f, 31f));
+            RectTransform iconRect = CreateRect("Notice Icon", content, new Vector2(-124f, 0f), new Vector2(31f, 31f));
             RawImage icon = iconRect.gameObject.AddComponent<RawImage>();
             icon.texture = iconTexture;
             icon.color = Color.white;
             icon.raycastTarget = false;
 
-            RectTransform textRect = CreateRect("Notice Text", root, new Vector2(18f, 0f), new Vector2(246f, 34f));
+            RectTransform textRect = CreateRect("Notice Text", content, new Vector2(18f, 0f), new Vector2(246f, 34f));
             Text text = textRect.gameObject.AddComponent<Text>();
             text.font = font;
             text.fontSize = 14;
@@ -263,7 +286,7 @@ namespace Desktopirates
             feed.Add(new FeedItem
             {
                 Rect = root,
-                Group = rootObject.GetComponent<CanvasGroup>(),
+                ContentGroup = contentGroup,
                 CreatedAt = Time.unscaledTime
             });
         }

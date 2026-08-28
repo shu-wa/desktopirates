@@ -80,12 +80,9 @@ namespace Desktopirates
             Speed = CruiseModel.IntegrateForwardSpeed(Speed, TargetSpeed, brakingTime);
 
             // A rudder needs water flowing over it; a stopped ship cannot spin in place.
-            float steerStrength = Speed <= CruiseModel.StopSnapSpeed
-                ? 0f
-                : Mathf.Lerp(18f, 62f, Mathf.Clamp01(Speed / Mathf.Max(0.01f, MaxSpeed))) * ShipCustomizationModel.GetTurningMultiplier(State);
+            float steerStrength = VesselMotionModel.GetTurnRate(Speed, MaxSpeed, ShipCustomizationModel.GetTurningMultiplier(State));
             HeadingDegrees = Mathf.Repeat(HeadingDegrees + steering * steerStrength * deltaTime, 360f);
-            float radians = HeadingDegrees * Mathf.Deg2Rad;
-            Vector2 forward = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
+            Vector2 forward = VesselMotionModel.GetForward(HeadingDegrees);
             LogicalPosition += forward * Speed * deltaTime;
             State.Captain.AddDistance(Vector2.Distance(previousPosition, LogicalPosition));
             State.PlayerPosition = LogicalPosition;

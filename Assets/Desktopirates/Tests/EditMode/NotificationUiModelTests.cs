@@ -7,6 +7,8 @@ namespace Desktopirates.Tests
         [Test]
         public void FeedRemainsReadableThenFadesCompletelyAtFiveSeconds()
         {
+            Assert.That(NotificationUiModel.OpaqueFeedBackgroundAlpha, Is.EqualTo(1f),
+                "The feed backdrop must never blend with the Windows magenta transparency key.");
             Assert.That(NotificationUiModel.GetFeedAlpha(0f), Is.EqualTo(1f));
             Assert.That(NotificationUiModel.GetFeedAlpha(NotificationUiModel.FeedFadeStart), Is.EqualTo(1f));
             Assert.That(NotificationUiModel.GetFeedAlpha(4.2f), Is.InRange(0f, 1f));

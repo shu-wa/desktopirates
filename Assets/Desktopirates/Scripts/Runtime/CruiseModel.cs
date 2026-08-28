@@ -56,4 +56,38 @@ namespace Desktopirates
 
         public static int GetUpgradeCost(int engineLevel) => 90 + Mathf.Clamp(engineLevel, 0, MaxEngineLevel) * 65;
     }
+
+    /// <summary>
+    /// Shared forward-only steering rules for the player and AI vessels. A rudder
+    /// cannot rotate a stopped hull, and every turn is limited by water speed.
+    /// </summary>
+    public static class VesselMotionModel
+    {
+        public const float MinimumTurnRate = 18f;
+        public const float MaximumTurnRate = 62f;
+
+        public static float GetTurnRate(float speed, float maximumSpeed, float multiplier = 1f)
+        {
+            if (speed <= CruiseModel.StopSnapSpeed) return 0f;
+            float speedRatio = Mathf.Clamp01(speed / Mathf.Max(0.01f, maximumSpeed));
+            return Mathf.Lerp(MinimumTurnRate, MaximumTurnRate, speedRatio) * Mathf.Max(0f, multiplier);
+        }
+
+        public static float TurnToward(float headingDegrees, float desiredHeadingDegrees, float speed,
+            float maximumSpeed, float multiplier, float deltaTime)
+        {
+            float rate = GetTurnRate(speed, maximumSpeed, multiplier);
+            return Mathf.Repeat(Mathf.MoveTowardsAngle(headingDegrees, desiredHeadingDegrees,
+                rate * Mathf.Max(0f, deltaTime)), 360f);
+        }
+
+        public static Vector2 GetForward(float headingDegrees)
+        {
+            float radians = headingDegrees * Mathf.Deg2Rad;
+            return new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
+        }
+
+        public static float GetHeading(Vector2 direction)
+            => direction.sqrMagnitude <= 0.0001f ? 0f : Mathf.Repeat(Mathf.Atan2(direction.x, direction.y) * Mathf.Rad2Deg, 360f);
+    }
 }

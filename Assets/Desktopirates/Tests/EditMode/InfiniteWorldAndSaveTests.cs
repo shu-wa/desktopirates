@@ -375,6 +375,12 @@ namespace Desktopirates.Tests
             Assert.That(CombatVfxMath.ProjectileScale, Is.GreaterThanOrEqualTo(0.14f));
             Assert.That(CombatVfxMath.TracerStartWidth, Is.GreaterThan(CombatVfxMath.TracerEndWidth));
             Assert.That(CombatVfxMath.TracerLifetime, Is.GreaterThan(0.25f));
+            Vector3 start = new Vector3(-2f, 0.3f, 1f);
+            Vector3 destination = new Vector3(3f, 0.5f, 4f);
+            Assert.That(CombatVfxMath.GetProjectilePoint(start, destination, 0f), Is.EqualTo(start));
+            Assert.That(Vector3.Distance(CombatVfxMath.GetProjectilePoint(start, destination, 1f), destination), Is.LessThan(0.0001f));
+            Assert.That(CombatVfxMath.GetProjectilePoint(start, destination, 0.5f).y,
+                Is.GreaterThan(Vector3.Lerp(start, destination, 0.5f).y));
         }
 
         [Test]
@@ -451,6 +457,20 @@ namespace Desktopirates.Tests
 
             Assert.That(afterOneSecond, Is.GreaterThan(fullSpeed * 0.5f));
             Assert.That(CruiseModel.IsCoasting(afterOneSecond, 0f), Is.True);
+        }
+
+        [Test]
+        public void SharedVesselRulesPreventPlayerAndEnemyFromPivotingOrStoppingInstantly()
+        {
+            Assert.That(VesselMotionModel.GetTurnRate(0f, 3f), Is.Zero);
+            Assert.That(VesselMotionModel.TurnToward(0f, 180f, 0f, 3f, 1f, 1f), Is.EqualTo(0f));
+
+            float enemySpeed = CruiseModel.IntegrateForwardSpeed(0f, 1.15f, 0.25f);
+            Assert.That(enemySpeed, Is.GreaterThan(0f).And.LessThan(1.15f));
+            float coasting = CruiseModel.IntegrateForwardSpeed(enemySpeed, 0f, 0.25f);
+            Assert.That(coasting, Is.GreaterThan(0f), "Enemy vessels must coast under water drag after cutting power.");
+            float turned = VesselMotionModel.TurnToward(0f, 180f, enemySpeed, 1.15f, 1f, 0.25f);
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(0f, turned)), Is.LessThan(VesselMotionModel.MaximumTurnRate * 0.25f + 0.001f));
         }
 
         [Test]
