@@ -396,8 +396,8 @@ namespace Desktopirates.Tests
             var state = new GameState
             {
                 Crew = 3,
-                Supplies = 50,
                 ShipLevel = 1,
+                ArmorLevel = 1,
                 CannonMountMask = 0b000111
             };
             bool before = ShipCustomizationModel.CanAddMass(state, ShipCustomizationModel.CannonMass);
@@ -627,15 +627,60 @@ namespace Desktopirates.Tests
             Assert.That(ShipCustomizationModel.TryMountStoredCannon(state, CannonSlot.Bow), Is.True);
             Assert.That(state.SpareCannons, Is.Zero);
             Assert.That(ShipCustomizationModel.HasCannon(state, CannonSlot.Bow), Is.True);
-            Assert.That(ShipCustomizationModel.GetMass(state), Is.EqualTo(massBefore).Within(0.001f));
+            Assert.That(ShipCustomizationModel.GetMass(state), Is.EqualTo(massBefore + ShipCustomizationModel.CannonMass).Within(0.001f));
         }
 
         [Test]
-        public void MovingCannonBetweenStorageAndHardpointPreservesTotalMass()
+        public void StoredCannonsDoNotUseLoadUntilMountedOnAHardpoint()
         {
             var stored = new GameState { ShipLevel = 1, SpareCannons = 1, CannonMountMask = 0 };
             var mounted = new GameState { ShipLevel = 1, SpareCannons = 0, CannonMountMask = 1 << (int)CannonSlot.Bow };
-            Assert.That(ShipCustomizationModel.GetMass(stored), Is.EqualTo(ShipCustomizationModel.GetMass(mounted)).Within(0.001f));
+            Assert.That(ShipCustomizationModel.GetMass(mounted),
+                Is.EqualTo(ShipCustomizationModel.GetMass(stored) + ShipCustomizationModel.CannonMass).Within(0.001f));
+        }
+
+        [Test]
+        public void StoredCannonMustFitTheEquipmentLoadBeforeItCanBeMounted()
+        {
+            var state = new GameState
+            {
+                ShipLevel = 1,
+                Crew = 3,
+                ArmorLevel = 1,
+                EngineLevel = 1,
+                SpareCannons = 1,
+                CannonMountMask = (1 << (int)CannonSlot.Bow) | (1 << (int)CannonSlot.PortFore)
+            };
+
+            Assert.That(ShipCustomizationModel.CanAddMass(state, ShipCustomizationModel.CannonMass), Is.False);
+            Assert.That(ShipCustomizationModel.TryMountStoredCannon(state, CannonSlot.StarboardFore), Is.False);
+            Assert.That(state.SpareCannons, Is.EqualTo(1));
+            Assert.That(ShipCustomizationModel.HasCannon(state, CannonSlot.StarboardFore), Is.False);
+        }
+
+        [Test]
+        public void InventoryItemsAndResourcesNeverConsumeShipLoad()
+        {
+            var emptyInventory = new GameState { ShipLevel = 2, Crew = 4, CannonMountMask = 0b000111 };
+            var fullInventory = new GameState
+            {
+                ShipLevel = 2,
+                Crew = 4,
+                CannonMountMask = 0b000111,
+                Food = 999,
+                Water = 999,
+                Supplies = 999,
+                SpareCannons = 99
+            };
+            for (int i = 0; i < SalvageInventory.PartKindCount; i++)
+                fullInventory.SetPartCount((SalvagePartKind)i, 999);
+
+            Assert.That(ShipCustomizationModel.GetMass(fullInventory),
+                Is.EqualTo(ShipCustomizationModel.GetMass(emptyInventory)).Within(0.001f));
+            Assert.That(ShipCustomizationModel.GetSpeedMultiplier(fullInventory),
+                Is.EqualTo(ShipCustomizationModel.GetSpeedMultiplier(emptyInventory)).Within(0.001f));
+            Assert.That(ShipCustomizationModel.GetTurningMultiplier(fullInventory),
+                Is.EqualTo(ShipCustomizationModel.GetTurningMultiplier(emptyInventory)).Within(0.001f));
         }
 
         [Test]

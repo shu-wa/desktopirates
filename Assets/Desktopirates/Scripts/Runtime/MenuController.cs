@@ -700,7 +700,7 @@ namespace Desktopirates
                 if (!ShipCustomizationModel.IsHardpointUnlocked(state, slot)) { ShowMessage("HARDPOINT LOCKED BY SHIP LEVEL"); return; }
                 if (ShipCustomizationModel.GetInstalledCannonCount(state) >= ShipCustomizationModel.GetCannonCapacity(state)) { ShowMessage("SHIP LEVEL CANNON LIMIT"); return; }
                 bool mountingStoredCannon = state.SpareCannons > 0;
-                if (!mountingStoredCannon && !ShipCustomizationModel.CanAddMass(state, ShipCustomizationModel.CannonMass))
+                if (!ShipCustomizationModel.CanAddMass(state, ShipCustomizationModel.CannonMass))
                 {
                     ShowMessage(GameLocalization.Choose("CAPACITY EXCEEDED — UPGRADE THE HULL", "積載超過 — 船体の積載上限を強化してください"));
                     return;

@@ -76,6 +76,9 @@ namespace Desktopirates
         {
             if (state == null || state.SpareCannons <= 0 || HasCannon(state, slot)) return false;
             if (!IsHardpointUnlocked(state, slot) || GetInstalledCannonCount(state) >= GetCannonCapacity(state)) return false;
+            // Inventory is weightless by design, but a cannon becomes installed equipment
+            // when it moves onto a hardpoint and must fit within the ship's load limit.
+            if (!CanAddMass(state, CannonMass)) return false;
             state.SpareCannons--;
             state.CannonMountMask |= 1 << (int)slot;
             return true;
@@ -113,12 +116,11 @@ namespace Desktopirates
             float structure = 5.5f + state.ShipLevel * 5.2f + state.CapacityLevel * 1.6f;
             float machinery = state.EngineLevel * 1.25f + state.TurningLevel * 0.75f;
             float armor = state.ArmorLevel * 3.4f;
-            // A stored cannon is still physically aboard. Moving it between the cargo hold
-            // and a hardpoint must not create or remove mass.
-            float weapons = (GetInstalledCannonCount(state) + Mathf.Max(0, state.SpareCannons)) * CannonMass;
+            float weapons = GetInstalledCannonCount(state) * CannonMass;
             float crew = Mathf.Max(0, state.Crew) * CrewMass;
-            float stores = Mathf.Max(0, state.Supplies) * 0.08f + state.TotalSalvageCount * 0.10f;
-            return structure + machinery + armor + weapons + crew + stores;
+            // Food, water, supplies, salvage, perks and spare cannons are inventory. They
+            // never consume the equipment-load budget or reduce sailing performance.
+            return structure + machinery + armor + weapons + crew;
         }
 
         public static float GetCapacity(GameState state) => 14f + state.ShipLevel * 10f + Mathf.Clamp(state.CapacityLevel, 0, GetUpgradeCap(state)) * 7.5f;
