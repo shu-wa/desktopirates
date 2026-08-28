@@ -38,10 +38,9 @@ namespace Desktopirates
 
         public static int GetDamage(GameState state, CannonSlot slot)
         {
-            int baseDamage = ShipCustomizationModel.BaseCannonDamage + state.CannonLevel * ShipCustomizationModel.CannonUpgradeDamage;
             float slotBonus = 1f + state.GetCannonDamageLevel(slot) * 0.12f;
-            return Mathf.Max(1, Mathf.RoundToInt(baseDamage * slotBonus * GetProfile(state.GetCannonRound(slot)).DamageMultiplier
-                * CrewManagementModel.GetCannonDamageMultiplier(state)));
+            return Mathf.Max(1, Mathf.RoundToInt(ShipCustomizationModel.BaseCannonDamage * slotBonus * GetProfile(state.GetCannonRound(slot)).DamageMultiplier
+                * CrewManagementModel.GetCannonDamageMultiplier(state, slot)));
         }
 
         public static float GetRange(GameState state, CannonSlot slot)
@@ -49,10 +48,9 @@ namespace Desktopirates
 
         public static float GetReloadSeconds(GameState state, CannonSlot slot)
         {
-            float global = Mathf.Max(0.72f, 1f - state.CannonLevel * 0.055f);
             float slotSpeed = 1f + state.GetCannonReloadLevel(slot) * 0.11f;
-            return Mathf.Max(0.34f, BaseReloadSeconds * global * GetProfile(state.GetCannonRound(slot)).ReloadMultiplier
-                * CrewManagementModel.GetReloadMultiplier(state) / slotSpeed);
+            return Mathf.Max(0.34f, BaseReloadSeconds * GetProfile(state.GetCannonRound(slot)).ReloadMultiplier
+                * CrewManagementModel.GetReloadMultiplier(state, slot) / slotSpeed);
         }
     }
 }

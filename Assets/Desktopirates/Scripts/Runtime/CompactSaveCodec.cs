@@ -10,7 +10,7 @@ namespace Desktopirates
 {
     public static class CompactSaveCodec
     {
-        private const byte Version = 10;
+        private const byte Version = 11;
         private const int Version4RoleCount = 4;
         private const int Version4PerkCount = 14;
         private const int Version5RoleCount = 5;
@@ -19,6 +19,9 @@ namespace Desktopirates
 
         public static byte[] Serialize(GameState state)
         {
+            // Version 11 makes cannon staffing explicit. Migrating before writing keeps
+            // old in-memory states deterministic and stores each hardpoint in one byte.
+            state.EnsureCannonCrewLayout();
             using var raw = new MemoryStream();
             using (var writer = new BinaryWriter(raw, Encoding.UTF8, true))
             {
@@ -74,6 +77,14 @@ namespace Desktopirates
                 writer.Write(autoFlags);
                 writer.Write((byte)state.AutoEncounterPolicy);
                 writer.Write((byte)state.AutoDestinationMode);
+                for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++)
+                {
+                    CannonSlot slot = (CannonSlot)i;
+                    int packedCrew = state.IsCannonCrewAssigned(slot) ? 1 : 0;
+                    packedCrew |= ((int)state.GetCannonCrewPerk(slot) & 0x1F) << 1;
+                    packedCrew |= ((int)state.GetCannonCrewPerkRank(slot) & 0x03) << 6;
+                    writer.Write((byte)packedCrew);
+                }
             }
 
             raw.Position = 0;
@@ -197,6 +208,17 @@ namespace Desktopirates
                 state.AutoEncounterPolicy = (AutoEncounterPolicy)Mathf.Clamp(reader.ReadByte(), 0, (int)AutoEncounterPolicy.Observe);
                 state.AutoDestinationMode = (AutoDestinationMode)Mathf.Clamp(reader.ReadByte(), 0, (int)AutoDestinationMode.NearestHarbor);
             }
+            if (version >= 11)
+            {
+                for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++)
+                {
+                    byte packedCrew = reader.ReadByte();
+                    state.LoadCannonCrewSlot((CannonSlot)i, (packedCrew & 1) != 0,
+                        (CrewPerk)((packedCrew >> 1) & 0x1F), (PerkRank)((packedCrew >> 6) & 0x03));
+                }
+                state.NormalizeCannonCrewLayout();
+            }
+            else state.EnsureCannonCrewLayout();
             return state;
         }
 

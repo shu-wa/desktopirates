@@ -68,12 +68,30 @@ namespace Desktopirates
         public static bool AssignOne(GameState state, CrewRole role)
         {
             if (GetUnassigned(state) <= 0) return false;
+            if (role == CrewRole.Cannons)
+            {
+                state.EnsureCannonCrewLayout();
+                for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++)
+                {
+                    CannonSlot slot = (CannonSlot)i;
+                    if (ShipCustomizationModel.HasCannon(state, slot) && !state.IsCannonCrewAssigned(slot))
+                        return state.TryAssignCannonCrew(slot);
+                }
+                return false;
+            }
             state.SetRoleCrew(role, state.GetRoleCrew(role) + 1);
             return true;
         }
 
         public static bool UnassignOne(GameState state, CrewRole role)
         {
+            if (role == CrewRole.Cannons)
+            {
+                state.EnsureCannonCrewLayout();
+                for (int i = ShipCustomizationModel.CannonSlotCount - 1; i >= 0; i--)
+                    if (state.IsCannonCrewAssigned((CannonSlot)i)) return state.UnassignCannonCrew((CannonSlot)i);
+                return false;
+            }
             int current = state.GetRoleCrew(role);
             if (current <= 0) return false;
             state.SetRoleCrew(role, current - 1);
@@ -83,8 +101,16 @@ namespace Desktopirates
 
         public static float GetCannonDamageMultiplier(GameState state)
             => 1f + GetEffectiveStacks(state, CrewRole.Cannons, CrewPerk.PowderExpert) * 0.25f;
+        public static float GetCannonDamageMultiplier(GameState state, CannonSlot slot)
+            => !state.HasExplicitCannonCrewLayout
+                ? GetCannonDamageMultiplier(state)
+                : 1f + GetCannonSlotPerkPower(state, slot, CrewPerk.PowderExpert) * 0.25f;
         public static float GetReloadMultiplier(GameState state)
             => 1f / (1f + GetEffectiveStacks(state, CrewRole.Cannons, CrewPerk.FastHands) * 0.28f);
+        public static float GetReloadMultiplier(GameState state, CannonSlot slot)
+            => !state.HasExplicitCannonCrewLayout
+                ? GetReloadMultiplier(state)
+                : 1f / (1f + GetCannonSlotPerkPower(state, slot, CrewPerk.FastHands) * 0.28f);
         public static bool HasIncendiaryRounds(GameState state)
             => state.GetEquippedPerkCount(CrewRole.Cannons, CrewPerk.Firebrand) > 0;
         public static bool HasVenomRounds(GameState state)
@@ -107,6 +133,21 @@ namespace Desktopirates
                 for (int i = 0; i < count; i++) noProc *= 1f - chance;
             }
             return 1f - noProc;
+        }
+
+        public static float GetCannonStatusProcChance(GameState state, CannonSlot slot, CrewPerk perk)
+        {
+            if (!state.HasExplicitCannonCrewLayout) return GetStatusProcChance(state, perk);
+            if (!state.IsCannonCrewAssigned(slot) || state.GetCannonCrewPerk(slot) != perk) return 0f;
+            return PerkRankModel.GetStatusChance(state.GetCannonCrewPerkRank(slot)) * Mathf.Clamp01(state.CrewPerformanceMultiplier);
+        }
+
+        public static float GetCannonStatusDurationMultiplier(GameState state, CannonSlot slot, CrewPerk perk)
+        {
+            if (!state.HasExplicitCannonCrewLayout)
+                return 1f + Mathf.Max(0f, GetEffectiveStacks(state, CrewRole.Cannons, perk) - 1f) * 0.22f;
+            if (!state.IsCannonCrewAssigned(slot) || state.GetCannonCrewPerk(slot) != perk) return 1f;
+            return 1f + Mathf.Max(0f, PerkRankModel.GetPower(state.GetCannonCrewPerkRank(slot)) - 1f) * 0.22f;
         }
 
         public static bool RollStatusProc(GameState state, CrewPerk perk, ulong entropy)
@@ -152,6 +193,12 @@ namespace Desktopirates
             for (int rank = 0; rank < PerkRankModel.RankCount; rank++)
                 total += state.GetEquippedPerkCount(role, perk, (PerkRank)rank) * PerkRankModel.GetPower((PerkRank)rank);
             return total * Mathf.Clamp(state.CrewPerformanceMultiplier, 0f, 1f);
+        }
+
+        private static float GetCannonSlotPerkPower(GameState state, CannonSlot slot, CrewPerk perk)
+        {
+            if (!state.IsCannonCrewAssigned(slot) || state.GetCannonCrewPerk(slot) != perk) return 0f;
+            return PerkRankModel.GetPower(state.GetCannonCrewPerkRank(slot)) * Mathf.Clamp(state.CrewPerformanceMultiplier, 0f, 1f);
         }
 
         public static string GetPerkName(CrewPerk perk) => perk switch

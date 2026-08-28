@@ -59,19 +59,19 @@ namespace Desktopirates
         private Slider menuVolumeSlider;
         private Slider menuSizeSlider;
         private float lastAudibleVolume = 0.65f;
-        private Text engineUpgradeText;
         private Text shipyardSummary;
         private readonly Text[] cannonSlotTexts = new Text[ShipCustomizationModel.CannonSlotCount];
+        private readonly RectTransform[] cannonSlotRects = new RectTransform[ShipCustomizationModel.CannonSlotCount];
         private readonly Image[] cannonSlotBackplates = new Image[ShipCustomizationModel.CannonSlotCount];
         private readonly Image[] cannonSlotFrames = new Image[ShipCustomizationModel.CannonSlotCount];
         private readonly RawImage[] cannonSlotCardIcons = new RawImage[ShipCustomizationModel.CannonSlotCount];
         private readonly Image[] shipyardDeckMountRings = new Image[ShipCustomizationModel.CannonSlotCount];
         private readonly RawImage[] shipyardDeckCannons = new RawImage[ShipCustomizationModel.CannonSlotCount];
+        private readonly Image[] shipyardTabBackplates = new Image[3];
         private Text capacityUpgradeText;
         private Text propulsionUpgradeText;
         private Text armorUpgradeText;
         private Text turningUpgradeText;
-        private Text gunUpgradeText;
         private Text crewHireText;
         private Text shipLevelUpgradeText;
         private Text selectedCannonSummary;
@@ -91,6 +91,9 @@ namespace Desktopirates
         private Text portBossCompassText;
         private readonly Text[] crewRoleTexts = new Text[CrewManagementModel.RoleCount];
         private readonly Text[] crewPerkTexts = new Text[CrewManagementModel.RoleCount];
+        private readonly Text[] cannonCrewAssignmentTexts = new Text[ShipCustomizationModel.CannonSlotCount];
+        private readonly Text[] cannonCrewPerkTexts = new Text[ShipCustomizationModel.CannonSlotCount];
+        private readonly Image[] cannonCrewRowBackplates = new Image[ShipCustomizationModel.CannonSlotCount];
         private float toastUntil;
         private int displayedHull = int.MinValue;
         private int displayedMaxHull = int.MinValue;
@@ -164,6 +167,12 @@ namespace Desktopirates
             {
                 OpenPort();
                 OpenShipyard();
+            }
+            else if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--systems-preview"))
+            {
+                OpenPort();
+                OpenShipyard();
+                ShowShipyardPage(1);
             }
             else if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--map-preview"))
             {
@@ -503,11 +512,9 @@ namespace Desktopirates
             portRepairText = CreatePortServiceButton(board, "REPAIR  +10%  20G", new Vector2(0f, 82f), Repair, "repair").GetComponentInChildren<Text>();
             portFoodText = CreatePortServiceButton(board, "BUY FOOD  +10  18G", new Vector2(0f, 38f), () => BuyProvision(true), "food").GetComponentInChildren<Text>();
             portWaterText = CreatePortServiceButton(board, "BUY WATER  +10  14G", new Vector2(0f, -6f), () => BuyProvision(false), "water").GetComponentInChildren<Text>();
-            Button engineButton = CreatePortServiceButton(board, "ENGINE  L0 > L1", new Vector2(0f, -50f), UpgradeEngine, "propulsion");
-            engineUpgradeText = engineButton.GetComponentInChildren<Text>();
-            portBossCompassText = CreatePortServiceButton(board, $"BOSS COMPASS  {BossCompassModel.PurchaseCost}G", new Vector2(0f, -94f), BuyBossCompass, "boss_compass").GetComponentInChildren<Text>();
-            CreatePortServiceButton(board, "SHIPYARD  CUSTOMIZE", new Vector2(0f, -138f), OpenShipyard, "shipyard");
-            CreatePortServiceButton(board, "DEPART HARBOR", new Vector2(0f, -194f), () => DepartPort(portRoot), "sail", 220f, true);
+            portBossCompassText = CreatePortServiceButton(board, $"BOSS COMPASS  {BossCompassModel.PurchaseCost}G", new Vector2(0f, -50f), BuyBossCompass, "boss_compass").GetComponentInChildren<Text>();
+            CreatePortServiceButton(board, "SHIPYARD  CUSTOMIZE", new Vector2(0f, -94f), OpenShipyard, "shipyard");
+            CreatePortServiceButton(board, "DEPART HARBOR", new Vector2(0f, -158f), () => DepartPort(portRoot), "sail", 220f, true);
             portRoot.SetActive(false);
         }
 
@@ -523,9 +530,9 @@ namespace Desktopirates
             shipyardSummary.color = new Color(0.78f, 0.91f, 0.90f, 1f);
             shipyardSummary.resizeTextForBestFit = true; shipyardSummary.resizeTextMinSize = 9; shipyardSummary.resizeTextMaxSize = 12;
 
-            CreateSizedButton(shipyardRoot.transform, "GUN DECK", new Vector2(-172f, 156f), new Vector2(160f, 36f), () => ShowShipyardPage(0));
-            CreateSizedButton(shipyardRoot.transform, "SYSTEMS", new Vector2(0f, 156f), new Vector2(160f, 36f), () => ShowShipyardPage(1));
-            CreateSizedButton(shipyardRoot.transform, "CREW", new Vector2(172f, 156f), new Vector2(160f, 36f), () => ShowShipyardPage(2));
+            shipyardTabBackplates[0] = CreateSizedButton(shipyardRoot.transform, "GUN DECK", new Vector2(-172f, 156f), new Vector2(160f, 36f), () => ShowShipyardPage(0)).GetComponent<Image>();
+            shipyardTabBackplates[1] = CreateSizedButton(shipyardRoot.transform, "SYSTEMS", new Vector2(0f, 156f), new Vector2(160f, 36f), () => ShowShipyardPage(1)).GetComponent<Image>();
+            shipyardTabBackplates[2] = CreateSizedButton(shipyardRoot.transform, "CREW", new Vector2(172f, 156f), new Vector2(160f, 36f), () => ShowShipyardPage(2)).GetComponent<Image>();
 
             shipyardGunsPage = CreateUiObject("Gun Deck Page", shipyardRoot.transform).gameObject;
             CreateShipyardDeckCannon(CannonSlot.Bow, new Vector2(0f, 50f), 0f);
@@ -554,13 +561,22 @@ namespace Desktopirates
             propulsionUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "PROPULSION", new Vector2(120f, 110f), UpgradeEngine);
             armorUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "ARMOR", new Vector2(-120f, 55f), UpgradeArmor);
             turningUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "TURNING", new Vector2(120f, 55f), UpgradeTurning);
-            gunUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "GUNS", new Vector2(-120f, 0f), UpgradeCannon);
-            crewHireText = CreateCompactButton(shipyardSystemsPage.transform, "HIRE CREW", new Vector2(120f, 0f), HireCrew);
-            shipLevelUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "SHIP LEVEL", new Vector2(0f, -55f), UpgradeShipLevel);
+            crewHireText = CreateCompactButton(shipyardSystemsPage.transform, "HIRE CREW", new Vector2(-120f, 0f), HireCrew);
+            shipLevelUpgradeText = CreateCompactButton(shipyardSystemsPage.transform, "SHIP LEVEL", new Vector2(120f, 0f), UpgradeShipLevel);
 
             crewManagementPage = CreateUiObject("Crew Management Page", shipyardRoot.transform).gameObject;
-            CreateText(crewManagementPage.transform, "1 PERK SLOT PER CREW  •  CLICK TO STACK  •  FULL CLICK RESETS", new Vector2(0f, 140f), new Vector2(470f, 24f), 13, TextAnchor.MiddleCenter).color = UiTheme.SecondaryText;
-            for (int i = 0; i < CrewManagementModel.RoleCount; i++) CreateCrewRoleRow((CrewRole)i, 100f - i * 43f);
+            Text crewHelp = CreateText(crewManagementPage.transform, "Crew Assignment Help", new Vector2(0f, 137f), new Vector2(540f, 24f), 12, TextAnchor.MiddleCenter);
+            crewHelp.text = GameLocalization.Choose("ASSIGN EACH GUNNER TO A HARDPOINT  •  CLICK PERK TO CHANGE", "砲員は砲台ごとに配置  •  PERKを押して変更");
+            crewHelp.color = UiTheme.SecondaryText; UiTheme.StyleText(crewHelp, 12);
+            Text cannonTitle = CreateText(crewManagementPage.transform, "CANNON CREW", new Vector2(-145f, 112f), new Vector2(270f, 22f), 14, TextAnchor.MiddleCenter);
+            cannonTitle.text = GameLocalization.Choose("CANNON CREW", "砲台担当"); cannonTitle.color = UiTheme.Brass; UiTheme.StyleText(cannonTitle, 14);
+            Text shipCrewTitle = CreateText(crewManagementPage.transform, "SHIP CREW", new Vector2(145f, 112f), new Vector2(270f, 22f), 14, TextAnchor.MiddleCenter);
+            shipCrewTitle.text = GameLocalization.Choose("SHIP CREW", "船内配置"); shipCrewTitle.color = UiTheme.Brass; UiTheme.StyleText(shipCrewTitle, 14);
+            for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++) CreateCannonCrewRow((CannonSlot)i, 82f - i * 40f);
+            CreateCrewRoleRow(CrewRole.Helm, 79f);
+            CreateCrewRoleRow(CrewRole.Sails, 25f);
+            CreateCrewRoleRow(CrewRole.Anchor, -29f);
+            CreateCrewRoleRow(CrewRole.Repairer, -83f);
 
             CreateCompactButton(shipyardRoot.transform, "BACK TO PORT", new Vector2(-120f, -300f), () => { shipyardRoot.SetActive(false); portRoot.SetActive(true); RefreshPortStatus(); });
             CreateCompactButton(shipyardRoot.transform, "SAIL", new Vector2(120f, -300f), () => DepartPort(shipyardRoot));
@@ -571,16 +587,46 @@ namespace Desktopirates
         private void CreateCrewRoleRow(CrewRole role, float y)
         {
             int index = (int)role;
-            crewRoleTexts[index] = CreateText(crewManagementPage.transform, role.ToString().ToUpperInvariant(), new Vector2(-105f, y), new Vector2(200f, 36f), 14, TextAnchor.MiddleLeft);
-            CreateCrewStepButton(crewManagementPage.transform, "-", new Vector2(28f, y), () => ChangeCrewRole(role, -1));
-            CreateCrewStepButton(crewManagementPage.transform, "+", new Vector2(78f, y), () => ChangeCrewRole(role, 1));
-            crewPerkTexts[index] = CreateSizedButton(crewManagementPage.transform, "PERKS", new Vector2(172f, y), new Vector2(136f, 36f), () => CycleRolePerk(role)).GetComponentInChildren<Text>();
+            RectTransform row = CreateUiObject(role + " Crew Row", crewManagementPage.transform); row.anchoredPosition = new Vector2(145f, y); row.sizeDelta = new Vector2(270f, 46f);
+            Image fill = row.gameObject.AddComponent<Image>(); fill.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill", 18f); fill.type = Image.Type.Sliced; fill.color = new Color(0.02f, 0.075f, 0.095f, 0.92f); fill.raycastTarget = false;
+            AddButtonIcon(row, GetCrewRoleIcon(role), new Vector2(-112f, 0f), 28f);
+            crewRoleTexts[index] = CreateText(row, role.ToString().ToUpperInvariant(), new Vector2(-61f, 0f), new Vector2(68f, 36f), 13, TextAnchor.MiddleLeft);
+            crewRoleTexts[index].resizeTextForBestFit = true; crewRoleTexts[index].resizeTextMinSize = 9; crewRoleTexts[index].resizeTextMaxSize = 13;
+            CreateCrewStepButton(row, "-", new Vector2(-14f, 0f), () => ChangeCrewRole(role, -1));
+            CreateCrewStepButton(row, "+", new Vector2(24f, 0f), () => ChangeCrewRole(role, 1));
+            crewPerkTexts[index] = CreateCrewOptionButton(row, "PERK", new Vector2(88f, 0f), new Vector2(86f, 34f), () => CycleRolePerk(role));
+        }
+
+        private void CreateCannonCrewRow(CannonSlot slot, float y)
+        {
+            int index = (int)slot;
+            RectTransform row = CreateUiObject(slot + " Cannon Crew Row", crewManagementPage.transform); row.anchoredPosition = new Vector2(-145f, y); row.sizeDelta = new Vector2(270f, 36f);
+            Image fill = row.gameObject.AddComponent<Image>(); fill.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "button_fill", 18f); fill.type = Image.Type.Sliced; fill.color = new Color(0.02f, 0.075f, 0.095f, 0.92f); fill.raycastTarget = false;
+            cannonCrewRowBackplates[index] = fill;
+            AddButtonIcon(row, UiTextureFactory.LoadShipyardCannonOverlay(), new Vector2(-115f, 0f), 30f);
+            Text label = CreateText(row, ShipCustomizationModel.GetDefinition(slot).ShortName, new Vector2(-82f, 0f), new Vector2(42f, 30f), 12, TextAnchor.MiddleCenter);
+            label.color = UiTheme.Brass; UiTheme.StyleText(label, 12);
+            cannonCrewAssignmentTexts[index] = CreateCrewOptionButton(row, "ASSIGN", new Vector2(-27f, 0f), new Vector2(70f, 30f), () => ToggleCannonCrew(slot));
+            cannonCrewPerkTexts[index] = CreateCrewOptionButton(row, "PERK", new Vector2(74f, 0f), new Vector2(120f, 30f), () => CycleCannonCrewPerk(slot));
+        }
+
+        private Text CreateCrewOptionButton(Transform parent, string label, Vector2 position, Vector2 size, Action action)
+        {
+            RectTransform rect = CreateUiObject(label + " Crew Option", parent); rect.anchoredPosition = position; rect.sizeDelta = size;
+            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = null; image.color = new Color(0.025f, 0.105f, 0.125f, 0.98f);
+            Outline outline = rect.gameObject.AddComponent<Outline>(); outline.effectColor = new Color(0.63f, 0.43f, 0.15f, 0.90f); outline.effectDistance = new Vector2(1f, -1f);
+            Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
+            Text text = CreateText(rect, label, Vector2.zero, size - new Vector2(6f, 4f), 12, TextAnchor.MiddleCenter);
+            text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 12);
+            text.resizeTextForBestFit = true; text.resizeTextMinSize = 8; text.resizeTextMaxSize = 12;
+            return text;
         }
 
         private void CreateCrewStepButton(Transform parent, string label, Vector2 position, Action action)
         {
-            RectTransform rect = CreateUiObject(label + " Crew Step", parent); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(48f, 38f);
-            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tab_frame", 18f); image.type = Image.Type.Sliced;
+            RectTransform rect = CreateUiObject(label + " Crew Step", parent); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(34f, 32f);
+            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = null; image.color = new Color(0.025f, 0.105f, 0.125f, 0.98f);
+            Outline outline = rect.gameObject.AddComponent<Outline>(); outline.effectColor = new Color(0.63f, 0.43f, 0.15f, 0.90f); outline.effectDistance = new Vector2(1f, -1f);
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
             Text text = CreateText(rect, label, Vector2.zero, rect.sizeDelta, 20, TextAnchor.MiddleCenter); text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 20);
         }
@@ -595,6 +641,7 @@ namespace Desktopirates
             image.type = Image.Type.Sliced;
             image.color = new Color(0.035f, 0.085f, 0.11f, 0.92f);
             cannonSlotBackplates[(int)slot] = image;
+            cannonSlotRects[(int)slot] = rect;
             Button button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(() => SelectCannonSlot(slot));
@@ -659,13 +706,16 @@ namespace Desktopirates
             if (shipyardGunsPage != null) shipyardGunsPage.SetActive(page == 0);
             if (shipyardSystemsPage != null) shipyardSystemsPage.SetActive(page == 1);
             if (crewManagementPage != null) crewManagementPage.SetActive(page == 2);
+            for (int i = 0; i < shipyardTabBackplates.Length; i++)
+                if (shipyardTabBackplates[i] != null) shipyardTabBackplates[i].color = i == page
+                    ? new Color(0.20f, 0.60f, 0.55f, 1f)
+                    : Color.white;
         }
 
         private void OpenPort()
         {
             CloseAll();
             boat.HoldAtMooring();
-            RefreshEngineUpgradeText();
             RefreshPortStatus();
             portRoot.SetActive(true);
             saves.Save(state);
@@ -691,6 +741,7 @@ namespace Desktopirates
             int bit = 1 << (int)slot;
             if (ShipCustomizationModel.HasCannon(state, slot))
             {
+                if (state.IsCannonCrewAssigned(slot)) state.UnassignCannonCrew(slot);
                 state.CannonMountMask &= ~bit;
                 state.SpareCannons++;
                 ShowMessage($"{ShipCustomizationModel.GetDefinition(slot).ShortName} CANNON STORED");
@@ -845,6 +896,44 @@ namespace Desktopirates
             else ShowMessage(state.GetRoleCrew(role) <= 0 ? "ASSIGN CREW BEFORE EQUIPPING PERKS" : "NO COMPATIBLE BOSS PERKS OWNED");
         }
 
+        private void ToggleCannonCrew(CannonSlot slot)
+        {
+            state.EnsureCannonCrewLayout();
+            if (!ShipCustomizationModel.HasCannon(state, slot))
+            {
+                ShowMessage(GameLocalization.Choose("Mount this cannon before assigning a gunner.", "砲員を配置する前に砲台を搭載してください"));
+                return;
+            }
+            bool changed = state.IsCannonCrewAssigned(slot)
+                ? state.UnassignCannonCrew(slot)
+                : state.TryAssignCannonCrew(slot);
+            if (!changed)
+            {
+                ShowMessage(GameLocalization.Choose("No unassigned crew available.", "未配置の船員がいません"));
+                return;
+            }
+            RefreshShipyard(); saves.Save(state);
+        }
+
+        private void CycleCannonCrewPerk(CannonSlot slot)
+        {
+            state.EnsureCannonCrewLayout();
+            if (!state.IsCannonCrewAssigned(slot))
+            {
+                ShowMessage(GameLocalization.Choose("Assign a gunner to this cannon first.", "先にこの砲台へ砲員を配置してください"));
+                return;
+            }
+            if (!state.TryCycleCannonCrewPerk(slot, out CrewPerk perk, out PerkRank rank))
+            {
+                ShowMessage(GameLocalization.Choose("No compatible boss perk is owned.", "装備できる砲員PERKを所持していません"));
+                return;
+            }
+            RefreshShipyard(); saves.Save(state);
+            ShowMessage(perk == CrewPerk.None
+                ? GameLocalization.Choose("CANNON PERK REMOVED", "砲台担当のPERKを解除")
+                : $"{ShipCustomizationModel.GetDefinition(slot).ShortName} — {CrewManagementModel.GetPerkName(perk)} {PerkRankModel.GetLabel(rank)}");
+        }
+
         private void UpgradeShipLevel()
         {
             if (ShipProgressionModel.IsMax(state.ShipLevel)) { ShowMessage("LARGE SHIP IS MAX LEVEL"); return; }
@@ -863,12 +952,13 @@ namespace Desktopirates
 
         private void RefreshShipyard()
         {
+            state.EnsureCannonCrewLayout();
             float mass = ShipCustomizationModel.GetMass(state);
             float capacity = ShipCustomizationModel.GetCapacity(state);
             ShipTierDefinition tier = ShipProgressionModel.Get(state.ShipLevel);
             shipyardSummary.text = GameLocalization.Choose(
-                $"L{state.ShipLevel + 1} {tier.Name}   HULL {state.MaxHull}   MASS {mass:0.0}/{capacity:0.0}   SPEED {ShipCustomizationModel.GetSpeedMultiplier(state) * 100f:0}%\nCREW {state.Crew}/{tier.MaxCrew}  FREE {CrewManagementModel.GetUnassigned(state)}   GUNS {ShipCustomizationModel.GetInstalledCannonCount(state)}/{tier.MaxCannons}  STORED {state.SpareCannons}   CAP {tier.UpgradeCap}",
-                $"L{state.ShipLevel + 1} {tier.Name}   HULL {state.MaxHull}   重量 {mass:0.0}/{capacity:0.0}   速力 {ShipCustomizationModel.GetSpeedMultiplier(state) * 100f:0}%\n船員 {state.Crew}/{tier.MaxCrew}  未配置 {CrewManagementModel.GetUnassigned(state)}   砲台 {ShipCustomizationModel.GetInstalledCannonCount(state)}/{tier.MaxCannons}  予備 {state.SpareCannons}   上限 {tier.UpgradeCap}");
+                $"L{state.ShipLevel + 1} {tier.Name}   HULL {state.MaxHull}   MASS {mass:0.0}/{capacity:0.0}   SPEED {ShipCustomizationModel.GetSpeedMultiplier(state) * 100f:0}%\nCREW {state.Crew}   FREE {CrewManagementModel.GetUnassigned(state)}   GUNS {ShipCustomizationModel.GetInstalledCannonCount(state)}/{tier.MaxCannons}  STORED {state.SpareCannons}   CAP {tier.UpgradeCap}",
+                $"L{state.ShipLevel + 1} {tier.Name}   HULL {state.MaxHull}   重量 {mass:0.0}/{capacity:0.0}   速力 {ShipCustomizationModel.GetSpeedMultiplier(state) * 100f:0}%\n船員 {state.Crew}   未配置 {CrewManagementModel.GetUnassigned(state)}   砲台 {ShipCustomizationModel.GetInstalledCannonCount(state)}/{tier.MaxCannons}  予備 {state.SpareCannons}   上限 {tier.UpgradeCap}");
             for (int i = 0; i < cannonSlotTexts.Length; i++)
             {
                 CannonSlot slot = (CannonSlot)i;
@@ -904,13 +994,35 @@ namespace Desktopirates
                         : unlocked ? new Color(0.50f, 0.66f, 0.66f, 0.45f)
                         : new Color(0.26f, 0.28f, 0.28f, 0.20f);
                 if (shipyardDeckCannons[i] != null) shipyardDeckCannons[i].gameObject.SetActive(mounted);
+                if (cannonSlotRects[i] != null) cannonSlotRects[i].localScale = slot == selectedCannonSlot ? Vector3.one * 1.08f : Vector3.one;
+                if (cannonCrewAssignmentTexts[i] != null)
+                {
+                    bool assigned = state.IsCannonCrewAssigned(slot);
+                    cannonCrewAssignmentTexts[i].text = !mounted
+                        ? (unlocked ? GameLocalization.Choose("NO GUN", "砲台なし") : "LOCKED")
+                        : assigned ? GameLocalization.Choose("ON DUTY", "配置済") : GameLocalization.Choose("ASSIGN", "配置");
+                    cannonCrewAssignmentTexts[i].color = assigned ? UiTheme.Mint : UiTheme.PrimaryText;
+                    CrewPerk cannonPerk = state.GetCannonCrewPerk(slot);
+                    cannonCrewPerkTexts[i].text = !assigned
+                        ? GameLocalization.Choose("PERK —", "PERK —")
+                        : cannonPerk == CrewPerk.None
+                            ? GameLocalization.Choose("NO PERK", "PERKなし")
+                            : $"{CrewManagementModel.GetPerkName(cannonPerk)}  {PerkRankModel.GetLabel(state.GetCannonCrewPerkRank(slot))}";
+                    cannonCrewPerkTexts[i].color = assigned && cannonPerk != CrewPerk.None ? UiTheme.Brass : UiTheme.SecondaryText;
+                    cannonCrewRowBackplates[i].color = assigned
+                        ? new Color(0.035f, 0.20f, 0.19f, 0.98f)
+                        : mounted ? new Color(0.08f, 0.075f, 0.045f, 0.94f)
+                        : new Color(0.015f, 0.045f, 0.055f, 0.76f);
+                }
             }
             bool selectedMounted = ShipCustomizationModel.HasCannon(state, selectedCannonSlot);
             CannonRoundProfile round = CannonUpgradeModel.GetProfile(state.GetCannonRound(selectedCannonSlot));
             if (selectedCannonSummary != null)
                 selectedCannonSummary.text = selectedMounted
-                    ? $"{ShipCustomizationModel.GetDefinition(selectedCannonSlot).ShortName} • {GameLocalization.Text(round.Name)}\nDMG {CannonUpgradeModel.GetDamage(state, selectedCannonSlot)}   RNG {CannonUpgradeModel.GetRange(state, selectedCannonSlot):0.0}   RLD {CannonUpgradeModel.GetReloadSeconds(state, selectedCannonSlot):0.00}s"
-                    : GameLocalization.Choose("Select an empty mount or install a cannon.", "空き砲座を選び、砲台を搭載できます");
+                    ? GameLocalization.Choose(
+                        $"SELECTED  {ShipCustomizationModel.GetDefinition(selectedCannonSlot).ShortName}  •  {GameLocalization.Text(round.Name)}\nDMG {CannonUpgradeModel.GetDamage(state, selectedCannonSlot)}   RNG {CannonUpgradeModel.GetRange(state, selectedCannonSlot):0.0}   RLD {CannonUpgradeModel.GetReloadSeconds(state, selectedCannonSlot):0.00}s",
+                        $"選択中  {ShipCustomizationModel.GetDefinition(selectedCannonSlot).ShortName}  •  {GameLocalization.Text(round.Name)}\n威力 {CannonUpgradeModel.GetDamage(state, selectedCannonSlot)}   射程 {CannonUpgradeModel.GetRange(state, selectedCannonSlot):0.0}   装填 {CannonUpgradeModel.GetReloadSeconds(state, selectedCannonSlot):0.00}秒")
+                    : GameLocalization.Choose($"SELECTED  {ShipCustomizationModel.GetDefinition(selectedCannonSlot).ShortName}  •  EMPTY", $"選択中  {ShipCustomizationModel.GetDefinition(selectedCannonSlot).ShortName}  •  空き砲座");
             if (cannonMountActionText != null) cannonMountActionText.text = selectedMounted
                 ? GameLocalization.Choose("STORE", "倉庫へ")
                 : state.SpareCannons > 0
@@ -925,18 +1037,17 @@ namespace Desktopirates
             propulsionUpgradeText.text = UpgradeLabel("PROPULSION", state.EngineLevel, CruiseModel.GetUpgradeCost(state.EngineLevel), cap);
             armorUpgradeText.text = UpgradeLabel("ARMOR", state.ArmorLevel, ShipCustomizationModel.GetArmorUpgradeCost(state.ArmorLevel), cap);
             turningUpgradeText.text = UpgradeLabel("TURNING", state.TurningLevel, ShipCustomizationModel.GetTurningUpgradeCost(state.TurningLevel), cap);
-            gunUpgradeText.text = UpgradeLabel("GUN DAMAGE", state.CannonLevel, ShipCustomizationModel.GetGunUpgradeCost(state.CannonLevel), cap);
             crewHireText.text = GameLocalization.Choose($"HIRE CREW  {ShipCustomizationModel.GetCrewHireCost(state)}G", $"船員を雇う  {ShipCustomizationModel.GetCrewHireCost(state)}G");
             ShipTierDefinition next = ShipProgressionModel.Get(Mathf.Min(state.ShipLevel + 1, ShipProgressionModel.TierCount - 1));
             shipLevelUpgradeText.text = ShipProgressionModel.IsMax(state.ShipLevel) ? "SHIP LEVEL  MAX" : $"SHIP → {next.Name}  {next.UpgradeCost}G";
-            for (int i = 0; i < CrewManagementModel.RoleCount; i++)
+            for (int i = 1; i < CrewManagementModel.RoleCount; i++)
             {
                 CrewRole role = (CrewRole)i;
                 crewRoleTexts[i].text = $"{GetCrewRoleLabel(role)}  {state.GetRoleCrew(role)}";
                 int equipped = state.GetEquippedPerkTotal(role);
                 crewPerkTexts[i].text = equipped <= 0
-                    ? $"PERKS 0/{Mathf.Max(0, state.GetRoleCrew(role))}"
-                    : $"{PerkRankModel.GetLabel(CrewManagementModel.GetHighestEquippedRank(state, role))}  {equipped}/{Mathf.Max(0, state.GetRoleCrew(role))}";
+                    ? GameLocalization.Choose("NO PERK", "PERKなし")
+                    : $"{PerkRankModel.GetLabel(CrewManagementModel.GetHighestEquippedRank(state, role))}  x{equipped}";
             }
         }
 
@@ -961,6 +1072,15 @@ namespace Desktopirates
                 _ => role.ToString().ToUpperInvariant()
             };
         }
+
+        private static Texture2D GetCrewRoleIcon(CrewRole role) => role switch
+        {
+            CrewRole.Helm => UiTextureFactory.LoadPortIcon("turning"),
+            CrewRole.Sails => UiTextureFactory.LoadFramelessPortIcon("sail"),
+            CrewRole.Anchor => UiTextureFactory.LoadPortIcon("capacity"),
+            CrewRole.Repairer => UiTextureFactory.LoadFramelessPortIcon("repair"),
+            _ => UiTextureFactory.LoadFramelessPortIcon("hire_crew")
+        };
 
         private void Repair()
         {
@@ -1035,28 +1155,9 @@ namespace Desktopirates
             if (!ShipCustomizationModel.CanAddMass(state, 1.25f)) { ShowMessage("CAPACITY EXCEEDED — UPGRADE THE HULL"); return; }
             state.Gold -= cost;
             state.EngineLevel++;
-            RefreshEngineUpgradeText();
             if (shipyardRoot != null) RefreshShipyard();
             ShowMessage($"MAX SPEED {CruiseModel.GetMaxSpeed(state.EngineLevel):0.00}  {CruiseModel.GetMaxStep(state.EngineLevel)} STEPS");
             saves.Save(state);
-        }
-
-        private void RefreshEngineUpgradeText()
-        {
-            if (engineUpgradeText == null) return;
-            int cap = Mathf.Min(CruiseModel.MaxEngineLevel, ShipCustomizationModel.GetUpgradeCap(state));
-            engineUpgradeText.text = state.EngineLevel >= cap
-                ? GameLocalization.Choose($"ENGINE  MAX  {CruiseModel.GetMaxSpeed(state.EngineLevel):0.00}", $"推進装置  MAX  {CruiseModel.GetMaxSpeed(state.EngineLevel):0.00}")
-                : GameLocalization.Choose($"ENGINE  L{state.EngineLevel} > L{state.EngineLevel + 1}  {CruiseModel.GetUpgradeCost(state.EngineLevel)}G", $"推進装置  L{state.EngineLevel} > L{state.EngineLevel + 1}  {CruiseModel.GetUpgradeCost(state.EngineLevel)}G");
-        }
-
-        private void UpgradeCannon()
-        {
-            int cost = ShipCustomizationModel.GetGunUpgradeCost(state.CannonLevel);
-            if (!CanBuyUpgrade(state.CannonLevel, cost, "GUN DAMAGE")) return;
-            state.Gold -= cost; state.CannonLevel++; RefreshShipyard();
-            int perCannon = ShipCustomizationModel.BaseCannonDamage + state.CannonLevel * ShipCustomizationModel.CannonUpgradeDamage;
-            ShowMessage($"GUN DAMAGE {perCannon} PER CANNON"); saves.Save(state);
         }
 
         private void OpenMap()
@@ -1398,11 +1499,17 @@ namespace Desktopirates
         private Button CreateSizedButton(Transform parent, string label, Vector2 position, Vector2 size, Action action)
         {
             RectTransform rect = CreateUiObject(label, parent); rect.anchoredPosition = position; rect.sizeDelta = size;
-            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "tab_frame", 18f); image.type = Image.Type.Sliced; image.color = Color.white;
+            Image image = rect.gameObject.AddComponent<Image>(); image.sprite = UiTextureFactory.LoadConceptSprite("Chrome", "service_button", 22f, true); image.type = Image.Type.Sliced; image.color = Color.white;
             Button button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(() => action());
-            Text text = CreateText(rect, label, new Vector2(12f, 0f), size - new Vector2(42f, 0f), 14, TextAnchor.MiddleCenter); text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 14); LocalizedUiText.Bind(text, label);
             Texture2D icon = GetActionIcon(label);
-            if (icon != null) AddButtonIcon(rect, icon, new Vector2(-size.x * 0.5f + 24f, 0f), Mathf.Min(32f, size.y - 6f));
+            float iconSize = Mathf.Min(30f, size.y - 8f);
+            float textCenterX = icon != null ? 15f : 0f;
+            float textWidth = Mathf.Max(28f, size.x - (icon != null ? 54f : 12f));
+            Text text = CreateText(rect, label, new Vector2(textCenterX, 0f), new Vector2(textWidth, size.y - 4f), 14, TextAnchor.MiddleCenter);
+            text.color = UiTheme.PrimaryText; UiTheme.StyleText(text, 14); LocalizedUiText.Bind(text, label);
+            text.resizeTextForBestFit = true; text.resizeTextMinSize = 8; text.resizeTextMaxSize = 14;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap; text.verticalOverflow = VerticalWrapMode.Truncate;
+            if (icon != null) AddButtonIcon(rect, icon, new Vector2(-size.x * 0.5f + 20f, 0f), iconSize);
             return button;
         }
 
@@ -1489,10 +1596,10 @@ namespace Desktopirates
             if (label.Contains("CAPACITY")) return UiTextureFactory.LoadPortIcon("capacity");
             if (label.Contains("ARMOR")) return UiTextureFactory.LoadPortIcon("armor");
             if (label.Contains("TURNING")) return UiTextureFactory.LoadPortIcon("turning");
-            if (label.Contains("GUN DECK")) return UiTextureFactory.LoadPortIcon("gun_deck");
-            if (label.Contains("SHIP SYSTEMS")) return UiTextureFactory.LoadPortIcon("systems");
+            if (label.Contains("GUN DECK")) return UiTextureFactory.LoadShipyardCannonOverlay();
+            if (label.Contains("SYSTEMS")) return UiTextureFactory.LoadPortIcon("systems");
             if (label.Contains("GUN")) return UiTextureFactory.LoadPortIcon("gun_upgrade");
-            if (label.Contains("CREW")) return UiTextureFactory.LoadPortIcon("hire_crew");
+            if (label.Contains("CREW")) return UiTextureFactory.LoadFramelessPortIcon("hire_crew");
             if (label.Contains("SAIL")) return UiTextureFactory.LoadPortIcon("sail");
             if (label.Contains("BACK")) return UiTextureFactory.LoadMenuButton(MenuGlyph.Back);
             return null;

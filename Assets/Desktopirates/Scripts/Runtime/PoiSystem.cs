@@ -472,9 +472,10 @@ namespace Desktopirates
             bool willSink = target.Health <= 0;
             target.IsUnderFire = true;
             target.IsSinking = willSink;
+            CannonSlot[] firedSlotSnapshot = firingSlots.ToArray();
             Action impact = () =>
             {
-                string statuses = ApplyPlayerRoundStatuses(target, salvoEntropy);
+                string statuses = ApplyPlayerRoundStatuses(target, salvoEntropy, firedSlotSnapshot);
                 Vector3 worldPosition = target.Visual != null
                     ? target.Visual.position + Vector3.up * 0.24f
                     : new Vector3(target.LogicalPosition.x, 0.54f, target.LogicalPosition.y);
@@ -486,42 +487,60 @@ namespace Desktopirates
                 if (!willSink) return;
                 CompleteDefeat(target);
             };
-            if (combatVfx != null) combatVfx.PlayPlayerSalvo(player.Visual, firingSlots.ToArray(), target.Visual, willSink, impact, completed);
+            if (combatVfx != null) combatVfx.PlayPlayerSalvo(player.Visual, firedSlotSnapshot, target.Visual, willSink, impact, completed);
             else { impact(); completed(); }
         }
 
-        private string ApplyPlayerRoundStatuses(PoiRecord target, ulong salvoEntropy)
+        private string ApplyPlayerRoundStatuses(PoiRecord target, ulong salvoEntropy, IList<CannonSlot> firedSlots)
         {
             if (target == null || target.Resolved) return string.Empty;
             var labels = new List<string>();
-            if (RollStatusProc(CrewPerk.Firebrand, salvoEntropy))
+            if (RollStatusProc(CrewPerk.Firebrand, salvoEntropy, firedSlots, out float fireDuration))
             {
-                target.Conditions.Apply(ShipStatus.Burning, CrewManagementModel.GetStatusDuration(state, CrewPerk.Firebrand, 8f));
+                target.Conditions.Apply(ShipStatus.Burning, 8f * fireDuration);
                 labels.Add("BURNING");
             }
-            if (RollStatusProc(CrewPerk.VenomShot, salvoEntropy))
+            if (RollStatusProc(CrewPerk.VenomShot, salvoEntropy, firedSlots, out float venomDuration))
             {
-                target.Conditions.Apply(ShipStatus.Poisoned, CrewManagementModel.GetStatusDuration(state, CrewPerk.VenomShot, 10f));
+                target.Conditions.Apply(ShipStatus.Poisoned, 10f * venomDuration);
                 labels.Add("POISON");
             }
-            if (RollStatusProc(CrewPerk.FrostShot, salvoEntropy))
+            if (RollStatusProc(CrewPerk.FrostShot, salvoEntropy, firedSlots, out float frostDuration))
             {
-                target.Conditions.Apply(ShipStatus.Frozen, CrewManagementModel.GetStatusDuration(state, CrewPerk.FrostShot, 8f));
+                target.Conditions.Apply(ShipStatus.Frozen, 8f * frostDuration);
                 labels.Add("FROZEN");
             }
-            if (RollStatusProc(CrewPerk.TarShot, salvoEntropy))
+            if (RollStatusProc(CrewPerk.TarShot, salvoEntropy, firedSlots, out float tarDuration))
             {
-                target.Conditions.Apply(ShipStatus.Sticky, CrewManagementModel.GetStatusDuration(state, CrewPerk.TarShot, 8f));
+                target.Conditions.Apply(ShipStatus.Sticky, 8f * tarDuration);
                 labels.Add("STICKY");
             }
             return string.Join(" + ", labels);
         }
 
-        private bool RollStatusProc(CrewPerk perk, ulong salvoEntropy)
+        private bool RollStatusProc(CrewPerk perk, ulong salvoEntropy, IList<CannonSlot> firedSlots, out float durationMultiplier)
         {
-            if (state.GetEquippedPerkCount(CrewRole.Cannons, perk) <= 0) return false;
-            ulong entropy = WorldGenerator.Hash(unchecked((int)salvoEntropy), unchecked((int)(salvoEntropy >> 32)), (int)perk, 8309);
-            return CrewManagementModel.RollStatusProc(state, perk, entropy);
+            durationMultiplier = 1f;
+            if (!state.HasExplicitCannonCrewLayout)
+            {
+                if (state.GetEquippedPerkCount(CrewRole.Cannons, perk) <= 0) return false;
+                ulong entropy = WorldGenerator.Hash(unchecked((int)salvoEntropy), unchecked((int)(salvoEntropy >> 32)), (int)perk, 8309);
+                durationMultiplier = 1f + Mathf.Max(0f, CrewManagementModel.GetStatusDuration(state, perk, 1f) - 1f);
+                return CrewManagementModel.RollStatusProc(state, perk, entropy);
+            }
+            bool applied = false;
+            for (int i = 0; i < firedSlots.Count; i++)
+            {
+                CannonSlot slot = firedSlots[i];
+                float chance = CrewManagementModel.GetCannonStatusProcChance(state, slot, perk);
+                if (chance <= 0f) continue;
+                ulong entropy = WorldGenerator.Hash(unchecked((int)salvoEntropy), unchecked((int)(salvoEntropy >> 32)), (int)perk, 8309 + (int)slot * 101);
+                float unit = (entropy & 0xFFFFFFUL) / 16777215f;
+                if (unit >= chance) continue;
+                applied = true;
+                durationMultiplier = Mathf.Max(durationMultiplier, CrewManagementModel.GetCannonStatusDurationMultiplier(state, slot, perk));
+            }
+            return applied;
         }
 
         private PoiRecord FindAutomaticTarget(out float bestDistance)

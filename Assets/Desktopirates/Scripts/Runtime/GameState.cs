@@ -41,8 +41,12 @@ namespace Desktopirates
         private readonly byte[] cannonReloadLevels = new byte[ShipCustomizationModel.CannonSlotCount];
         private readonly byte[] cannonRangeLevels = new byte[ShipCustomizationModel.CannonSlotCount];
         private readonly byte[] cannonRounds = new byte[ShipCustomizationModel.CannonSlotCount];
+        private readonly byte[] cannonCrewAssignments = new byte[ShipCustomizationModel.CannonSlotCount];
+        private readonly byte[] cannonCrewPerks = new byte[ShipCustomizationModel.CannonSlotCount];
+        private readonly byte[] cannonCrewPerkRanks = new byte[ShipCustomizationModel.CannonSlotCount];
         private readonly int[] perkInventory = new int[CrewManagementModel.PerkCount * PerkRankModel.RankCount];
         private readonly int[] equippedPerkStacks = new int[CrewManagementModel.RoleCount * CrewManagementModel.PerkCount * PerkRankModel.RankCount];
+        private bool cannonCrewLayoutConfigured;
         public readonly CaptainRecord Captain = new CaptainRecord();
         public float CrewPerformanceMultiplier { get; set; } = 1f;
         public float SpeedStatusMultiplier { get; set; } = 1f;
@@ -94,6 +98,173 @@ namespace Desktopirates
         public void SetCannonReloadLevel(CannonSlot slot, int level) => cannonReloadLevels[(int)slot] = (byte)Mathf.Clamp(level, 0, CannonUpgradeModel.MaxSlotUpgrade);
         public void SetCannonRangeLevel(CannonSlot slot, int level) => cannonRangeLevels[(int)slot] = (byte)Mathf.Clamp(level, 0, CannonUpgradeModel.MaxSlotUpgrade);
         public void SetCannonRound(CannonSlot slot, CannonRoundKind round) => cannonRounds[(int)slot] = (byte)Mathf.Clamp((int)round, 0, 2);
+
+        public bool HasExplicitCannonCrewLayout => cannonCrewLayoutConfigured;
+        public bool IsCannonCrewAssigned(CannonSlot slot) => cannonCrewAssignments[(int)slot] != 0;
+        public CrewPerk GetCannonCrewPerk(CannonSlot slot) => (CrewPerk)Mathf.Clamp(cannonCrewPerks[(int)slot], 0, CrewManagementModel.PerkCount - 1);
+        public PerkRank GetCannonCrewPerkRank(CannonSlot slot) => (PerkRank)Mathf.Clamp(cannonCrewPerkRanks[(int)slot], 0, PerkRankModel.RankCount - 1);
+
+        public void EnsureCannonCrewLayout()
+        {
+            if (cannonCrewLayoutConfigured) return;
+            int requested = Mathf.Max(0, GetRoleCrew(CrewRole.Cannons));
+            var legacyPerks = new List<(CrewPerk perk, PerkRank rank)>();
+            for (int rank = PerkRankModel.RankCount - 1; rank >= 0; rank--)
+            for (int perk = 1; perk < CrewManagementModel.PerkCount; perk++)
+            for (int count = GetEquippedPerkCount(CrewRole.Cannons, (CrewPerk)perk, (PerkRank)rank); count > 0; count--)
+                legacyPerks.Add(((CrewPerk)perk, (PerkRank)rank));
+
+            int assigned = 0;
+            for (int i = 0; i < ShipCustomizationModel.CannonSlotCount && assigned < requested; i++)
+            {
+                CannonSlot slot = (CannonSlot)i;
+                if (!ShipCustomizationModel.HasCannon(this, slot)) continue;
+                cannonCrewAssignments[i] = 1;
+                if (assigned < legacyPerks.Count)
+                {
+                    cannonCrewPerks[i] = (byte)legacyPerks[assigned].perk;
+                    cannonCrewPerkRanks[i] = (byte)legacyPerks[assigned].rank;
+                }
+                assigned++;
+            }
+            cannonCrewLayoutConfigured = true;
+            NormalizeCannonCrewLayout();
+        }
+
+        public bool TryAssignCannonCrew(CannonSlot slot)
+        {
+            EnsureCannonCrewLayout();
+            int index = (int)slot;
+            if (cannonCrewAssignments[index] != 0) return true;
+            if (!ShipCustomizationModel.HasCannon(this, slot) || CrewManagementModel.GetUnassigned(this) <= 0) return false;
+            cannonCrewAssignments[index] = 1;
+            RebuildCannonCrewRoleAndPerks();
+            return true;
+        }
+
+        public bool UnassignCannonCrew(CannonSlot slot)
+        {
+            EnsureCannonCrewLayout();
+            int index = (int)slot;
+            if (cannonCrewAssignments[index] == 0) return false;
+            cannonCrewAssignments[index] = 0;
+            cannonCrewPerks[index] = (byte)CrewPerk.None;
+            cannonCrewPerkRanks[index] = (byte)PerkRank.I;
+            RebuildCannonCrewRoleAndPerks();
+            return true;
+        }
+
+        public bool TryCycleCannonCrewPerk(CannonSlot slot, out CrewPerk selectedPerk, out PerkRank selectedRank)
+        {
+            EnsureCannonCrewLayout();
+            int index = (int)slot;
+            selectedPerk = CrewPerk.None;
+            selectedRank = PerkRank.I;
+            if (cannonCrewAssignments[index] == 0) return false;
+
+            int tokenCount = 1 + (CrewManagementModel.PerkCount - 1) * PerkRankModel.RankCount;
+            int currentToken = GetCannonCrewPerk(slot) == CrewPerk.None
+                ? 0
+                : 1 + ((int)GetCannonCrewPerk(slot) - 1) * PerkRankModel.RankCount
+                    + (PerkRankModel.RankCount - 1 - (int)GetCannonCrewPerkRank(slot));
+            for (int step = 1; step <= tokenCount; step++)
+            {
+                int token = (currentToken + step) % tokenCount;
+                if (token == 0)
+                {
+                    SetCannonCrewPerk(index, CrewPerk.None, PerkRank.I);
+                    selectedPerk = CrewPerk.None;
+                    return true;
+                }
+                int encoded = token - 1;
+                CrewPerk perk = (CrewPerk)(encoded / PerkRankModel.RankCount + 1);
+                PerkRank rank = (PerkRank)(PerkRankModel.RankCount - 1 - encoded % PerkRankModel.RankCount);
+                if (!CrewManagementModel.IsCompatible(CrewRole.Cannons, perk)) continue;
+                if (CountAssignedCannonPerks(perk, rank, index) >= GetPerkCount(perk, rank)) continue;
+                SetCannonCrewPerk(index, perk, rank);
+                selectedPerk = perk;
+                selectedRank = rank;
+                return true;
+            }
+            return false;
+        }
+
+        internal void LoadCannonCrewSlot(CannonSlot slot, bool assigned, CrewPerk perk, PerkRank rank)
+        {
+            int index = (int)slot;
+            cannonCrewAssignments[index] = assigned ? (byte)1 : (byte)0;
+            cannonCrewPerks[index] = assigned ? (byte)Mathf.Clamp((int)perk, 0, CrewManagementModel.PerkCount - 1) : (byte)CrewPerk.None;
+            cannonCrewPerkRanks[index] = (byte)Mathf.Clamp((int)rank, 0, PerkRankModel.RankCount - 1);
+            cannonCrewLayoutConfigured = true;
+        }
+
+        internal void NormalizeCannonCrewLayout()
+        {
+            if (!cannonCrewLayoutConfigured) return;
+            int nonCannonCrew = 0;
+            for (int i = 1; i < CrewManagementModel.RoleCount; i++) nonCannonCrew += GetRoleCrew((CrewRole)i);
+            int remainingCrew = Mathf.Max(0, Crew - nonCannonCrew);
+            var usedPerks = new int[CrewManagementModel.PerkCount * PerkRankModel.RankCount];
+            int assigned = 0;
+            for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++)
+            {
+                CannonSlot slot = (CannonSlot)i;
+                if (cannonCrewAssignments[i] == 0 || assigned >= remainingCrew || !ShipCustomizationModel.HasCannon(this, slot))
+                {
+                    cannonCrewAssignments[i] = 0;
+                    cannonCrewPerks[i] = (byte)CrewPerk.None;
+                    cannonCrewPerkRanks[i] = (byte)PerkRank.I;
+                    continue;
+                }
+                assigned++;
+                CrewPerk perk = GetCannonCrewPerk(slot);
+                PerkRank rank = GetCannonCrewPerkRank(slot);
+                int perkIndex = PerkIndex(perk, rank);
+                if (perk == CrewPerk.None || !CrewManagementModel.IsCompatible(CrewRole.Cannons, perk)
+                    || usedPerks[perkIndex] >= GetPerkCount(perk, rank))
+                {
+                    cannonCrewPerks[i] = (byte)CrewPerk.None;
+                    cannonCrewPerkRanks[i] = (byte)PerkRank.I;
+                    continue;
+                }
+                usedPerks[perkIndex]++;
+            }
+            RebuildCannonCrewRoleAndPerks();
+        }
+
+        private void SetCannonCrewPerk(int slotIndex, CrewPerk perk, PerkRank rank)
+        {
+            cannonCrewPerks[slotIndex] = (byte)perk;
+            cannonCrewPerkRanks[slotIndex] = (byte)rank;
+            RebuildCannonCrewRoleAndPerks();
+        }
+
+        private int CountAssignedCannonPerks(CrewPerk perk, PerkRank rank, int excludedSlot)
+        {
+            int count = 0;
+            for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++)
+                if (i != excludedSlot && cannonCrewAssignments[i] != 0 && cannonCrewPerks[i] == (byte)perk && cannonCrewPerkRanks[i] == (byte)rank) count++;
+            return count;
+        }
+
+        private void RebuildCannonCrewRoleAndPerks()
+        {
+            ClearEquippedPerks(CrewRole.Cannons);
+            int assigned = 0;
+            var equipped = new int[CrewManagementModel.PerkCount * PerkRankModel.RankCount];
+            for (int i = 0; i < ShipCustomizationModel.CannonSlotCount; i++)
+            {
+                if (cannonCrewAssignments[i] == 0) continue;
+                assigned++;
+                CrewPerk perk = (CrewPerk)cannonCrewPerks[i];
+                PerkRank rank = (PerkRank)cannonCrewPerkRanks[i];
+                if (perk != CrewPerk.None) equipped[PerkIndex(perk, rank)]++;
+            }
+            crewByRole[(int)CrewRole.Cannons] = assigned;
+            for (int perk = 1; perk < CrewManagementModel.PerkCount; perk++)
+            for (int rank = 0; rank < PerkRankModel.RankCount; rank++)
+                SetEquippedPerkCount(CrewRole.Cannons, (CrewPerk)perk, (PerkRank)rank, equipped[PerkIndex((CrewPerk)perk, (PerkRank)rank)]);
+        }
 
         public int GetRoleCrew(CrewRole role) => crewByRole[(int)role];
         public void SetRoleCrew(CrewRole role, int amount) => crewByRole[(int)role] = Mathf.Max(0, amount);

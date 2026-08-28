@@ -79,7 +79,7 @@ namespace Desktopirates
                 state.Crew = ShipProgressionModel.Get(state.ShipLevel).MaxCrew;
                 state.CapacityLevel = ShipCustomizationModel.GetUpgradeCap(state);
             }
-            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--shipyard-preview"))
+            if (Array.Exists(Environment.GetCommandLineArgs(), argument => argument == "--shipyard-preview" || argument == "--crew-preview" || argument == "--systems-preview"))
             {
                 state.ShipLevel = 3;
                 state.MaxHull = ShipProgressionModel.GetMaxHull(state);
@@ -91,6 +91,12 @@ namespace Desktopirates
                     | (1 << (int)CannonSlot.PortFore)
                     | (1 << (int)CannonSlot.StarboardAft);
                 state.SetRoleCrew(CrewRole.Cannons, 3);
+                state.AddPerk(CrewPerk.PowderExpert, PerkRank.IV);
+                state.AddPerk(CrewPerk.FastHands, PerkRank.II);
+                state.AddPerk(CrewPerk.Firebrand, PerkRank.I);
+                state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.PowderExpert);
+                state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.FastHands);
+                state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.Firebrand);
             }
             ProvisionController provisions = gameObject.AddComponent<ProvisionController>();
             provisions.Initialize(state, saves);

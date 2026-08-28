@@ -55,7 +55,6 @@ namespace Desktopirates
         public const float CannonMass = 2.6f;
         public const float CrewMass = 0.65f;
         public const int BaseCannonDamage = 35;
-        public const int CannonUpgradeDamage = 20;
 
         private static readonly CannonSlotDefinition[] Definitions =
         {
@@ -148,7 +147,6 @@ namespace Desktopirates
         public static int GetCapacityUpgradeCost(int level) => 85 + Mathf.Clamp(level, 0, MaxUpgradeLevel) * 70;
         public static int GetArmorUpgradeCost(int level) => 95 + Mathf.Clamp(level, 0, MaxUpgradeLevel) * 80;
         public static int GetTurningUpgradeCost(int level) => 80 + Mathf.Clamp(level, 0, MaxUpgradeLevel) * 65;
-        public static int GetGunUpgradeCost(int level) => 100 + Mathf.Clamp(level, 0, MaxUpgradeLevel) * 75;
 
         public static bool IsInArc(CannonSlot slot, float relativeBearing)
         {
@@ -175,7 +173,15 @@ namespace Desktopirates
                 inArc++;
                 arcName = GetDefinition(slot).ArcName;
             }
-            return new SalvoSolution(inArc, Mathf.Min(inArc, Mathf.Max(0, state.GetRoleCrew(CrewRole.Cannons))), arcName);
+            if (!state.HasExplicitCannonCrewLayout)
+                return new SalvoSolution(inArc, Mathf.Min(inArc, Mathf.Max(0, state.GetRoleCrew(CrewRole.Cannons))), arcName);
+            int firing = 0;
+            for (int i = 0; i < CannonSlotCount; i++)
+            {
+                CannonSlot slot = (CannonSlot)i;
+                if (HasCannon(state, slot) && state.IsCannonCrewAssigned(slot) && IsInArc(slot, relativeBearing)) firing++;
+            }
+            return new SalvoSolution(inArc, firing, arcName);
         }
 
         public static int GetFiringSlots(GameState state, float relativeBearing, IList<CannonSlot> output)
@@ -185,14 +191,14 @@ namespace Desktopirates
             for (int i = 0; i < CannonSlotCount && output.Count < availableCrew; i++)
             {
                 CannonSlot slot = (CannonSlot)i;
-                if (HasCannon(state, slot) && IsInArc(slot, relativeBearing)) output.Add(slot);
+                if (HasCannon(state, slot) && IsInArc(slot, relativeBearing)
+                    && (!state.HasExplicitCannonCrewLayout || state.IsCannonCrewAssigned(slot))) output.Add(slot);
             }
             return output.Count;
         }
 
         public static int GetSalvoDamage(GameState state, SalvoSolution salvo)
-            => Mathf.Max(1, Mathf.RoundToInt(salvo.CannonsFiring * (BaseCannonDamage + Mathf.Clamp(state.CannonLevel, 0, GetUpgradeCap(state)) * CannonUpgradeDamage)
-                * CrewManagementModel.GetCannonDamageMultiplier(state)));
+            => Mathf.Max(1, Mathf.RoundToInt(salvo.CannonsFiring * BaseCannonDamage * CrewManagementModel.GetCannonDamageMultiplier(state)));
 
         public static string GetBearingName(float relativeBearing)
         {

@@ -159,7 +159,7 @@ namespace Desktopirates.Tests
                 Supplies = 28,
                 EngineLevel = 4,
                 CannonLevel = 3,
-                Crew = 7,
+                Crew = 8,
                 CapacityLevel = 2,
                 ArmorLevel = 3,
                 TurningLevel = 1,
@@ -223,6 +223,10 @@ namespace Desktopirates.Tests
             Assert.That(restored.GetCannonReloadLevel(CannonSlot.PortFore), Is.EqualTo(3));
             Assert.That(restored.GetCannonRangeLevel(CannonSlot.PortFore), Is.EqualTo(2));
             Assert.That(restored.GetCannonRound(CannonSlot.PortFore), Is.EqualTo(CannonRoundKind.FireShot));
+            Assert.That(restored.HasExplicitCannonCrewLayout, Is.True);
+            Assert.That(restored.IsCannonCrewAssigned(CannonSlot.Bow), Is.True);
+            Assert.That(restored.GetCannonCrewPerk(CannonSlot.Bow), Is.EqualTo(CrewPerk.PowderExpert));
+            Assert.That(restored.GetCannonCrewPerkRank(CannonSlot.Bow), Is.EqualTo(PerkRank.IV));
             Assert.That(restored.ExploredChunks.SetEquals(state.ExploredChunks), Is.True);
             Assert.That(restored.ResolvedEvents.SetEquals(state.ResolvedEvents), Is.True);
             for (int i = 0; i < SalvageInventory.PartKindCount; i++)
@@ -711,6 +715,65 @@ namespace Desktopirates.Tests
         }
 
         [Test]
+        public void RetiredGlobalGunLevelNoLongerChangesHardpointStats()
+        {
+            var state = new GameState();
+            int damage = CannonUpgradeModel.GetDamage(state, CannonSlot.PortFore);
+            float reload = CannonUpgradeModel.GetReloadSeconds(state, CannonSlot.PortFore);
+
+            state.CannonLevel = 5;
+
+            Assert.That(CannonUpgradeModel.GetDamage(state, CannonSlot.PortFore), Is.EqualTo(damage));
+            Assert.That(CannonUpgradeModel.GetReloadSeconds(state, CannonSlot.PortFore), Is.EqualTo(reload).Within(0.0001f));
+        }
+
+        [Test]
+        public void ExplicitGunnersOnlyFireTheirAssignedHardpointsAndCarryOwnPerk()
+        {
+            var state = new GameState
+            {
+                Crew = 2,
+                ShipLevel = 3,
+                CannonMountMask = (1 << (int)CannonSlot.PortFore) | (1 << (int)CannonSlot.PortAft)
+            };
+            state.SetRoleCrew(CrewRole.Sails, 0);
+            state.SetRoleCrew(CrewRole.Anchor, 0);
+            state.EnsureCannonCrewLayout();
+            Assert.That(state.TryAssignCannonCrew(CannonSlot.PortAft), Is.True);
+            state.AddPerk(CrewPerk.PowderExpert, PerkRank.IV);
+            Assert.That(state.TryCycleCannonCrewPerk(CannonSlot.PortAft, out CrewPerk perk, out PerkRank rank), Is.True);
+
+            var slots = new List<CannonSlot>();
+            ShipCustomizationModel.GetFiringSlots(state, -90f, slots);
+
+            Assert.That(slots, Is.EqualTo(new[] { CannonSlot.PortAft }));
+            Assert.That(perk, Is.EqualTo(CrewPerk.PowderExpert));
+            Assert.That(rank, Is.EqualTo(PerkRank.IV));
+            Assert.That(CannonUpgradeModel.GetDamage(state, CannonSlot.PortAft), Is.GreaterThan(CannonUpgradeModel.GetDamage(state, CannonSlot.PortFore)));
+        }
+
+        [Test]
+        public void CannonStatusPerksOnlyApplyToTheirAssignedHardpoint()
+        {
+            var state = new GameState
+            {
+                Crew = 2,
+                ShipLevel = 3,
+                CannonMountMask = (1 << (int)CannonSlot.PortFore) | (1 << (int)CannonSlot.PortAft)
+            };
+            state.SetRoleCrew(CrewRole.Sails, 0);
+            state.SetRoleCrew(CrewRole.Anchor, 0);
+            state.EnsureCannonCrewLayout();
+            state.TryAssignCannonCrew(CannonSlot.PortFore);
+            state.TryAssignCannonCrew(CannonSlot.PortAft);
+            state.AddPerk(CrewPerk.Firebrand, PerkRank.IV);
+            state.TryCycleCannonCrewPerk(CannonSlot.PortFore, out _, out _);
+
+            Assert.That(CrewManagementModel.GetCannonStatusProcChance(state, CannonSlot.PortFore, CrewPerk.Firebrand), Is.GreaterThan(0.8f));
+            Assert.That(CrewManagementModel.GetCannonStatusProcChance(state, CannonSlot.PortAft, CrewPerk.Firebrand), Is.Zero);
+        }
+
+        [Test]
         public void AmmunitionProfilesHaveDistinctRangeReloadAndDamageTradeoffs()
         {
             var state = new GameState();
@@ -907,7 +970,7 @@ namespace Desktopirates.Tests
         [Test]
         public void CannonDamageUsesCombatScaleAndStackedPerks()
         {
-            var state = new GameState { Crew = 2, ShipLevel = 3, CannonLevel = 2 };
+            var state = new GameState { Crew = 2, ShipLevel = 3 };
             state.SetRoleCrew(CrewRole.Sails, 0);
             state.SetRoleCrew(CrewRole.Anchor, 0);
             state.SetRoleCrew(CrewRole.Cannons, 2);
@@ -916,9 +979,9 @@ namespace Desktopirates.Tests
             Assert.That(state.TryEquipPerkStack(CrewRole.Cannons, CrewPerk.PowderExpert), Is.True);
 
             var salvo = new SalvoSolution(2, 2, "PORT");
-            Assert.That(ShipCustomizationModel.GetSalvoDamage(state, salvo), Is.EqualTo(225));
+            Assert.That(ShipCustomizationModel.GetSalvoDamage(state, salvo), Is.EqualTo(105));
             state.CrewPerformanceMultiplier = 0.5f;
-            Assert.That(ShipCustomizationModel.GetSalvoDamage(state, salvo), Is.EqualTo(188));
+            Assert.That(ShipCustomizationModel.GetSalvoDamage(state, salvo), Is.EqualTo(88));
         }
 
         [Test]
